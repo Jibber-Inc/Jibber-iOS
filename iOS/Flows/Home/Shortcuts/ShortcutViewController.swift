@@ -59,7 +59,7 @@ class ShortcutViewController: ViewController, HomeStateHandler {
         self.stateTask?.cancel()
         
         self.stateTask = Task { [weak self] in
-            guard let `self` = self else { return }
+            guard let self else { return }
             
             switch state {
             case .initial, .tabs, .dismissShortcuts:

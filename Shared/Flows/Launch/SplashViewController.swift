@@ -71,7 +71,7 @@ class SplashViewController: ViewController, TransitionableViewController {
         self.loadingView.play()
 
         Task { [weak self] in
-            guard let `self` = self else { return }
+            guard let self else { return }
             await Task.sleep(seconds: 0.25)
             
             guard !Task.isCancelled else { return }

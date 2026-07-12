@@ -61,7 +61,7 @@ class ThreadCoordinator: InputHandlerCoordinator<ThreadResult>, DeepLinkHandler 
         self.loadTask?.cancel()
         
         self.loadTask = Task { [weak self] in
-            guard let `self` = self else { return }
+            guard let self else { return }
             await self.inputHandlerViewController.scrollToConversation(with: conversation.id,
                                                                        messageId: unreadMessage.id,
                                                                        viewReplies: false,

@@ -57,7 +57,7 @@ class VideoView: BaseView {
 
         // Keep track of app foreground events so we can restart the player if necessary.
         NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification).mainSink { [weak self] _ in
-            guard let `self` = self else { return }
+            guard let self else { return }
             guard let player = self.playerLayer.player else { return }
 
             if self.shouldPlay, !self.isPlaying, self.alpha != 0 {

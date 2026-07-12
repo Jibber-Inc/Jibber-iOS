@@ -86,7 +86,7 @@ class InputHandlerCoordinator<Result>: PresentableCoordinator<Result>,
         self.loadTask?.cancel()
         
         self.loadTask = Task { [weak self] in
-            guard let `self` = self else { return }
+            guard let self else { return }
             await self.inputHandlerViewController.scrollToConversation(with: conversation.id,
                                                                        messageId: unreadMessage.id,
                                                                        viewReplies: false,
@@ -330,7 +330,7 @@ class InputHandlerCoordinator<Result>: PresentableCoordinator<Result>,
             switch result {
             case .reply(let message):
                 self.router.dismiss(source: coordinator.toPresentable(), animated: true) { [weak self] in
-                    guard let `self` = self else { return }
+                    guard let self else { return }
                     self.presentThread(for: message, startingReplyId: nil)
                 }
             case .none:

@@ -39,8 +39,8 @@ class WalletHeaderView: BaseView {
         let calculator = TransactionsCalculator()
         
         self.interestTask = Task { [weak self] in
-            guard let `self` = self,
-                  let jibsEarned = try? await calculator.calculateJibsEarned(for: transactions),
+            guard let self else { return }
+            guard let jibsEarned = try? await calculator.calculateJibsEarned(for: transactions),
                   !Task.isCancelled else { return }
             
             let projectedInterest = calculator.calculateInterestEarned()

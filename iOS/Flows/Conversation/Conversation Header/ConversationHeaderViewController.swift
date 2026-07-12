@@ -153,7 +153,7 @@ class ConversationHeaderViewController: ViewController, ActiveConversationable {
         self.loadPeopleTask?.cancel()
         
         self.loadPeopleTask = Task { [weak self] in
-            guard let `self` = self else { return }
+            guard let self else { return }
             let members = await self.getPeople(for: conversation)
             self.addImageView.isVisible = members.count == 0
             self.stackedView.configure(with: members)

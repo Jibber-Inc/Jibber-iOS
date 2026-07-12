@@ -127,7 +127,7 @@ class ThreadViewController: DiffableCollectionViewController<MessageSequenceSect
         
         KeyboardManager.shared.$currentEvent
             .mainSink { [weak self] currentEvent in
-                guard let `self` = self else { return }
+                guard let self else { return }
                 switch currentEvent {
                 case .willShow:
                     self.state = .write

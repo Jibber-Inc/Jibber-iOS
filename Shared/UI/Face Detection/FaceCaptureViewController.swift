@@ -120,7 +120,7 @@ class FaceCaptureViewController: ViewController {
         self.animateTask?.cancel()
         
         self.animateTask = Task { [weak self] in
-            guard let `self` = self else { return }
+            guard let self else { return }
             
             await UIView.awaitAnimation(with: .fast, animations: {
                 self.label.alpha = 0

@@ -29,7 +29,7 @@ class AchievementsManager {
         
         // Otherwise start a new initialization task and wait for it to finish.
         self.initializeTask = Task { [weak self] in
-            guard let `self` = self else { return }
+            guard let self else { return }
             
             if let types = try? await AchievementType.fetchAll() {
                 self.types = types

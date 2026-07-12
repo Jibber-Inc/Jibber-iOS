@@ -79,7 +79,7 @@ class ContextCuesViewController: DiffableCollectionViewController<ContextCueColl
         self.loadTask?.cancel()
         
         self.loadTask = Task { @MainActor [weak self] in
-            guard let `self` = self else { return }
+            guard let self else { return }
             guard let user = self.person as? User,
                   let contextCues = try? await ContextCue.fetchAll(for: user) else { return }
             

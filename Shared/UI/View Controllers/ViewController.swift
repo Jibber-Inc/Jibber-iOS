@@ -36,7 +36,7 @@ class ViewController: CoordinatorViewController {
         
         // Keep track of app foreground events.
         NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification).mainSink { [weak self] _ in
-            guard let `self` = self else { return }
+            guard let self else { return }
             self.willEnterForeground()
         }.store(in: &self.cancellables)
     }
