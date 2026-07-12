@@ -214,7 +214,7 @@ class MomentsStore {
         
         // Keep track of app foreground events so we can be sure its the same day.
         NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification).mainSink { [weak self] _ in
-            guard let `self` = self else { return }
+            guard let self else { return }
             
             Task {
                 self.__moments = try await self.fetchAllOfTodaysMoments()

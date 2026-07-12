@@ -13,7 +13,8 @@ import Coordinator
 
 class MainCoordinator: BaseCoordinator<Void> {
     
-    var launchActivity: LaunchActivity? 
+    var launchActivity: LaunchActivity?
+    var messagingLaunchAlert: UIAlertController?
 
     override func start() {
         super.start()
@@ -47,7 +48,7 @@ class MainCoordinator: BaseCoordinator<Void> {
         self.launchAndDeepLinkTask?.cancel()
 
         self.launchAndDeepLinkTask = Task { [weak self] in
-            guard let `self` = self else { return }
+            guard let self else { return }
             
             let deepLink: DeepLinkable? = await withCheckedContinuation { continuation in
                 let launchCoordinator = LaunchCoordinator(router: self.router, deepLink: self.deepLink)

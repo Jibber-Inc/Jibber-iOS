@@ -151,7 +151,7 @@ class HomeViewController: ViewController, HomeStateHandler {
         }
         
         self.stateTask = Task { [weak self] in
-            guard let `self` = self else { return }
+            guard let self else { return }
             
             await UIView.awaitSpringAnimation(with: .slow) {
                 self.view.layoutNow()
@@ -170,7 +170,7 @@ class HomeViewController: ViewController, HomeStateHandler {
         self.loadTask?.cancel()
         
         self.loadTask = Task { [weak self] in
-            guard let `self` = self else { return }
+            guard let self else { return }
             
             let center = self.titleLabel.center
 

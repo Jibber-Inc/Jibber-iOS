@@ -33,7 +33,7 @@ class PersonPreviewViewController: ViewController {
 
         let objectId = self.person.personId
         Task { [weak self] in
-            guard let `self` = self else { return }
+            guard let self else { return }
             guard let person = await PeopleStore.shared.getPerson(withPersonId: objectId) else { return }
             self.content.configure(with: person)
         }

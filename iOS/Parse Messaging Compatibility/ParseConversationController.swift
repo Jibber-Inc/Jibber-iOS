@@ -361,6 +361,28 @@ final class ParseConversationController: Hashable {
         )
     }
 
+    func retryFailedMessage(_ messageID: String) throws {
+        guard let snapshot = self.allSnapshots.first(where: {
+            $0.stableID == messageID || $0.objectID == messageID
+        }) else {
+            throw ParseMessagingCompatibilityError.messageNotFound(messageID)
+        }
+        try self.manager.retryBlockedOperation(
+            idempotencyKey: snapshot.clientMessageID
+        )
+    }
+
+    func cancelFailedMessage(_ messageID: String) throws {
+        guard let snapshot = self.allSnapshots.first(where: {
+            $0.stableID == messageID || $0.objectID == messageID
+        }) else {
+            throw ParseMessagingCompatibilityError.messageNotFound(messageID)
+        }
+        try self.manager.cancelBlockedOperation(
+            idempotencyKey: snapshot.clientMessageID
+        )
+    }
+
     func pinMessage(_ messageID: String) throws {
         try self.setPinned(true, messageID: messageID)
     }
@@ -552,7 +574,7 @@ final class ParseConversationController: Hashable {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 Task { @MainActor [weak self] in
-                    guard let self = self else { return }
+                    guard let self else { return }
                     do {
                         try self.applyCachedState(
                             pageSize: max(50, self.allSnapshots.count + 10)

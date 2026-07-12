@@ -54,6 +54,7 @@ public struct MessagingRealtimeCatchUpTracker: Hashable {
 /// Applies LiveQuery events to the durable store. Event delivery can be
 /// duplicated or out of order; reconciliation makes application idempotent.
 public final class MessagingRealtimeReconciler {
+    private static let maximumPendingMessageCount = 500
     private let store: MessagingLocalStore
     private var pendingReactions: [MessagingMessageID: [MessagingReactionSnapshot]] = [:]
     private var pendingReceipts: [MessagingMessageID: [MessagingReceiptSnapshot]] = [:]
@@ -112,6 +113,7 @@ public final class MessagingRealtimeReconciler {
 
     private func apply(_ reaction: MessagingReactionSnapshot) throws {
         guard var message = try store.cachedMessage(objectID: reaction.messageID) else {
+            prunePendingEventsIfNeeded(forNewMessageID: reaction.messageID)
             var values = pendingReactions[reaction.messageID] ?? []
             Self.apply(reaction, to: &values)
             pendingReactions[reaction.messageID] = values
@@ -123,6 +125,7 @@ public final class MessagingRealtimeReconciler {
 
     private func apply(_ receipt: MessagingReceiptSnapshot) throws {
         guard var message = try store.cachedMessage(objectID: receipt.messageID) else {
+            prunePendingEventsIfNeeded(forNewMessageID: receipt.messageID)
             var values = pendingReceipts[receipt.messageID] ?? []
             Self.apply(receipt, to: &values)
             pendingReceipts[receipt.messageID] = values
@@ -130,6 +133,17 @@ public final class MessagingRealtimeReconciler {
         }
         Self.apply(receipt, to: &message)
         try store.upsert(messages: [message])
+    }
+
+    private func prunePendingEventsIfNeeded(
+        forNewMessageID messageID: MessagingMessageID
+    ) {
+        let knownIDs = Set(pendingReactions.keys).union(pendingReceipts.keys)
+        guard !knownIDs.contains(messageID),
+              knownIDs.count >= Self.maximumPendingMessageCount,
+              let evictionCandidate = knownIDs.first else { return }
+        pendingReactions[evictionCandidate] = nil
+        pendingReceipts[evictionCandidate] = nil
     }
 
     private static func apply(

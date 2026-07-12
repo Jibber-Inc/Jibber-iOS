@@ -119,7 +119,7 @@ class EmojiPickerViewController: DiffableCollectionViewController<EmojiCollectio
         self.loadEmojisTask?.cancel()
         
         self.loadEmojisTask = Task { [weak self] in
-            guard let `self` = self else { return }
+            guard let self else { return }
                         
             let items: [EmojiCollectionViewDataSource.ItemType] = category.emojis.compactMap({ emoji in
                 var copy = emoji

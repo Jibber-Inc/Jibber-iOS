@@ -7,17 +7,36 @@
 //
 
 import Foundation
+import UIKit
 
 extension MainCoordinator {
 
     @MainActor
     func runHomeFlow(with deepLink: DeepLinkable?) async {
+        guard let user = User.current(), user.isAuthenticated else {
+            self.runOnboardingFlow(with: deepLink)
+            return
+        }
+
         // Launch normally initializes messaging. Re-establish it here only
         // when a restored coordinator reaches Home without the matching user.
-        if let user = User.current(),
-           !ParseMessagingManager.shared.isInitialized
+        if !ParseMessagingManager.shared.isInitialized
             || ParseMessagingManager.shared.authenticatedUserID != user.objectId {
-            try? await ParseMessagingManager.shared.initialize(for: user)
+            do {
+                try await ParseMessagingManager.shared.initialize(for: user)
+            } catch {
+                self.presentMessagingLaunchBlocker(error, deepLink: deepLink)
+                return
+            }
+        }
+
+        guard ParseMessagingManager.shared.isInitialized,
+              ParseMessagingManager.shared.authenticatedUserID == user.objectId else {
+            self.presentMessagingLaunchBlocker(
+                ParseMessagingManagerError.notInitialized,
+                deepLink: deepLink
+            )
+            return
         }
         
         if let coordinator = self.furthestChild as? LaunchActivityHandler,
@@ -36,6 +55,57 @@ extension MainCoordinator {
                 coordinator.handle(deepLink: deepLink)
             }
         }
+    }
+
+    @MainActor
+    private func presentMessagingLaunchBlocker(
+        _ error: Error,
+        deepLink: DeepLinkable?
+    ) {
+        guard self.messagingLaunchAlert == nil else { return }
+
+        let isUpdateRequired: Bool
+        if let messagingError = error as? ParseMessagingManagerError {
+            switch messagingError {
+            case .appUpdateRequired, .unsupportedSchemaVersion:
+                isUpdateRequired = true
+            default:
+                isUpdateRequired = false
+            }
+        } else {
+            isUpdateRequired = false
+        }
+
+        let alert: UIAlertController
+        if isUpdateRequired {
+            alert = UIAlertController(
+                title: "Update Required",
+                message: error.localizedDescription
+                    + " Please update Jibber from the App Store to continue.",
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: "OK", style: .default) { [weak self] _ in
+                // Dismissing the explanation never enters Home. A later
+                // navigation attempt will re-check compatibility and block.
+                self?.messagingLaunchAlert = nil
+            })
+        } else {
+            alert = UIAlertController(
+                title: "Messaging Unavailable",
+                message: "Check your connection and please try again.",
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: "Retry", style: .default) { [weak self] _ in
+                guard let self else { return }
+                self.messagingLaunchAlert = nil
+                Task { @MainActor [weak self] in
+                    await self?.runHomeFlow(with: deepLink)
+                }
+            })
+        }
+
+        self.messagingLaunchAlert = alert
+        self.router.topmostViewController.present(alert, animated: true)
     }
 
     func logOutChat() {

@@ -161,7 +161,7 @@ class TabView: BaseView, HomeStateHandler {
         self.stateTask?.cancel()
         
         self.stateTask = Task { [weak self] in
-            guard let `self` = self else { return }
+            guard let self else { return }
             
             await UIView.awaitSpringAnimation(with: .slow, delay: 0.3, animations: {
                 switch state {

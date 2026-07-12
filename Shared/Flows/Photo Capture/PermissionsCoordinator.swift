@@ -21,7 +21,7 @@ class PermissionsCoordinator: PresentableCoordinator<Void> {
         super.start()
 
         self.permissionsVC.button.didSelect { [weak self] in
-            guard let `self` = self else { return }
+            guard let self else { return }
             self.finishFlow(with: ())
         }
     }

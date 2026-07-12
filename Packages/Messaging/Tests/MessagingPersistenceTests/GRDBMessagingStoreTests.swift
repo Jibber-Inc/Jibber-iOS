@@ -95,6 +95,31 @@ final class GRDBMessagingStoreTests: XCTestCase {
         )
     }
 
+    func testExplicitSendRetryRestoresOptimisticMessageState() throws {
+        let store = try GRDBMessagingStore(inMemory: .init())
+        let draft = makeDraft(clientMessageID: "blocked-send-retry")
+        var staged = try store.stageSend(draft: draft, authorID: "user-1")
+        staged.entry.state = .blocked
+        staged.entry.attemptCount = 8
+        staged.entry.lastErrorDescription = "terminal"
+        var failedMessage = staged.message
+        failedMessage.localState = .failed
+        failedMessage.lastFailureDescription = "terminal"
+        try store.upsert(messages: [failedMessage])
+        try store.updateOutboxEntry(staged.entry)
+
+        _ = try store.retryBlockedOutboxEntry(
+            idempotencyKey: draft.clientMessageID,
+            at: Date()
+        )
+
+        let recovered = try XCTUnwrap(
+            store.cachedMessage(clientMessageID: draft.clientMessageID)
+        )
+        XCTAssertEqual(recovered.localState, .queued)
+        XCTAssertNil(recovered.lastFailureDescription)
+    }
+
     func testExplicitCancelRemovesBlockedEntry() throws {
         let store = try GRDBMessagingStore(inMemory: .init())
         var blocked = try store.enqueue(makePinEntry(idempotencyKey: "blocked-cancel"))

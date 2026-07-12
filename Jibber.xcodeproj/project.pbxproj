@@ -3,36 +3,10 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 52;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		B30000000000000000000001 /* MessagingContracts in Frameworks */ = {isa = PBXBuildFile; productRef = B20000000000000000000001 /* MessagingContracts */; };
-		B30000000000000000000002 /* MessagingPersistence in Frameworks */ = {isa = PBXBuildFile; productRef = B20000000000000000000002 /* MessagingPersistence */; };
-		B40000000000000000000001 /* ParseMessagingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40000000000000000000002 /* ParseMessagingManager.swift */; };
-		C50000000000000000000001 /* ParseMessagingChanges.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000000000000000000101 /* ParseMessagingChanges.swift */; };
-		C50000000000000000000002 /* ParseMessagingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000000000000000000102 /* ParseMessagingModels.swift */; };
-		C50000000000000000000003 /* ParseMessageDraftTranslator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000000000000000000103 /* ParseMessageDraftTranslator.swift */; };
-		C50000000000000000000004 /* ParseMessagingControllerSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000000000000000000104 /* ParseMessagingControllerSupport.swift */; };
-		C50000000000000000000005 /* ParseConversationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000000000000000000105 /* ParseConversationController.swift */; };
-		C50000000000000000000006 /* ParseMessageController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000000000000000000106 /* ParseMessageController.swift */; };
-		C50000000000000000000007 /* ParseConversationListController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000000000000000000107 /* ParseConversationListController.swift */; };
-		A30000000000000000000001 /* ParseObjC in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000001 /* ParseObjC */; };
-		A30000000000000000000002 /* ParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000002 /* ParseLiveQuery */; };
-		A30000000000000000000003 /* ScrollCounter in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000003 /* ScrollCounter */; };
-		A30000000000000000000004 /* Lightbox in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000004 /* Lightbox */; };
-		A30000000000000000000005 /* ParseObjC in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000005 /* ParseObjC */; };
-		A30000000000000000000006 /* ParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000006 /* ParseLiveQuery */; };
-		A30000000000000000000007 /* ParseObjC in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000007 /* ParseObjC */; };
-		A30000000000000000000008 /* ParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000008 /* ParseLiveQuery */; };
-		A30000000000000000000009 /* ParseObjC in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000009 /* ParseObjC */; };
-		A3000000000000000000000A /* ParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000A /* ParseLiveQuery */; };
-		A3000000000000000000000B /* ParseObjC in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000B /* ParseObjC */; };
-		A3000000000000000000000C /* ParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000C /* ParseLiveQuery */; };
-		A3000000000000000000000D /* ParseObjC in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000D /* ParseObjC */; };
-		A3000000000000000000000E /* ParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000E /* ParseLiveQuery */; };
-		A3000000000000000000000F /* PhoneNumberKit in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000F /* PhoneNumberKit */; };
-		A30000000000000000000010 /* PhoneNumberKit in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000010 /* PhoneNumberKit */; };
 		8004E3D127D7C81600E9931F /* SwipeableInputAccessoryViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8004E3D027D7C81600E9931F /* SwipeableInputAccessoryViewController.swift */; };
 		8004EE5427E8FE970086E010 /* URLSession+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8004EE5327E8FE970086E010 /* URLSession+Extension.swift */; };
 		8004EE5527E8FE970086E010 /* URLSession+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8004EE5327E8FE970086E010 /* URLSession+Extension.swift */; };
@@ -141,6 +115,32 @@
 		80FA869226F117C20053101B /* ChatUser+PersonType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80FA869126F117C20053101B /* ChatUser+PersonType.swift */; };
 		80FD049F26FA4C4400E69088 /* NSDiffableDataSourceSnapshot+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80FD049E26FA4C4400E69088 /* NSDiffableDataSourceSnapshot+Extensions.swift */; };
 		80FD04A126FA4C4400E69088 /* NSDiffableDataSourceSnapshot+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80FD049E26FA4C4400E69088 /* NSDiffableDataSourceSnapshot+Extensions.swift */; };
+		A30000000000000000000001 /* ParseObjC in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000001 /* ParseObjC */; };
+		A30000000000000000000002 /* ParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000002 /* ParseLiveQuery */; };
+		A30000000000000000000003 /* ScrollCounter in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000003 /* ScrollCounter */; };
+		A30000000000000000000004 /* Lightbox in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000004 /* Lightbox */; };
+		A30000000000000000000005 /* ParseObjC in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000005 /* ParseObjC */; };
+		A30000000000000000000006 /* ParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000006 /* ParseLiveQuery */; };
+		A30000000000000000000007 /* ParseObjC in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000007 /* ParseObjC */; };
+		A30000000000000000000008 /* ParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000008 /* ParseLiveQuery */; };
+		A30000000000000000000009 /* ParseObjC in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000009 /* ParseObjC */; };
+		A3000000000000000000000A /* ParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000A /* ParseLiveQuery */; };
+		A3000000000000000000000B /* ParseObjC in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000B /* ParseObjC */; };
+		A3000000000000000000000C /* ParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000C /* ParseLiveQuery */; };
+		A3000000000000000000000D /* ParseObjC in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000D /* ParseObjC */; };
+		A3000000000000000000000E /* ParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000E /* ParseLiveQuery */; };
+		A3000000000000000000000F /* PhoneNumberKit in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000F /* PhoneNumberKit */; };
+		A30000000000000000000010 /* PhoneNumberKit in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000010 /* PhoneNumberKit */; };
+		B30000000000000000000001 /* MessagingContracts in Frameworks */ = {isa = PBXBuildFile; productRef = B20000000000000000000001 /* MessagingContracts */; };
+		B30000000000000000000002 /* MessagingPersistence in Frameworks */ = {isa = PBXBuildFile; productRef = B20000000000000000000002 /* MessagingPersistence */; };
+		B40000000000000000000001 /* ParseMessagingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40000000000000000000002 /* ParseMessagingManager.swift */; };
+		C50000000000000000000001 /* ParseMessagingChanges.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000000000000000000101 /* ParseMessagingChanges.swift */; };
+		C50000000000000000000002 /* ParseMessagingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000000000000000000102 /* ParseMessagingModels.swift */; };
+		C50000000000000000000003 /* ParseMessageDraftTranslator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000000000000000000103 /* ParseMessageDraftTranslator.swift */; };
+		C50000000000000000000004 /* ParseMessagingControllerSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000000000000000000104 /* ParseMessagingControllerSupport.swift */; };
+		C50000000000000000000005 /* ParseConversationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000000000000000000105 /* ParseConversationController.swift */; };
+		C50000000000000000000006 /* ParseMessageController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000000000000000000106 /* ParseMessageController.swift */; };
+		C50000000000000000000007 /* ParseConversationListController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000000000000000000107 /* ParseConversationListController.swift */; };
 		D605AC9C27877F890015D800 /* MessageBubbleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D605AC9B27877F890015D800 /* MessageBubbleView.swift */; };
 		D605AC9D27877F890015D800 /* MessageBubbleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D605AC9B27877F890015D800 /* MessageBubbleView.swift */; };
 		D6079703279F442B000D0715 /* PeopleViewController+Search.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6079702279F442B000D0715 /* PeopleViewController+Search.swift */; };
@@ -484,7 +484,7 @@
 		D63DB1FB25E968C300F6B323 /* UserNotificationsUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D63DB1FA25E968C300F6B323 /* UserNotificationsUI.framework */; };
 		D63DB1FE25E968C300F6B323 /* NotificationViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D63DB1FD25E968C300F6B323 /* NotificationViewController.swift */; };
 		D63DB20125E968C300F6B323 /* MainInterface.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = D63DB1FF25E968C300F6B323 /* MainInterface.storyboard */; };
-		D63DB20525E968C300F6B323 /* Notification Content.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = D63DB1F725E968C300F6B323 /* Notification Content.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		D63DB20525E968C300F6B323 /* Notification Content.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D63DB1F725E968C300F6B323 /* Notification Content.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		D63DB20B25E96E1E00F6B323 /* UserNotificationAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = D63DB20A25E96E1E00F6B323 /* UserNotificationAction.swift */; };
 		D63DB20D25E96E1E00F6B323 /* UserNotificationAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = D63DB20A25E96E1E00F6B323 /* UserNotificationAction.swift */; };
 		D63DB21225E998D700F6B323 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6DA3191259B5B6D0078E769 /* Config.swift */; };
@@ -834,14 +834,14 @@
 		D6AE0F64267CF8A400C6B048 /* PhoneNumberKit in Frameworks */ = {isa = PBXBuildFile; productRef = D6AE0F63267CF8A400C6B048 /* PhoneNumberKit */; };
 		D6AE0F68267CF8D900C6B048 /* PhoneNumberKit in Frameworks */ = {isa = PBXBuildFile; productRef = D6AE0F67267CF8D900C6B048 /* PhoneNumberKit */; };
 		D6AE0F70267CF9CA00C6B048 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6AE0F6F267CF9CA00C6B048 /* NotificationService.swift */; };
-		D6AE0F74267CF9CA00C6B048 /* Notification Service.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = D6AE0F6D267CF9CA00C6B048 /* Notification Service.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		D6AE0F74267CF9CA00C6B048 /* Notification Service.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D6AE0F6D267CF9CA00C6B048 /* Notification Service.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		D6AE0F7E267CFA6C00C6B048 /* Intents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D6AE0F7D267CFA6C00C6B048 /* Intents.framework */; };
 		D6AE0F81267CFA6C00C6B048 /* IntentHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6AE0F80267CFA6C00C6B048 /* IntentHandler.swift */; };
 		D6AE0F89267CFA6D00C6B048 /* IntentsUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D6AE0F88267CFA6D00C6B048 /* IntentsUI.framework */; };
 		D6AE0F8C267CFA6D00C6B048 /* IntentViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6AE0F8B267CFA6D00C6B048 /* IntentViewController.swift */; };
 		D6AE0F8F267CFA6D00C6B048 /* MainInterface.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = D6AE0F8D267CFA6D00C6B048 /* MainInterface.storyboard */; };
-		D6AE0F93267CFA6D00C6B048 /* Intents ExtensionUI.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = D6AE0F87267CFA6D00C6B048 /* Intents ExtensionUI.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		D6AE0F96267CFA6D00C6B048 /* Intents Extension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = D6AE0F7C267CFA6C00C6B048 /* Intents Extension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		D6AE0F93267CFA6D00C6B048 /* Intents ExtensionUI.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D6AE0F87267CFA6D00C6B048 /* Intents ExtensionUI.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		D6AE0F96267CFA6D00C6B048 /* Intents Extension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D6AE0F7C267CFA6C00C6B048 /* Intents Extension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		D6AE0F9F267CFB7D00C6B048 /* MessageIntentHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6AE0F9E267CFB7D00C6B048 /* MessageIntentHandler.swift */; };
 		D6AE0FA0267CFB7D00C6B048 /* MessageIntentHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6AE0F9E267CFB7D00C6B048 /* MessageIntentHandler.swift */; };
 		D6AE0FA1267CFB7D00C6B048 /* MessageIntentHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6AE0F9E267CFB7D00C6B048 /* MessageIntentHandler.swift */; };
@@ -1099,18 +1099,18 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		D63DB20925E968C300F6B323 /* Embed App Extensions */ = {
+		D63DB20925E968C300F6B323 /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				D63DB20525E968C300F6B323 /* Notification Content.appex in Embed App Extensions */,
-				D6AE0F96267CFA6D00C6B048 /* Intents Extension.appex in Embed App Extensions */,
-				D6AE0F93267CFA6D00C6B048 /* Intents ExtensionUI.appex in Embed App Extensions */,
-				D6AE0F74267CF9CA00C6B048 /* Notification Service.appex in Embed App Extensions */,
+				D63DB20525E968C300F6B323 /* Notification Content.appex in Embed Foundation Extensions */,
+				D6AE0F96267CFA6D00C6B048 /* Intents Extension.appex in Embed Foundation Extensions */,
+				D6AE0F93267CFA6D00C6B048 /* Intents ExtensionUI.appex in Embed Foundation Extensions */,
+				D6AE0F74267CF9CA00C6B048 /* Notification Service.appex in Embed Foundation Extensions */,
 			);
-			name = "Embed App Extensions";
+			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		D6884B262587D25D00DA380E /* Embed App Clips */ = {
@@ -1127,17 +1127,6 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		B10000000000000000000001 /* Messaging */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = Messaging; sourceTree = "<group>"; };
-		B40000000000000000000002 /* ParseMessagingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseMessagingManager.swift; sourceTree = "<group>"; };
-		C50000000000000000000101 /* ParseMessagingChanges.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseMessagingChanges.swift; sourceTree = "<group>"; };
-		C50000000000000000000102 /* ParseMessagingModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseMessagingModels.swift; sourceTree = "<group>"; };
-		C50000000000000000000103 /* ParseMessageDraftTranslator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseMessageDraftTranslator.swift; sourceTree = "<group>"; };
-		C50000000000000000000104 /* ParseMessagingControllerSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseMessagingControllerSupport.swift; sourceTree = "<group>"; };
-		C50000000000000000000105 /* ParseConversationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseConversationController.swift; sourceTree = "<group>"; };
-		C50000000000000000000106 /* ParseMessageController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseMessageController.swift; sourceTree = "<group>"; };
-		C50000000000000000000107 /* ParseConversationListController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseConversationListController.swift; sourceTree = "<group>"; };
-		C50000000000000000000108 /* CUTOVER_NOTES.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CUTOVER_NOTES.md; sourceTree = "<group>"; };
-		A40000000000000000000001 /* Lightbox */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = Lightbox; sourceTree = "<group>"; };
 		8004E3D027D7C81600E9931F /* SwipeableInputAccessoryViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeableInputAccessoryViewController.swift; sourceTree = "<group>"; };
 		8004EE5327E8FE970086E010 /* URLSession+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "URLSession+Extension.swift"; sourceTree = "<group>"; };
 		80058BBC27F657C80083AF1F /* MessageDeliveryTypeBadgeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageDeliveryTypeBadgeView.swift; sourceTree = "<group>"; };
@@ -1214,6 +1203,17 @@
 		80FA868B26F111830053101B /* ChatMessage+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ChatMessage+Extensions.swift"; sourceTree = "<group>"; };
 		80FA869126F117C20053101B /* ChatUser+PersonType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ChatUser+PersonType.swift"; sourceTree = "<group>"; };
 		80FD049E26FA4C4400E69088 /* NSDiffableDataSourceSnapshot+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSDiffableDataSourceSnapshot+Extensions.swift"; sourceTree = "<group>"; };
+		A40000000000000000000001 /* Lightbox */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = Lightbox; sourceTree = "<group>"; };
+		B10000000000000000000001 /* Messaging */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = Messaging; sourceTree = "<group>"; };
+		B40000000000000000000002 /* ParseMessagingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseMessagingManager.swift; sourceTree = "<group>"; };
+		C50000000000000000000101 /* ParseMessagingChanges.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseMessagingChanges.swift; sourceTree = "<group>"; };
+		C50000000000000000000102 /* ParseMessagingModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseMessagingModels.swift; sourceTree = "<group>"; };
+		C50000000000000000000103 /* ParseMessageDraftTranslator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseMessageDraftTranslator.swift; sourceTree = "<group>"; };
+		C50000000000000000000104 /* ParseMessagingControllerSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseMessagingControllerSupport.swift; sourceTree = "<group>"; };
+		C50000000000000000000105 /* ParseConversationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseConversationController.swift; sourceTree = "<group>"; };
+		C50000000000000000000106 /* ParseMessageController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseMessageController.swift; sourceTree = "<group>"; };
+		C50000000000000000000107 /* ParseConversationListController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseConversationListController.swift; sourceTree = "<group>"; };
+		C50000000000000000000108 /* CUTOVER_NOTES.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CUTOVER_NOTES.md; sourceTree = "<group>"; };
 		D605AC9B27877F890015D800 /* MessageBubbleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageBubbleView.swift; sourceTree = "<group>"; };
 		D6079702279F442B000D0715 /* PeopleViewController+Search.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PeopleViewController+Search.swift"; sourceTree = "<group>"; };
 		D6079704279F574E000D0715 /* PersonCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonCell.swift; sourceTree = "<group>"; };
@@ -1766,21 +1766,6 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		C50000000000000000000200 /* Parse Messaging Compatibility */ = {
-			isa = PBXGroup;
-			children = (
-				C50000000000000000000101 /* ParseMessagingChanges.swift */,
-				C50000000000000000000102 /* ParseMessagingModels.swift */,
-				C50000000000000000000103 /* ParseMessageDraftTranslator.swift */,
-				C50000000000000000000104 /* ParseMessagingControllerSupport.swift */,
-				C50000000000000000000105 /* ParseConversationController.swift */,
-				C50000000000000000000106 /* ParseMessageController.swift */,
-				C50000000000000000000107 /* ParseConversationListController.swift */,
-				C50000000000000000000108 /* CUTOVER_NOTES.md */,
-			);
-			path = "Parse Messaging Compatibility";
-			sourceTree = "<group>";
-		};
 		8023C6A027EBCDC100FD9DB6 /* Media */ = {
 			isa = PBXGroup;
 			children = (
@@ -1901,6 +1886,21 @@
 				D6AE0F88267CFA6D00C6B048 /* IntentsUI.framework */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		C50000000000000000000200 /* Parse Messaging Compatibility */ = {
+			isa = PBXGroup;
+			children = (
+				C50000000000000000000101 /* ParseMessagingChanges.swift */,
+				C50000000000000000000102 /* ParseMessagingModels.swift */,
+				C50000000000000000000103 /* ParseMessageDraftTranslator.swift */,
+				C50000000000000000000104 /* ParseMessagingControllerSupport.swift */,
+				C50000000000000000000105 /* ParseConversationController.swift */,
+				C50000000000000000000106 /* ParseMessageController.swift */,
+				C50000000000000000000107 /* ParseConversationListController.swift */,
+				C50000000000000000000108 /* CUTOVER_NOTES.md */,
+			);
+			path = "Parse Messaging Compatibility";
 			sourceTree = "<group>";
 		};
 		D60B886327F4C36100B3E1C2 /* Shared */ = {
@@ -3194,7 +3194,7 @@
 				D61EC0B921D3071400204BEE /* Frameworks */,
 				D61EC0BA21D3071400204BEE /* Resources */,
 				D6884B262587D25D00DA380E /* Embed App Clips */,
-				D63DB20925E968C300F6B323 /* Embed App Extensions */,
+				D63DB20925E968C300F6B323 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
@@ -3327,11 +3327,12 @@
 		D61EC0B421D3071400204BEE /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				BuildIndependentTargetsInParallel = YES;
 				KnownAssetTags = (
 					New,
 				);
 				LastSwiftUpdateCheck = 1330;
-				LastUpgradeCheck = 1220;
+				LastUpgradeCheck = 2700;
 				ORGANIZATIONNAME = "Benjamin Dodgson";
 				TargetAttributes = {
 					D61127ED2804D72C00574B96 = {
@@ -3462,9 +3463,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
-
-/* Begin PBXShellScriptBuildPhase section */
-/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		D61127EA2804D72C00574B96 /* Sources */ = {
@@ -4558,7 +4556,6 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = 863YH82QFN;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = AppClip/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Jibber;
@@ -4569,7 +4566,7 @@
 				INFOPLIST_KEY_UIMainStoryboardFile = LaunchScreen;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -4597,7 +4594,6 @@
 				CODE_SIGN_ENTITLEMENTS = AppClip/AppClip.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = 863YH82QFN;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = AppClip/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Jibber;
@@ -4608,7 +4604,7 @@
 				INFOPLIST_KEY_UIMainStoryboardFile = LaunchScreen;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -4629,6 +4625,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -4661,8 +4658,10 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = LSXDX8B86V;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -4682,6 +4681,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -4691,6 +4691,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -4723,8 +4724,10 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = LSXDX8B86V;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -4737,6 +4740,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				VALIDATE_PRODUCT = YES;
@@ -4746,7 +4750,6 @@
 		D61EC0CF21D3071500204BEE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				API_TARGET = STAGING;
 				APP_DISPLAY_NAME = "Jibber Dev";
 				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = "AppIcon-Dev";
@@ -4754,9 +4757,8 @@
 				CODE_SIGN_ENTITLEMENTS = iOS/Jibber.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = 863YH82QFN;
 				INFOPLIST_FILE = iOS/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -4775,7 +4777,6 @@
 		D61EC0D021D3071500204BEE /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				API_TARGET = PRODUCTION;
 				APP_DISPLAY_NAME = Jibber;
 				ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES = AppIcon;
@@ -4783,9 +4784,8 @@
 				CODE_SIGN_ENTITLEMENTS = iOS/Jibber.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = 863YH82QFN;
 				INFOPLIST_FILE = iOS/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -4809,9 +4809,8 @@
 				CODE_SIGN_ENTITLEMENTS = "Notification Content/NotificationContent.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = 863YH82QFN;
 				INFOPLIST_FILE = "Notification Content/Info.plist";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -4836,9 +4835,8 @@
 				CODE_SIGN_ENTITLEMENTS = "Notification Content/NotificationContent.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = 863YH82QFN;
 				INFOPLIST_FILE = "Notification Content/Info.plist";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -4863,7 +4861,6 @@
 				CODE_SIGN_ENTITLEMENTS = "Notification Service/NotificationService.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = 863YH82QFN;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Notification Service/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Notification Service";
@@ -4871,7 +4868,7 @@
 				INFOPLIST_KEY_CFBundleName = NotificationService;
 				INFOPLIST_KEY_CFBundleVersion = 1;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2021 Benjamin Dodgson. All rights reserved.";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -4895,7 +4892,6 @@
 				CODE_SIGN_ENTITLEMENTS = "Notification Service/NotificationService.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = 863YH82QFN;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Notification Service/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Notification Service";
@@ -4903,7 +4899,7 @@
 				INFOPLIST_KEY_CFBundleName = NotificationService;
 				INFOPLIST_KEY_CFBundleVersion = 1;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2021 Benjamin Dodgson. All rights reserved.";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -4928,7 +4924,6 @@
 				CODE_SIGN_ENTITLEMENTS = "Intents ExtensionUI/Intents ExtensionUI.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = 863YH82QFN;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Intents ExtensionUI/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Intents ExtensionUI";
@@ -4936,7 +4931,7 @@
 				INFOPLIST_KEY_CFBundleName = "Intents ExtensionUI";
 				INFOPLIST_KEY_CFBundleVersion = 1;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2021 Benjamin Dodgson. All rights reserved.";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -4960,7 +4955,6 @@
 				CODE_SIGN_ENTITLEMENTS = "Intents ExtensionUI/Intents ExtensionUI.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = 863YH82QFN;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Intents ExtensionUI/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Intents ExtensionUI";
@@ -4968,7 +4962,7 @@
 				INFOPLIST_KEY_CFBundleName = "Intents ExtensionUI";
 				INFOPLIST_KEY_CFBundleVersion = 1;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2021 Benjamin Dodgson. All rights reserved.";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -4993,7 +4987,6 @@
 				CODE_SIGN_ENTITLEMENTS = "Intents Extension/Intents Extension.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = 863YH82QFN;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Intents Extension/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Intents Extension";
@@ -5001,7 +4994,7 @@
 				INFOPLIST_KEY_CFBundleName = "Intents Extension";
 				INFOPLIST_KEY_CFBundleVersion = 1;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2021 Benjamin Dodgson. All rights reserved.";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -5026,7 +5019,6 @@
 				CODE_SIGN_ENTITLEMENTS = "Intents Extension/Intents Extension.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = 863YH82QFN;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Intents Extension/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Intents Extension";
@@ -5034,7 +5026,7 @@
 				INFOPLIST_KEY_CFBundleName = "Intents Extension";
 				INFOPLIST_KEY_CFBundleVersion = 1;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2021 Benjamin Dodgson. All rights reserved.";
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -5164,6 +5156,85 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		A20000000000000000000001 /* ParseObjC */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */;
+			productName = ParseObjC;
+		};
+		A20000000000000000000002 /* ParseLiveQuery */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */;
+			productName = ParseLiveQuery;
+		};
+		A20000000000000000000003 /* ScrollCounter */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000002 /* XCRemoteSwiftPackageReference "ScrollCounter" */;
+			productName = ScrollCounter;
+		};
+		A20000000000000000000004 /* Lightbox */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Lightbox;
+		};
+		A20000000000000000000005 /* ParseObjC */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */;
+			productName = ParseObjC;
+		};
+		A20000000000000000000006 /* ParseLiveQuery */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */;
+			productName = ParseLiveQuery;
+		};
+		A20000000000000000000007 /* ParseObjC */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */;
+			productName = ParseObjC;
+		};
+		A20000000000000000000008 /* ParseLiveQuery */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */;
+			productName = ParseLiveQuery;
+		};
+		A20000000000000000000009 /* ParseObjC */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */;
+			productName = ParseObjC;
+		};
+		A2000000000000000000000A /* ParseLiveQuery */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */;
+			productName = ParseLiveQuery;
+		};
+		A2000000000000000000000B /* ParseObjC */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */;
+			productName = ParseObjC;
+		};
+		A2000000000000000000000C /* ParseLiveQuery */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */;
+			productName = ParseLiveQuery;
+		};
+		A2000000000000000000000D /* ParseObjC */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */;
+			productName = ParseObjC;
+		};
+		A2000000000000000000000E /* ParseLiveQuery */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */;
+			productName = ParseLiveQuery;
+		};
+		A2000000000000000000000F /* PhoneNumberKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D6AE0F62267CF8A400C6B048 /* XCRemoteSwiftPackageReference "PhoneNumberKit" */;
+			productName = PhoneNumberKit;
+		};
+		A20000000000000000000010 /* PhoneNumberKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D6AE0F62267CF8A400C6B048 /* XCRemoteSwiftPackageReference "PhoneNumberKit" */;
+			productName = PhoneNumberKit;
+		};
 		B20000000000000000000001 /* MessagingContracts */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MessagingContracts;
@@ -5172,22 +5243,6 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = MessagingPersistence;
 		};
-		A20000000000000000000001 /* ParseObjC */ = {isa = XCSwiftPackageProductDependency; package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */; productName = ParseObjC; };
-		A20000000000000000000002 /* ParseLiveQuery */ = {isa = XCSwiftPackageProductDependency; package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */; productName = ParseLiveQuery; };
-		A20000000000000000000003 /* ScrollCounter */ = {isa = XCSwiftPackageProductDependency; package = A10000000000000000000002 /* XCRemoteSwiftPackageReference "ScrollCounter" */; productName = ScrollCounter; };
-		A20000000000000000000004 /* Lightbox */ = {isa = XCSwiftPackageProductDependency; productName = Lightbox; };
-		A20000000000000000000005 /* ParseObjC */ = {isa = XCSwiftPackageProductDependency; package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */; productName = ParseObjC; };
-		A20000000000000000000006 /* ParseLiveQuery */ = {isa = XCSwiftPackageProductDependency; package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */; productName = ParseLiveQuery; };
-		A20000000000000000000007 /* ParseObjC */ = {isa = XCSwiftPackageProductDependency; package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */; productName = ParseObjC; };
-		A20000000000000000000008 /* ParseLiveQuery */ = {isa = XCSwiftPackageProductDependency; package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */; productName = ParseLiveQuery; };
-		A20000000000000000000009 /* ParseObjC */ = {isa = XCSwiftPackageProductDependency; package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */; productName = ParseObjC; };
-		A2000000000000000000000A /* ParseLiveQuery */ = {isa = XCSwiftPackageProductDependency; package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */; productName = ParseLiveQuery; };
-		A2000000000000000000000B /* ParseObjC */ = {isa = XCSwiftPackageProductDependency; package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */; productName = ParseObjC; };
-		A2000000000000000000000C /* ParseLiveQuery */ = {isa = XCSwiftPackageProductDependency; package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */; productName = ParseLiveQuery; };
-		A2000000000000000000000D /* ParseObjC */ = {isa = XCSwiftPackageProductDependency; package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */; productName = ParseObjC; };
-		A2000000000000000000000E /* ParseLiveQuery */ = {isa = XCSwiftPackageProductDependency; package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */; productName = ParseLiveQuery; };
-		A2000000000000000000000F /* PhoneNumberKit */ = {isa = XCSwiftPackageProductDependency; package = D6AE0F62267CF8A400C6B048 /* XCRemoteSwiftPackageReference "PhoneNumberKit" */; productName = PhoneNumberKit; };
-		A20000000000000000000010 /* PhoneNumberKit */ = {isa = XCSwiftPackageProductDependency; package = D6AE0F62267CF8A400C6B048 /* XCRemoteSwiftPackageReference "PhoneNumberKit" */; productName = PhoneNumberKit; };
 		D61128062804D88600574B96 /* Localization */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = Localization;

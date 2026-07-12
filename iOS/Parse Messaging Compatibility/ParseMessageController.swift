@@ -325,6 +325,14 @@ final class ParseMessageController: Hashable {
         try self.conversationController.deleteMessage(self.messageID)
     }
 
+    func retryFailedMessage() throws {
+        try self.conversationController.retryFailedMessage(self.messageID)
+    }
+
+    func cancelFailedMessage() throws {
+        try self.conversationController.cancelFailedMessage(self.messageID)
+    }
+
     func pinMessage() throws {
         try self.conversationController.pinMessage(self.messageID)
     }
@@ -399,7 +407,7 @@ final class ParseMessageController: Hashable {
         self.conversationController.$parseMessages
             .receive(on: DispatchQueue.main)
             .sink { [weak self] messages in
-                guard let self = self else { return }
+                guard let self else { return }
                 if let root = messages.first(where: {
                     $0.id == self.messageID || $0.serverID == self.messageID
                 }) {
@@ -418,7 +426,8 @@ final class ParseMessageController: Hashable {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 Task { @MainActor [weak self] in
-                    guard let self = self, self.rootServerID != nil else { return }
+                    guard let self else { return }
+                    guard self.rootServerID != nil else { return }
                     do {
                         try self.applyCachedReplies(
                             pageSize: max(50, self.replySnapshots.count + 10)

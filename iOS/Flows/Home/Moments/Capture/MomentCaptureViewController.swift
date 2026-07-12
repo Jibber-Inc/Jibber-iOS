@@ -206,7 +206,7 @@ class MomentCaptureViewController: PiPRecordingViewController {
         self.label.transform = CGAffineTransform(translationX: 0, y: 100)
         
         self.animateTask = Task { [weak self] in
-            guard let `self` = self else { return }
+            guard let self else { return }
             
             await UIView.awaitSpringAnimation(with: .custom(1.5), options: .curveEaseIn, animations: {
                 self.label.alpha = 1.0
@@ -250,7 +250,7 @@ class MomentCaptureViewController: PiPRecordingViewController {
         self.animateTask?.cancel()
         
         self.animateTask = Task { [weak self] in
-            guard let `self` = self else { return }
+            guard let self else { return }
             
             await UIView.awaitAnimation(with: .fast, animations: {
                 self.label.alpha = 0

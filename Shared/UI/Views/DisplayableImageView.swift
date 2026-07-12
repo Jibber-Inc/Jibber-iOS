@@ -72,7 +72,7 @@ class DisplayableImageView: BaseView {
             let displayableStateRef = self.displayableState
 
             self.displayableTask = Task { [weak self] in
-                guard let `self` = self else { return }
+                guard let self else { return }
                 await self.updateImageView(with: displayableStateRef)
             }
         }
@@ -105,7 +105,7 @@ class DisplayableImageView: BaseView {
         self.blurView.contentView.addSubview(self.animationView)
 
         self.$state.mainSink { [weak self] state in
-            guard let `self` = self else { return }
+            guard let self else { return }
 
             switch state {
             case .initial:

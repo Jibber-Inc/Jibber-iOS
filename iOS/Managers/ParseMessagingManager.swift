@@ -46,6 +46,7 @@ final class ParseMessagingManager {
     private var realtimeCatchUpTracker = MessagingRealtimeCatchUpTracker()
     private var pendingTypingMutations: [String: MessagingMutation] = [:]
     private var typingMutationTasks: [String: Task<Void, Never>] = [:]
+    private var typingMutationTokens: [String: UUID] = [:]
     private var foregroundObserver: NSObjectProtocol?
 
     private init() {
@@ -55,7 +56,8 @@ final class ParseMessagingManager {
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
-                guard let self = self, self.isInitialized else { return }
+                guard let self else { return }
+                guard self.isInitialized else { return }
                 self.scheduleConversationRefresh()
                 self.scheduleImmediateOutboxDrain()
             }
@@ -139,6 +141,7 @@ final class ParseMessagingManager {
         self.subscribedConversationIDs.removeAll()
         self.typingMutationTasks.values.forEach { $0.cancel() }
         self.typingMutationTasks.removeAll()
+        self.typingMutationTokens.removeAll()
         self.pendingTypingMutations.removeAll()
         self.realtimeCatchUpTracker = MessagingRealtimeCatchUpTracker()
 
@@ -384,8 +387,10 @@ final class ParseMessagingManager {
             expiresAt: expiresAt
         )
         guard self.typingMutationTasks[key] == nil else { return }
+        let token = UUID()
+        self.typingMutationTokens[key] = token
         self.typingMutationTasks[key] = Task { @MainActor [weak self] in
-            await self?.drainTypingMutations(for: key)
+            await self?.drainTypingMutations(for: key, token: token)
         }
     }
 
@@ -485,7 +490,7 @@ final class ParseMessagingManager {
     private func scheduleConversationRefresh() {
         guard self.refreshTask == nil else { return }
         self.refreshTask = Task { @MainActor [weak self] in
-            guard let self = self else { return }
+            guard let self else { return }
             defer { self.refreshTask = nil }
             do {
                 try await self.refreshConversations()
@@ -537,12 +542,16 @@ final class ParseMessagingManager {
         }
     }
 
-    private func drainTypingMutations(for key: String) async {
+    private func drainTypingMutations(for key: String, token: UUID) async {
         defer {
-            self.pendingTypingMutations[key] = nil
-            self.typingMutationTasks[key] = nil
+            if self.typingMutationTokens[key] == token {
+                self.pendingTypingMutations[key] = nil
+                self.typingMutationTasks[key] = nil
+                self.typingMutationTokens[key] = nil
+            }
         }
-        while !Task.isCancelled,
+        while self.typingMutationTokens[key] == token,
+              !Task.isCancelled,
               let mutation = self.pendingTypingMutations.removeValue(forKey: key) {
             guard let repository = self.repository else { return }
             do {

@@ -22,7 +22,7 @@ extension HomeCoordinator {
                                                   openReplies: openReplies)
         self.addChildAndStart(coordinator, finishedHandler: { [unowned self] (_) in
             self.homeVC.dismiss(animated: true) { [weak self] in
-                guard let `self` = self else { return }
+                guard let self else { return }
                 self.homeVC.conversationsVC.collectionView.visibleCells.forEach { cell in
                     if let c = cell as? ConversationCell {
                         c.content.messageContent.authorView.expressionVideoView.shouldPlay = true
