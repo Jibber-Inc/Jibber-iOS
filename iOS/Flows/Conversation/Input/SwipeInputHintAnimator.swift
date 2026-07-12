@@ -30,7 +30,8 @@ class SwipeInputHintAnimator {
         guard shouldPlay, UserDefaultsManager.getInt(for: .numberOfSwipeHints) < 3 else { return }
             
         self.swipeHintTask = Task { [weak self] in
-            guard let `self` = self, let swipeView = self.view else { return }
+            guard let self else { return }
+            guard let swipeView = self.view else { return }
             
             // Wait a bit before playing the hint
             await Task.snooze(seconds: 3)

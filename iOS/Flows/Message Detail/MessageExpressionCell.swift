@@ -62,7 +62,7 @@ class ExpressionContentView: BaseView {
         self.personView.isVisible = true
 
         self.configurationTask = Task { [weak self] in
-            guard let `self` = self else { return }
+            guard let self else { return }
             
             guard let expression = try? await Expression.getObject(with: item.expressionId) else {
                 self.isVisible = false

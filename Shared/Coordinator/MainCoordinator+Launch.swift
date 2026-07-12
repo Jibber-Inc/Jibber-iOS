@@ -96,7 +96,7 @@ extension MainCoordinator {
                 preferredStyle: .alert
             )
             alert.addAction(UIAlertAction(title: "Retry", style: .default) { [weak self] _ in
-                guard let self = self else { return }
+                guard let self else { return }
                 self.messagingLaunchAlert = nil
                 Task { @MainActor [weak self] in
                     await self?.runHomeFlow(with: deepLink)

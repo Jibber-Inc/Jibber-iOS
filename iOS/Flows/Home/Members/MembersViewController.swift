@@ -111,7 +111,7 @@ class MembersViewController: DiffableCollectionViewController<MembersDataSource.
         self.loadPeopleTask?.cancel()
         
         self.loadPeopleTask = Task { [weak self] in
-            guard let `self` = self else { return }
+            guard let self else { return }
 
             var items: [MembersDataSource.ItemType] = [.memberId(User.current()!.objectId!)]
             

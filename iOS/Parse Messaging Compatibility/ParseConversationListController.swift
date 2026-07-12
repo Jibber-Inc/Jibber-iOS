@@ -142,7 +142,7 @@ final class ParseConversationListController: Hashable {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 Task { @MainActor [weak self] in
-                    guard let self = self else { return }
+                    guard let self else { return }
                     do {
                         try self.applyCachedState(pageSize: max(50, self.snapshots.count + 10))
                     } catch {

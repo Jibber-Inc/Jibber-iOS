@@ -43,7 +43,7 @@ class MessageReadContentView: BaseView {
         self.personView.isVisible = true
 
         self.configurationTask = Task { [weak self] in
-            guard let `self` = self else { return }
+            guard let self else { return }
             
             guard let person = await PeopleStore.shared.getPerson(withPersonId: authorId) else { return }
 

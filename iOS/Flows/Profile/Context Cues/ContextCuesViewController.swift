@@ -79,7 +79,7 @@ class ContextCuesViewController: DiffableCollectionViewController<ContextCueColl
         self.loadTask?.cancel()
         
         self.loadTask = Task { [weak self] in
-            guard let `self` = self else { return }
+            guard let self else { return }
             var snapshot = self.dataSource.snapshot()
             
             guard let user = self.person as? User,

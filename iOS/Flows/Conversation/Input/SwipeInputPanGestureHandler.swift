@@ -129,7 +129,7 @@ class SwipeInputPanGestureHandler {
                                                                          withPreviewFrame: previewView.frame)
             }
 
-            guard let `self` = self else { return }
+            guard let self else { return }
 
             self.resetPreviewAndInputViews(didSend: sendableWasSent)
 
