@@ -3,36 +3,10 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 52;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		B30000000000000000000001 /* MessagingContracts in Frameworks */ = {isa = PBXBuildFile; productRef = B20000000000000000000001 /* MessagingContracts */; };
-		B30000000000000000000002 /* MessagingPersistence in Frameworks */ = {isa = PBXBuildFile; productRef = B20000000000000000000002 /* MessagingPersistence */; };
-		B40000000000000000000001 /* ParseMessagingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40000000000000000000002 /* ParseMessagingManager.swift */; };
-		C50000000000000000000001 /* ParseMessagingChanges.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000000000000000000101 /* ParseMessagingChanges.swift */; };
-		C50000000000000000000002 /* ParseMessagingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000000000000000000102 /* ParseMessagingModels.swift */; };
-		C50000000000000000000003 /* ParseMessageDraftTranslator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000000000000000000103 /* ParseMessageDraftTranslator.swift */; };
-		C50000000000000000000004 /* ParseMessagingControllerSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000000000000000000104 /* ParseMessagingControllerSupport.swift */; };
-		C50000000000000000000005 /* ParseConversationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000000000000000000105 /* ParseConversationController.swift */; };
-		C50000000000000000000006 /* ParseMessageController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000000000000000000106 /* ParseMessageController.swift */; };
-		C50000000000000000000007 /* ParseConversationListController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000000000000000000107 /* ParseConversationListController.swift */; };
-		A30000000000000000000001 /* ParseObjC in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000001 /* ParseObjC */; };
-		A30000000000000000000002 /* ParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000002 /* ParseLiveQuery */; };
-		A30000000000000000000003 /* ScrollCounter in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000003 /* ScrollCounter */; };
-		A30000000000000000000004 /* Lightbox in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000004 /* Lightbox */; };
-		A30000000000000000000005 /* ParseObjC in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000005 /* ParseObjC */; };
-		A30000000000000000000006 /* ParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000006 /* ParseLiveQuery */; };
-		A30000000000000000000007 /* ParseObjC in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000007 /* ParseObjC */; };
-		A30000000000000000000008 /* ParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000008 /* ParseLiveQuery */; };
-		A30000000000000000000009 /* ParseObjC in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000009 /* ParseObjC */; };
-		A3000000000000000000000A /* ParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000A /* ParseLiveQuery */; };
-		A3000000000000000000000B /* ParseObjC in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000B /* ParseObjC */; };
-		A3000000000000000000000C /* ParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000C /* ParseLiveQuery */; };
-		A3000000000000000000000D /* ParseObjC in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000D /* ParseObjC */; };
-		A3000000000000000000000E /* ParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000E /* ParseLiveQuery */; };
-		A3000000000000000000000F /* PhoneNumberKit in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000F /* PhoneNumberKit */; };
-		A30000000000000000000010 /* PhoneNumberKit in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000010 /* PhoneNumberKit */; };
 		8004E3D127D7C81600E9931F /* SwipeableInputAccessoryViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8004E3D027D7C81600E9931F /* SwipeableInputAccessoryViewController.swift */; };
 		8004EE5427E8FE970086E010 /* URLSession+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8004EE5327E8FE970086E010 /* URLSession+Extension.swift */; };
 		8004EE5527E8FE970086E010 /* URLSession+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8004EE5327E8FE970086E010 /* URLSession+Extension.swift */; };
@@ -141,6 +115,32 @@
 		80FA869226F117C20053101B /* ChatUser+PersonType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80FA869126F117C20053101B /* ChatUser+PersonType.swift */; };
 		80FD049F26FA4C4400E69088 /* NSDiffableDataSourceSnapshot+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80FD049E26FA4C4400E69088 /* NSDiffableDataSourceSnapshot+Extensions.swift */; };
 		80FD04A126FA4C4400E69088 /* NSDiffableDataSourceSnapshot+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80FD049E26FA4C4400E69088 /* NSDiffableDataSourceSnapshot+Extensions.swift */; };
+		A30000000000000000000001 /* ParseObjC in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000001 /* ParseObjC */; };
+		A30000000000000000000002 /* ParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000002 /* ParseLiveQuery */; };
+		A30000000000000000000003 /* ScrollCounter in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000003 /* ScrollCounter */; };
+		A30000000000000000000004 /* Lightbox in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000004 /* Lightbox */; };
+		A30000000000000000000005 /* ParseObjC in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000005 /* ParseObjC */; };
+		A30000000000000000000006 /* ParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000006 /* ParseLiveQuery */; };
+		A30000000000000000000007 /* ParseObjC in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000007 /* ParseObjC */; };
+		A30000000000000000000008 /* ParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000008 /* ParseLiveQuery */; };
+		A30000000000000000000009 /* ParseObjC in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000009 /* ParseObjC */; };
+		A3000000000000000000000A /* ParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000A /* ParseLiveQuery */; };
+		A3000000000000000000000B /* ParseObjC in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000B /* ParseObjC */; };
+		A3000000000000000000000C /* ParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000C /* ParseLiveQuery */; };
+		A3000000000000000000000D /* ParseObjC in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000D /* ParseObjC */; };
+		A3000000000000000000000E /* ParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000E /* ParseLiveQuery */; };
+		A3000000000000000000000F /* PhoneNumberKit in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000F /* PhoneNumberKit */; };
+		A30000000000000000000010 /* PhoneNumberKit in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000010 /* PhoneNumberKit */; };
+		B30000000000000000000001 /* MessagingContracts in Frameworks */ = {isa = PBXBuildFile; productRef = B20000000000000000000001 /* MessagingContracts */; };
+		B30000000000000000000002 /* MessagingPersistence in Frameworks */ = {isa = PBXBuildFile; productRef = B20000000000000000000002 /* MessagingPersistence */; };
+		B40000000000000000000001 /* ParseMessagingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40000000000000000000002 /* ParseMessagingManager.swift */; };
+		C50000000000000000000001 /* ParseMessagingChanges.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000000000000000000101 /* ParseMessagingChanges.swift */; };
+		C50000000000000000000002 /* ParseMessagingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000000000000000000102 /* ParseMessagingModels.swift */; };
+		C50000000000000000000003 /* ParseMessageDraftTranslator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000000000000000000103 /* ParseMessageDraftTranslator.swift */; };
+		C50000000000000000000004 /* ParseMessagingControllerSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000000000000000000104 /* ParseMessagingControllerSupport.swift */; };
+		C50000000000000000000005 /* ParseConversationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000000000000000000105 /* ParseConversationController.swift */; };
+		C50000000000000000000006 /* ParseMessageController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000000000000000000106 /* ParseMessageController.swift */; };
+		C50000000000000000000007 /* ParseConversationListController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000000000000000000107 /* ParseConversationListController.swift */; };
 		D605AC9C27877F890015D800 /* MessageBubbleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D605AC9B27877F890015D800 /* MessageBubbleView.swift */; };
 		D605AC9D27877F890015D800 /* MessageBubbleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D605AC9B27877F890015D800 /* MessageBubbleView.swift */; };
 		D6079703279F442B000D0715 /* PeopleViewController+Search.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6079702279F442B000D0715 /* PeopleViewController+Search.swift */; };
@@ -1127,17 +1127,6 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		B10000000000000000000001 /* Messaging */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = Messaging; sourceTree = "<group>"; };
-		B40000000000000000000002 /* ParseMessagingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseMessagingManager.swift; sourceTree = "<group>"; };
-		C50000000000000000000101 /* ParseMessagingChanges.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseMessagingChanges.swift; sourceTree = "<group>"; };
-		C50000000000000000000102 /* ParseMessagingModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseMessagingModels.swift; sourceTree = "<group>"; };
-		C50000000000000000000103 /* ParseMessageDraftTranslator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseMessageDraftTranslator.swift; sourceTree = "<group>"; };
-		C50000000000000000000104 /* ParseMessagingControllerSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseMessagingControllerSupport.swift; sourceTree = "<group>"; };
-		C50000000000000000000105 /* ParseConversationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseConversationController.swift; sourceTree = "<group>"; };
-		C50000000000000000000106 /* ParseMessageController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseMessageController.swift; sourceTree = "<group>"; };
-		C50000000000000000000107 /* ParseConversationListController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseConversationListController.swift; sourceTree = "<group>"; };
-		C50000000000000000000108 /* CUTOVER_NOTES.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CUTOVER_NOTES.md; sourceTree = "<group>"; };
-		A40000000000000000000001 /* Lightbox */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = Lightbox; sourceTree = "<group>"; };
 		8004E3D027D7C81600E9931F /* SwipeableInputAccessoryViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeableInputAccessoryViewController.swift; sourceTree = "<group>"; };
 		8004EE5327E8FE970086E010 /* URLSession+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "URLSession+Extension.swift"; sourceTree = "<group>"; };
 		80058BBC27F657C80083AF1F /* MessageDeliveryTypeBadgeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageDeliveryTypeBadgeView.swift; sourceTree = "<group>"; };
@@ -1214,6 +1203,17 @@
 		80FA868B26F111830053101B /* ChatMessage+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ChatMessage+Extensions.swift"; sourceTree = "<group>"; };
 		80FA869126F117C20053101B /* ChatUser+PersonType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ChatUser+PersonType.swift"; sourceTree = "<group>"; };
 		80FD049E26FA4C4400E69088 /* NSDiffableDataSourceSnapshot+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSDiffableDataSourceSnapshot+Extensions.swift"; sourceTree = "<group>"; };
+		A40000000000000000000001 /* Lightbox */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = Lightbox; sourceTree = "<group>"; };
+		B10000000000000000000001 /* Messaging */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = Messaging; sourceTree = "<group>"; };
+		B40000000000000000000002 /* ParseMessagingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseMessagingManager.swift; sourceTree = "<group>"; };
+		C50000000000000000000101 /* ParseMessagingChanges.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseMessagingChanges.swift; sourceTree = "<group>"; };
+		C50000000000000000000102 /* ParseMessagingModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseMessagingModels.swift; sourceTree = "<group>"; };
+		C50000000000000000000103 /* ParseMessageDraftTranslator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseMessageDraftTranslator.swift; sourceTree = "<group>"; };
+		C50000000000000000000104 /* ParseMessagingControllerSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseMessagingControllerSupport.swift; sourceTree = "<group>"; };
+		C50000000000000000000105 /* ParseConversationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseConversationController.swift; sourceTree = "<group>"; };
+		C50000000000000000000106 /* ParseMessageController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseMessageController.swift; sourceTree = "<group>"; };
+		C50000000000000000000107 /* ParseConversationListController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseConversationListController.swift; sourceTree = "<group>"; };
+		C50000000000000000000108 /* CUTOVER_NOTES.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CUTOVER_NOTES.md; sourceTree = "<group>"; };
 		D605AC9B27877F890015D800 /* MessageBubbleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageBubbleView.swift; sourceTree = "<group>"; };
 		D6079702279F442B000D0715 /* PeopleViewController+Search.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PeopleViewController+Search.swift"; sourceTree = "<group>"; };
 		D6079704279F574E000D0715 /* PersonCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonCell.swift; sourceTree = "<group>"; };
@@ -1766,21 +1766,6 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		C50000000000000000000200 /* Parse Messaging Compatibility */ = {
-			isa = PBXGroup;
-			children = (
-				C50000000000000000000101 /* ParseMessagingChanges.swift */,
-				C50000000000000000000102 /* ParseMessagingModels.swift */,
-				C50000000000000000000103 /* ParseMessageDraftTranslator.swift */,
-				C50000000000000000000104 /* ParseMessagingControllerSupport.swift */,
-				C50000000000000000000105 /* ParseConversationController.swift */,
-				C50000000000000000000106 /* ParseMessageController.swift */,
-				C50000000000000000000107 /* ParseConversationListController.swift */,
-				C50000000000000000000108 /* CUTOVER_NOTES.md */,
-			);
-			path = "Parse Messaging Compatibility";
-			sourceTree = "<group>";
-		};
 		8023C6A027EBCDC100FD9DB6 /* Media */ = {
 			isa = PBXGroup;
 			children = (
@@ -1901,6 +1886,21 @@
 				D6AE0F88267CFA6D00C6B048 /* IntentsUI.framework */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		C50000000000000000000200 /* Parse Messaging Compatibility */ = {
+			isa = PBXGroup;
+			children = (
+				C50000000000000000000101 /* ParseMessagingChanges.swift */,
+				C50000000000000000000102 /* ParseMessagingModels.swift */,
+				C50000000000000000000103 /* ParseMessageDraftTranslator.swift */,
+				C50000000000000000000104 /* ParseMessagingControllerSupport.swift */,
+				C50000000000000000000105 /* ParseConversationController.swift */,
+				C50000000000000000000106 /* ParseMessageController.swift */,
+				C50000000000000000000107 /* ParseConversationListController.swift */,
+				C50000000000000000000108 /* CUTOVER_NOTES.md */,
+			);
+			path = "Parse Messaging Compatibility";
 			sourceTree = "<group>";
 		};
 		D60B886327F4C36100B3E1C2 /* Shared */ = {
@@ -3463,9 +3463,6 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
-/* Begin PBXShellScriptBuildPhase section */
-/* End PBXShellScriptBuildPhase section */
-
 /* Begin PBXSourcesBuildPhase section */
 		D61127EA2804D72C00574B96 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -4558,7 +4555,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = 863YH82QFN;
+				DEVELOPMENT_TEAM = LSXDX8B86V;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = AppClip/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Jibber;
@@ -4597,7 +4594,7 @@
 				CODE_SIGN_ENTITLEMENTS = AppClip/AppClip.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
-				DEVELOPMENT_TEAM = 863YH82QFN;
+				DEVELOPMENT_TEAM = LSXDX8B86V;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = AppClip/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Jibber;
@@ -5164,6 +5161,85 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		A20000000000000000000001 /* ParseObjC */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */;
+			productName = ParseObjC;
+		};
+		A20000000000000000000002 /* ParseLiveQuery */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */;
+			productName = ParseLiveQuery;
+		};
+		A20000000000000000000003 /* ScrollCounter */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000002 /* XCRemoteSwiftPackageReference "ScrollCounter" */;
+			productName = ScrollCounter;
+		};
+		A20000000000000000000004 /* Lightbox */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Lightbox;
+		};
+		A20000000000000000000005 /* ParseObjC */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */;
+			productName = ParseObjC;
+		};
+		A20000000000000000000006 /* ParseLiveQuery */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */;
+			productName = ParseLiveQuery;
+		};
+		A20000000000000000000007 /* ParseObjC */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */;
+			productName = ParseObjC;
+		};
+		A20000000000000000000008 /* ParseLiveQuery */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */;
+			productName = ParseLiveQuery;
+		};
+		A20000000000000000000009 /* ParseObjC */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */;
+			productName = ParseObjC;
+		};
+		A2000000000000000000000A /* ParseLiveQuery */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */;
+			productName = ParseLiveQuery;
+		};
+		A2000000000000000000000B /* ParseObjC */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */;
+			productName = ParseObjC;
+		};
+		A2000000000000000000000C /* ParseLiveQuery */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */;
+			productName = ParseLiveQuery;
+		};
+		A2000000000000000000000D /* ParseObjC */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */;
+			productName = ParseObjC;
+		};
+		A2000000000000000000000E /* ParseLiveQuery */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */;
+			productName = ParseLiveQuery;
+		};
+		A2000000000000000000000F /* PhoneNumberKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D6AE0F62267CF8A400C6B048 /* XCRemoteSwiftPackageReference "PhoneNumberKit" */;
+			productName = PhoneNumberKit;
+		};
+		A20000000000000000000010 /* PhoneNumberKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D6AE0F62267CF8A400C6B048 /* XCRemoteSwiftPackageReference "PhoneNumberKit" */;
+			productName = PhoneNumberKit;
+		};
 		B20000000000000000000001 /* MessagingContracts */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MessagingContracts;
@@ -5172,22 +5248,6 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = MessagingPersistence;
 		};
-		A20000000000000000000001 /* ParseObjC */ = {isa = XCSwiftPackageProductDependency; package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */; productName = ParseObjC; };
-		A20000000000000000000002 /* ParseLiveQuery */ = {isa = XCSwiftPackageProductDependency; package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */; productName = ParseLiveQuery; };
-		A20000000000000000000003 /* ScrollCounter */ = {isa = XCSwiftPackageProductDependency; package = A10000000000000000000002 /* XCRemoteSwiftPackageReference "ScrollCounter" */; productName = ScrollCounter; };
-		A20000000000000000000004 /* Lightbox */ = {isa = XCSwiftPackageProductDependency; productName = Lightbox; };
-		A20000000000000000000005 /* ParseObjC */ = {isa = XCSwiftPackageProductDependency; package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */; productName = ParseObjC; };
-		A20000000000000000000006 /* ParseLiveQuery */ = {isa = XCSwiftPackageProductDependency; package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */; productName = ParseLiveQuery; };
-		A20000000000000000000007 /* ParseObjC */ = {isa = XCSwiftPackageProductDependency; package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */; productName = ParseObjC; };
-		A20000000000000000000008 /* ParseLiveQuery */ = {isa = XCSwiftPackageProductDependency; package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */; productName = ParseLiveQuery; };
-		A20000000000000000000009 /* ParseObjC */ = {isa = XCSwiftPackageProductDependency; package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */; productName = ParseObjC; };
-		A2000000000000000000000A /* ParseLiveQuery */ = {isa = XCSwiftPackageProductDependency; package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */; productName = ParseLiveQuery; };
-		A2000000000000000000000B /* ParseObjC */ = {isa = XCSwiftPackageProductDependency; package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */; productName = ParseObjC; };
-		A2000000000000000000000C /* ParseLiveQuery */ = {isa = XCSwiftPackageProductDependency; package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */; productName = ParseLiveQuery; };
-		A2000000000000000000000D /* ParseObjC */ = {isa = XCSwiftPackageProductDependency; package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */; productName = ParseObjC; };
-		A2000000000000000000000E /* ParseLiveQuery */ = {isa = XCSwiftPackageProductDependency; package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */; productName = ParseLiveQuery; };
-		A2000000000000000000000F /* PhoneNumberKit */ = {isa = XCSwiftPackageProductDependency; package = D6AE0F62267CF8A400C6B048 /* XCRemoteSwiftPackageReference "PhoneNumberKit" */; productName = PhoneNumberKit; };
-		A20000000000000000000010 /* PhoneNumberKit */ = {isa = XCSwiftPackageProductDependency; package = D6AE0F62267CF8A400C6B048 /* XCRemoteSwiftPackageReference "PhoneNumberKit" */; productName = PhoneNumberKit; };
 		D61128062804D88600574B96 /* Localization */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = Localization;
