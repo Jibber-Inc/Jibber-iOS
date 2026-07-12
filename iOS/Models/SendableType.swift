@@ -9,7 +9,12 @@
 import Foundation
 import Intents
 
-protocol Sendable: AnyObject {
+/// A mutable draft that can be translated into an outgoing message.
+///
+/// This deliberately avoids the name `Sendable`, which is reserved for
+/// Swift's concurrency-safety protocol.
+@MainActor
+protocol MessageSendable: AnyObject {
     var kind: MessageKind { get set }
     var deliveryType: MessageDeliveryType { get set }
     var expression: Expression? { get set }
@@ -17,7 +22,8 @@ protocol Sendable: AnyObject {
     var isSendable: Bool { get }
 }
 
-class SendableObject: Sendable {
+@MainActor
+final class SendableObject: MessageSendable {
 
     var kind: MessageKind
     var deliveryType: MessageDeliveryType

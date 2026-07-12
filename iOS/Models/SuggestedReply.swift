@@ -26,6 +26,7 @@ enum SuggestedReply: String, CaseIterable {
         }
     }
     
+    @MainActor
     var image: UIImage? {
         switch self {
         case .quickReply:

@@ -58,7 +58,7 @@ class SwipeableView: View {
             self.layer.anchorPoint = newAnchorPoint
             self.layer.position = CGPoint(x: self.layer.position.x - oldPosition.x + newPosition.x, y: self.layer.position.y - oldPosition.y + newPosition.y)
 
-            self.layer.rasterizationScale = UIScreen.main.scale
+            self.layer.rasterizationScale = self.traitCollection.displayScale
             self.layer.shouldRasterize = true
             self.delegate?.swipeableViewDidBeginSwipe(self)
         case .changed:
@@ -126,7 +126,11 @@ class SwipeableView: View {
     private func animationPointForDirection(_ direction: SwipeDirection) -> CGPoint {
         let point = direction.point
         let animatePoint = CGPoint(x: point.x * 4, y: point.y * 4)
-        let retPoint = animatePoint.screenPointForSize(UIScreen.main.bounds.size)
+        let presentationSize = self.window?.windowScene?.screen.bounds.size
+            ?? self.window?.bounds.size
+            ?? self.superview?.bounds.size
+            ?? self.bounds.size
+        let retPoint = animatePoint.screenPointForSize(presentationSize)
         return retPoint
     }
 

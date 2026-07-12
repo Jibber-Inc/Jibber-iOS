@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import Combine
 
 enum InputType {
     case keyboard

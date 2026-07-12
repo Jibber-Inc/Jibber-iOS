@@ -15,7 +15,7 @@ enum ConnectionKey: String {
     case from
 }
 
-final class Connection: PFObject, PFSubclassing {
+final class Connection: PFObject, PFSubclassing, @unchecked Sendable {
 
     static func parseClassName() -> String {
         return String(describing: self)

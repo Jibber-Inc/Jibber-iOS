@@ -1,5 +1,4 @@
 import UIKit
-import Imaginary
 
 open class LightboxImage {
 
@@ -34,6 +33,8 @@ open class LightboxImage {
   }
 
   open func addImageTo(_ imageView: UIImageView, completion: ((UIImage?) -> Void)? = nil) {
+    LightboxConfig.beginImageRequest(for: imageView)
+
     if let image = image {
       imageView.image = image
       completion?(image)

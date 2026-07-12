@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import ParseCore
 
 protocol Noticeable: Hashable {
     var notice: Notice? { get set }
@@ -15,7 +16,9 @@ protocol Noticeable: Hashable {
     var attributes: [String: AnyHashable]? { get set }
 }
 
-struct SystemNotice: Noticeable, Comparable {
+/// Notice snapshots are treated as immutable while used as diffable identifiers.
+/// Parse's legacy Objective-C notice object is already marked unchecked Sendable.
+struct SystemNotice: Noticeable, Comparable, @unchecked Sendable {
 
     var notice: Notice?
     var type: Notice.NoticeType

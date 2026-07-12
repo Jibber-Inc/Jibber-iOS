@@ -19,7 +19,7 @@ extension PiPRecordingViewController {
         
         let isVideoOutput = output is AVCaptureVideoDataOutput
         let isFrontVideoOutput = connection.isVideoMirrored
-        
+
         // If mirrored, then its the front camera output
         if isFrontVideoOutput, isVideoOutput {
             guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
@@ -37,13 +37,18 @@ extension PiPRecordingViewController {
                 logError(error)
             }
         }
+
+        // Keep the live segmentation preview active while idle, but do not
+        // forward capture-pool buffers until the writers are ready.
+        guard self.state == .recording else { return }
         
-        let currentImage = self.frontCameraView.currentCIImage
-        Task {
-            await self.recorder.startRecording(with: sampleBuffer,
-                                               isVideoOutput: isVideoOutput,
-                                               isFrontVideoOutput: isFrontVideoOutput,
-                                               ciImage: currentImage)
-        }
+        // Create a one-owner sample wrapper for the iOS 27 consuming receiver API.
+        // It is consumed synchronously below; no task retains capture-pool buffers.
+        guard let recorderBuffer = try? CMSampleBuffer(copying: sampleBuffer) else { return }
+        let recorderSample = SynchronousPiPRecorderSample(buffer: recorderBuffer)
+        self.recorder.startRecording(sample: recorderSample,
+                                     isVideoOutput: isVideoOutput,
+                                     isFrontVideoOutput: isFrontVideoOutput,
+                                     image: self.frontCameraView.currentCIImage)
     }
 }

@@ -259,7 +259,8 @@ extension Client {
     fileprivate class HandlerConverter: SubscriptionHandling {
         typealias T = PFObject
 
-        fileprivate static var associatedObjectKey: Int = 0
+        // The Objective-C runtime uses only this stable address as an identity key.
+        nonisolated(unsafe) fileprivate static var associatedObjectKey: Int = 0
         fileprivate weak var handler: ObjCCompat_SubscriptionHandling?
 
         init(handler: ObjCCompat_SubscriptionHandling) {

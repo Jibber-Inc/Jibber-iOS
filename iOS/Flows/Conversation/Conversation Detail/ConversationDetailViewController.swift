@@ -9,6 +9,7 @@
 import Foundation
 import Combine
 import JibberParseLiveQuery
+import MessagingContracts
 
 class ConversationDetailViewController: DiffableCollectionViewController<ConversationDetailCollectionViewDataSource.SectionType,
                                         ConversationDetailCollectionViewDataSource.ItemType,

@@ -8,6 +8,7 @@
 
 import Foundation
 import Combine
+import Coordinator
 import Lottie
 import UIKit
 

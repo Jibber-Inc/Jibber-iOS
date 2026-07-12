@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import ParseCore
 
 class MessageExpressionCell: CollectionViewManagerCell, ManageableCell {
     typealias ItemType = ExpressionInfo
@@ -91,4 +92,3 @@ class ExpressionContentView: BaseView {
         self.label.match(.top, to: .bottom, of: self.personView, offset: .short)
     }
 }
-

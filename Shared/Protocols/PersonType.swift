@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import ParseCore
 
 protocol PersonType: ImageDisplayable {
     /// The unique identifier for this person. It may represent a server generated uuid, or a client-side contact id.

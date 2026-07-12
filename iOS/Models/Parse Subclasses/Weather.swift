@@ -16,7 +16,7 @@ enum WeatherKey: String {
     case temperature
 }
 
-final class Weather: PFObject, PFSubclassing {
+final class Weather: PFObject, PFSubclassing, @unchecked Sendable {
     
     static func parseClassName() -> String {
         return String(describing: self)
@@ -69,4 +69,3 @@ extension Weather: ImageDisplayable {
         return UIImage(systemName: symbolName)
     }
 }
-

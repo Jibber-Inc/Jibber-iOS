@@ -10,6 +10,17 @@ import Foundation
 import Intents
 import ParseCore
 
+/// Bridges legacy Objective-C callback values into a single async consumer.
+/// Each wrapped value is moved into one task or continuation and is not shared
+/// again by this file.
+private nonisolated struct UncheckedSendableTransfer<Value>: @unchecked Sendable {
+    let value: Value
+
+    init(_ value: Value) {
+        self.value = value
+    }
+}
+
 final class MessageIntentHandler: NSObject,
                                   INSendMessageIntentHandling,
                                   INSearchForMessagesIntentHandling,
@@ -66,12 +77,16 @@ final class MessageIntentHandler: NSObject,
             return
         }
 
+        let handler = UncheckedSendableTransfer(self)
+        let completion = UncheckedSendableTransfer(completion)
         Task {
+            let handler = handler.value
+            let completion = completion.value
             do {
-                try await self.messaging.requireActiveMembership(conversationID: conversationID)
-                completion(self.sendResponse(code: .ready, conversationID: conversationID))
+                try await handler.messaging.requireActiveMembership(conversationID: conversationID)
+                completion(handler.sendResponse(code: .ready, conversationID: conversationID))
             } catch {
-                completion(self.sendResponse(code: .failureMessageServiceNotAvailable))
+                completion(handler.sendResponse(code: .failureMessageServiceNotAvailable))
             }
         }
     }
@@ -92,13 +107,17 @@ final class MessageIntentHandler: NSObject,
             return
         }
 
+        let handler = UncheckedSendableTransfer(self)
+        let completion = UncheckedSendableTransfer(completion)
         Task {
+            let handler = handler.value
+            let completion = completion.value
             do {
-                let message = try await self.messaging.sendText(
+                let message = try await handler.messaging.sendText(
                     content,
                     conversationID: conversationID
                 )
-                let response = self.sendResponse(
+                let response = handler.sendResponse(
                     code: .success,
                     conversationID: conversationID,
                     messageID: message.objectID
@@ -108,7 +127,7 @@ final class MessageIntentHandler: NSObject,
                 }
                 completion(response)
             } catch {
-                completion(self.sendResponse(code: .failureMessageServiceNotAvailable))
+                completion(handler.sendResponse(code: .failureMessageServiceNotAvailable))
             }
         }
     }
@@ -140,9 +159,15 @@ final class MessageIntentHandler: NSObject,
             return
         }
 
+        let handler = UncheckedSendableTransfer(self)
+        let intent = UncheckedSendableTransfer(intent)
+        let completion = UncheckedSendableTransfer(completion)
         Task {
+            let handler = handler.value
+            let intent = intent.value
+            let completion = completion.value
             do {
-                let messages = try await self.messaging.search(intent: intent)
+                let messages = try await handler.messaging.search(intent: intent)
                 let response = INSearchForMessagesIntentResponse(code: .success, userActivity: nil)
                 response.messages = messages.map(\.intentMessage)
                 completion(response)
@@ -176,9 +201,14 @@ final class MessageIntentHandler: NSObject,
             return
         }
 
+        let attribute = intent.attribute
+        let handler = UncheckedSendableTransfer(self)
+        let completion = UncheckedSendableTransfer(completion)
         Task {
+            let handler = handler.value
+            let completion = completion.value
             do {
-                try await self.messaging.setAttribute(intent.attribute, messageIDs: identifiers)
+                try await handler.messaging.setAttribute(attribute, messageIDs: identifiers)
                 completion(INSetMessageAttributeIntentResponse(code: .success, userActivity: nil))
             } catch ParseIntentMessagingService.ServiceError.unsupportedAttribute {
                 completion(INSetMessageAttributeIntentResponse(
@@ -200,7 +230,7 @@ final class MessageIntentHandler: NSObject,
 /// Small, extension-safe Parse bridge. The main app's GRDB-backed repository is
 /// intentionally not linked into the Siri extension; server ACLs and hooks
 /// remain authoritative for every query and write here.
-final class ParseIntentMessagingService {
+final class ParseIntentMessagingService: @unchecked Sendable {
 
     enum ServiceError: Error {
         case invalidResponse
@@ -489,51 +519,55 @@ final class ParseIntentMessagingService {
     }
 
     private func callCloud(function: String, parameters: [String: Any]) async throws -> Any? {
-        try await withCheckedThrowingContinuation { continuation in
+        let transfer: UncheckedSendableTransfer<Any?> = try await withCheckedThrowingContinuation { continuation in
             PFCloud.callFunction(inBackground: function, withParameters: parameters) { object, error in
                 if let error = error {
                     continuation.resume(throwing: error)
                 } else {
-                    continuation.resume(returning: object)
+                    continuation.resume(returning: UncheckedSendableTransfer(object))
                 }
             }
         }
+        return transfer.value
     }
 
     private func get(query: PFQuery<PFObject>, objectID: String) async throws -> PFObject {
-        try await withCheckedThrowingContinuation { continuation in
+        let transfer: UncheckedSendableTransfer<PFObject> = try await withCheckedThrowingContinuation { continuation in
             query.getObjectInBackground(withId: objectID) { object, error in
                 if let object = object {
-                    continuation.resume(returning: object)
+                    continuation.resume(returning: UncheckedSendableTransfer(object))
                 } else {
                     continuation.resume(throwing: error ?? ServiceError.objectNotFound)
                 }
             }
         }
+        return transfer.value
     }
 
     private func first(query: PFQuery<PFObject>) async throws -> PFObject {
-        try await withCheckedThrowingContinuation { continuation in
+        let transfer: UncheckedSendableTransfer<PFObject> = try await withCheckedThrowingContinuation { continuation in
             query.getFirstObjectInBackground { object, error in
                 if let object = object {
-                    continuation.resume(returning: object)
+                    continuation.resume(returning: UncheckedSendableTransfer(object))
                 } else {
                     continuation.resume(throwing: error ?? ServiceError.objectNotFound)
                 }
             }
         }
+        return transfer.value
     }
 
     private func find(query: PFQuery<PFObject>) async throws -> [PFObject] {
-        try await withCheckedThrowingContinuation { continuation in
+        let transfer: UncheckedSendableTransfer<[PFObject]> = try await withCheckedThrowingContinuation { continuation in
             query.findObjectsInBackground { objects, error in
                 if let objects = objects {
-                    continuation.resume(returning: objects)
+                    continuation.resume(returning: UncheckedSendableTransfer(objects))
                 } else {
                     continuation.resume(throwing: error ?? ServiceError.invalidResponse)
                 }
             }
         }
+        return transfer.value
     }
 
     private func save(object: PFObject) async throws {

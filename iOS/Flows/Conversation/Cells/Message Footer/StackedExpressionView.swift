@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import ParseCore
 import ScrollCounter
 
 class StackedExpressionView: BaseView {

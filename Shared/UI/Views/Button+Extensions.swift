@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import Lottie
 import UIKit
 
 extension ThemeButton {

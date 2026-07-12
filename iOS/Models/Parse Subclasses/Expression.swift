@@ -21,7 +21,7 @@ enum ExpressionKey: String {
     case emojiString
 }
 
-final class Expression: PFObject, PFSubclassing {
+final class Expression: PFObject, PFSubclassing, @unchecked Sendable {
 
     static func parseClassName() -> String {
         return String(describing: self)

@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import Combine
 
 class NoticesViewController: DiffableCollectionViewController<NoticesDataSource.SectionType,
                              NoticesDataSource.ItemType,

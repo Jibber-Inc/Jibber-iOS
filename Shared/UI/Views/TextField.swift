@@ -11,6 +11,7 @@ import Lottie
 import Combine
 import UIKit
 
+@MainActor
 class TextField: UITextField {
 
     var padding = UIEdgeInsets(top: 0, left: 10, bottom: 0, right: 10)
@@ -27,12 +28,6 @@ class TextField: UITextField {
 
     required init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
-    }
-
-    deinit {
-        self.cancellables.forEach { cancellable in
-            cancellable.cancel()
-        }
     }
 
     func initialize() {

@@ -15,7 +15,8 @@ protocol Statusable: AnyObject {
     func handleEvent(status: EventStatus) async
 }
 
-private var currentEventStatusHandlerKey: UInt8 = 0
+// Stable-address token used only as an Objective-C associated-object key.
+nonisolated(unsafe) private var currentEventStatusHandlerKey: UInt8 = 0
 extension Statusable where Self: NSObject {
     var currentEventStatus: EventStatus? {
         get {
@@ -29,7 +30,9 @@ extension Statusable where Self: NSObject {
 
 /// A type erased wrapper for a Statusable with a weak reference.
 /// Can be used to make a collection of weak references to Statusables.
-struct WeakAnyStatusable {
+/// The weak reference may cross task boundaries, but its main-actor-isolated
+/// value is only dereferenced immediately before an awaited actor hop.
+struct WeakAnyStatusable: @unchecked Sendable {
     weak var value: Statusable?
 
     init(_ value: Statusable) {

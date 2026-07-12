@@ -10,6 +10,7 @@ import Foundation
 import UIKit
 import Combine
 
+@MainActor
 class BaseView: UIView {
 
     /// A collection of tasks that this view might run. Tasks added to the pool will automatically be cancelled if this view is removed from a window.
@@ -22,22 +23,20 @@ class BaseView: UIView {
         self.initializeSubviews()
     }
     
-    deinit {
-        self.cancellables.forEach { cancellable in
-            cancellable.cancel()
-        }
-    }
-
     required init?(coder aDecoder: NSCoder) {
         super.init(coder: aDecoder)
         // Don't call initialize subviews here because it can cause a crash.
         // Instead call from from awake from nib.
     }
 
-    override func awakeFromNib() {
+    nonisolated override func awakeFromNib() {
         super.awakeFromNib()
 
-        self.initializeSubviews()
+        // UIKit's Objective-C declaration is not actor-annotated even though
+        // nib-backed UI objects are awakened on the main thread.
+        MainActor.assumeIsolated {
+            self.initializeSubviews()
+        }
     }
     
     func initializeSubviews() { }

@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import Coordinator
 
 class MessagePreviewViewController: ViewController {
 

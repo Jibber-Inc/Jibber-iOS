@@ -16,10 +16,37 @@ import MessagingContracts
 import MessagingPersistence
 #endif
 
+/// Foundation delivers notification delegate values on an unspecified queue.
+/// This one-shot transfer keeps the response alive until the main actor handles it.
+private struct NotificationResponseTransfer: @unchecked Sendable {
+    let value: UNNotificationResponse
+}
+
+/// Ensures the Objective-C completion handler is invoked at most once even if
+/// an asynchronous notification action takes multiple exit paths.
+private final class NotificationCompletion: @unchecked Sendable {
+    private let lock = NSLock()
+    private var handler: (() -> Void)?
+
+    init(_ handler: @escaping () -> Void) {
+        self.handler = handler
+    }
+
+    func finish() {
+        self.lock.lock()
+        let handler = self.handler
+        self.handler = nil
+        self.lock.unlock()
+        handler?()
+    }
+}
+
+@MainActor
 protocol UserNotificationManagerDelegate: AnyObject {
     func userNotificationManager(willHandle: DeepLinkable)
 }
 
+@MainActor
 class UserNotificationManager: NSObject {
     
     static let shared = UserNotificationManager()
@@ -35,13 +62,7 @@ class UserNotificationManager: NSObject {
     }
     
     func getNotificationSettings() async -> UNNotificationSettings {
-        let result: UNNotificationSettings = await withCheckedContinuation { continuation in
-            self.center.getNotificationSettings { (settings) in
-                continuation.resume(returning:  settings)
-            }
-        }
-        
-        return result
+        await self.center.notificationSettings()
     }
     
     func silentRegister(withApplication application: UIApplication) {
@@ -78,7 +99,7 @@ class UserNotificationManager: NSObject {
             self.application = application
             let granted = await self.requestAuthorization(with: options)
             if granted {
-                await application.registerForRemoteNotifications()  // To update our token
+                application.registerForRemoteNotifications()  // To update our token
                 await self.scheduleMomentReminders()
             }
         }
@@ -162,11 +183,7 @@ class UserNotificationManager: NSObject {
     }
     
     func getPendingRequests() async -> [UNNotificationRequest] {
-        return await withCheckedContinuation({ continuation in
-            self.center.getPendingNotificationRequests { requests in
-                continuation.resume(returning: requests)
-            }
-        })
+        await self.center.pendingNotificationRequests()
     }
     
     // MARK: - Message Event Handling
@@ -252,50 +269,69 @@ class UserNotificationManager: NSObject {
 
 extension UserNotificationManager: UNUserNotificationCenterDelegate {
     
-    func userNotificationCenter(_ center: UNUserNotificationCenter,
-                                willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
-        
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                            willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
+        let isNewMessage = notification.request.content.categoryIdentifier
+            == UserNotificationCategory.newMessage.rawValue
+        let isTimeSensitive = notification.request.content.interruptionLevel == .timeSensitive
+
         // If the app is in the foreground, and is a new message, then check the interruption level to determine whether or not to show a banner. Don't show banners for non time-sensitive messages.
-        if let app = self.application,
-           await app.applicationState == .active,
-           notification.request.content.categoryIdentifier == UserNotificationCategory.newMessage.rawValue {
-            
-            if notification.request.content.interruptionLevel == .timeSensitive {
-                return [.banner, .list, .sound, .badge]
-            } else {
+        return await MainActor.run {
+            if let app = self.application,
+               app.applicationState == .active,
+               isNewMessage {
+                if isTimeSensitive {
+                    return [.banner, .list, .sound, .badge]
+                }
                 return [.list, .sound, .badge]
+            } else {
+                return [.banner, .list, .sound, .badge]
             }
         }
-        
-        return [.banner, .list, .sound, .badge]
     }
     
-    func userNotificationCenter(_ center: UNUserNotificationCenter,
-                                didReceive response: UNNotificationResponse,
-                                withCompletionHandler completionHandler: @escaping () -> Void) {
-        
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                            didReceive response: UNNotificationResponse,
+                                            withCompletionHandler completionHandler: @escaping () -> Void) {
+        let response = NotificationResponseTransfer(value: response)
+        let completion = NotificationCompletion(completionHandler)
+
+        Task { @MainActor [weak self] in
+            guard let self else {
+                completion.finish()
+                return
+            }
+            self.handle(response: response.value, completion: completion)
+        }
+    }
+
+    @MainActor
+    private func handle(response: UNNotificationResponse,
+                        completion: NotificationCompletion) {
+        let finish = { completion.finish() }
+
         if let suggestion = SuggestedReply.init(rawValue: response.actionIdentifier) {
 #if IOS
-            self.handle(suggestion: suggestion, response: response, completion: completionHandler)
+            self.handle(suggestion: suggestion, response: response, completion: finish)
 #else
-            completionHandler()
+            finish()
 #endif
         } else if let momentAction = MomentAction.init(rawValue: response.actionIdentifier) {
             self.handleMoment(action: momentAction,
                               response: response,
-                              completion: completionHandler)
+                              completion: finish)
         } else if let target = response.notification.deepLinkTarget {
             var deepLink = DeepLinkObject(target: target)
             deepLink.customMetadata = response.notification.customMetadata
             self.delegate?.userNotificationManager(willHandle: deepLink)
-            completionHandler()
+            finish()
         } else {
-            completionHandler()
+            finish()
         }
     }
     
-    func userNotificationCenter(_ center: UNUserNotificationCenter,
-                                openSettingsFor notification: UNNotification?) {}
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                            openSettingsFor notification: UNNotification?) {}
     
     private func handleMoment(action: MomentAction,
                               response: UNNotificationResponse,

@@ -7,6 +7,7 @@ import Foundation
 import Intents
 import MessagingContracts
 import MessagingPersistence
+import ParseCore
 
 @MainActor
 enum ParseMessagingControllerSupport {
@@ -158,7 +159,7 @@ enum ParseMessagingControllerSupport {
 enum ParseOutgoingMessageHooks {
 
     static func messageWasQueued(
-        sendable: Sendable,
+        sendable: MessageSendable,
         conversation: ParseConversation?,
         members: [ParseConversationMember],
         isReply: Bool
@@ -183,7 +184,7 @@ enum ParseOutgoingMessageHooks {
     }
 
     private static func donateIntent(
-        sendable: Sendable,
+        sendable: MessageSendable,
         conversation: ParseConversation?,
         members: [ParseConversationMember]
     ) async {

@@ -9,6 +9,7 @@
 import Foundation
 
 /// A collection of tasks that automatically handles removing tasks from itself when the tasks finish.
+@MainActor
 class TaskPool {
     
     private var pool: [Task<Void, Never>] = []
@@ -39,6 +40,7 @@ extension Task where Success == Void, Failure == Never {
 
     /// Adds the task to the given task pool. Once the task is finished, the task is removed from the pool.
     @discardableResult
+    @MainActor
     func add(to taskPool: TaskPool) -> Task<Success, Failure> {
         taskPool.add(self)
         return self

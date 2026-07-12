@@ -13,7 +13,8 @@ protocol PersonContextDelegate: UIContextMenuInteractionDelegate {
     var didTapViewProfile: CompletionOptional { get set }
 }
 
-private var personKey: UInt8 = 0
+// Objective-C associated-object access is serialized by the UI's main-actor ownership.
+private nonisolated(unsafe) var personKey: UInt8 = 0
 extension PersonContextDelegate where Self: NSObject {
 
     var person: PersonType? {

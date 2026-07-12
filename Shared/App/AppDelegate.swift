@@ -8,8 +8,9 @@
 
 import UIKit
 import SwiftUI
+import ParseCore
 
-@UIApplicationMain
+@main
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
     var window: UIWindow?

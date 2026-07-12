@@ -10,6 +10,11 @@ import Foundation
 import Combine
 import LinkPresentation
 
+/// Transfers the provider-owned metadata into the main-actor presentation view.
+private struct LinkMetadataTransfer: @unchecked Sendable {
+    let value: LPLinkMetadata
+}
+
 @MainActor
 protocol MessageContentDelegate: AnyObject {
     func messageContent(_ content: MessageContentView, didTapViewReplies message: Messageable)
@@ -48,7 +53,9 @@ class MessageContentView: BaseView {
     }
 
     // Sizing
-    static let bubbleHeight: CGFloat = UIScreen.currentSize == .phoneMedium ? 148 : 188
+    // iOS 27 no longer supports the compact devices that used the legacy
+    // 148-point layout.
+    static let bubbleHeight: CGFloat = 188
     static let collapsedHeight: CGFloat = 94 - MessageContentView.bubbleTailLength
     static var collapsedBubbleHeight: CGFloat {
         return MessageContentView.collapsedHeight - MessageContentView.textViewPadding
@@ -356,9 +363,10 @@ class MessageContentView: BaseView {
 
                 self.linkProvider = LPMetadataProvider()
                 self.linkProvider?.startFetchingMetadata(for: url) { (metadata, error) in
+                    guard let metadata else { return }
+                    let transfer = LinkMetadataTransfer(value: metadata)
                     Task.onMainActor {
-                        guard let metadata = metadata else { return }
-                        self.linkView.metadata = metadata
+                        self.linkView.metadata = transfer.value
                         self.setNeedsLayout()
                     }
                 }

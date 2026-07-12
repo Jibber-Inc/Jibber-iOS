@@ -47,7 +47,9 @@ extension TransitionableRouter {
                     self.toVC.navigationController?.navigationBar.alpha = 1
                 }
         }) { (completed) in
-            transitionContext.completeTransition(true)
+            MainActor.assumeIsolated {
+                transitionContext.completeTransition(true)
+            }
         }
     }
 }

@@ -11,6 +11,11 @@ import UIKit
 import ParseCore
 import Coordinator
 
+/// Moves a callback-owned deep link into the launch task that requested it.
+private struct LaunchDeepLinkTransfer: @unchecked Sendable {
+    let value: DeepLinkable?
+}
+
 class MainCoordinator: BaseCoordinator<Void> {
     
     var launchActivity: LaunchActivity?
@@ -50,20 +55,21 @@ class MainCoordinator: BaseCoordinator<Void> {
         self.launchAndDeepLinkTask = Task { [weak self] in
             guard let self else { return }
             
-            let deepLink: DeepLinkable? = await withCheckedContinuation { continuation in
+            let transfer: LaunchDeepLinkTransfer = await withCheckedContinuation { continuation in
                 let launchCoordinator = LaunchCoordinator(router: self.router, deepLink: self.deepLink)
                 self.router.setRootModule(launchCoordinator)
                 self.addChildAndStart(launchCoordinator) { result in
                     
                     switch result {
                     case .success(let deepLink):
-                        continuation.resume(returning: deepLink)
+                        continuation.resume(returning: LaunchDeepLinkTransfer(value: deepLink))
                     case .failed:
                         self.logOut()
-                        continuation.resume(returning: nil)
+                        continuation.resume(returning: LaunchDeepLinkTransfer(value: nil))
                     }
                 }
             }
+            let deepLink = transfer.value
 
             // Don't handle the launch status if the task was cancelled.
             guard !Task.isCancelled else { return }
@@ -209,15 +215,19 @@ class MainCoordinator: BaseCoordinator<Void> {
 
 extension MainCoordinator: UserNotificationManagerDelegate {
 
-    nonisolated func userNotificationManager(willHandle deeplink: DeepLinkable) {
-        Task.onMainActorAsync {
+    func userNotificationManager(willHandle deeplink: DeepLinkable) {
+        let transfer = LaunchDeepLinkTransfer(value: deeplink)
+        Task { @MainActor [weak self] in
+            guard let self else { return }
             // Cancelling other deeplink calls.
             self.launchAndDeepLinkTask?.cancel()
 
             // Wait until the launch is finished.
             await self.launchAndDeepLinkTask?.value
 
-            self.handle(deeplink: deeplink)
+            if let deeplink = transfer.value {
+                self.handle(deeplink: deeplink)
+            }
         }
     }
 }

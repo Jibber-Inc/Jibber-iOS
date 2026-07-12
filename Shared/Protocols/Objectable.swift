@@ -10,6 +10,12 @@ import Foundation
 import ParseCore
 import Combine
 
+private func reportInvalidParseSession(_ error: Error) {
+    Task { @MainActor in
+        SessionManager.shared.handleParse(error: error)
+    }
+}
+
 enum ContainerName {
     case conversation(identifier: String)
     case favorites
@@ -27,7 +33,7 @@ enum ContainerName {
     }
 }
 
-protocol Objectable: AnyObject {
+protocol Objectable: AnyObject, Sendable {
     associatedtype KeyType
 
     func getObject<Type>(for key: KeyType) -> Type?
@@ -65,7 +71,7 @@ extension Objectable where Self: PFObject {
         let object: Self = try await withCheckedThrowingContinuation { continuation in
             self.saveEventually { (success, error) in
                 if let error = error {
-                    SessionManager.shared.handleParse(error: error)
+                    reportInvalidParseSession(error)
                     continuation.resume(throwing: error)
                 } else {
                     continuation.resume(returning: self)
@@ -81,7 +87,7 @@ extension Objectable where Self: PFObject {
         let object: Self = try await withCheckedThrowingContinuation { continuation in
             self.saveInBackground { (success, error) in
                 if let error = error {
-                    SessionManager.shared.handleParse(error: error)
+                    reportInvalidParseSession(error)
                     continuation.resume(throwing: error)
                 } else {
                     continuation.resume(returning: self)
@@ -194,14 +200,14 @@ extension Objectable where Self: PFObject {
                             if let nonCachedObject = object as? Self, let identifier = nonCachedObject.objectId {
                                 nonCachedObject.pinInBackground(withName: identifier) { (success, error) in
                                     if let e = error {
-                                        SessionManager.shared.handleParse(error: e)
+                                        reportInvalidParseSession(e)
                                         continuation.resume(throwing: e)
                                     } else {
                                         continuation.resume(returning: nonCachedObject)
                                     }
                                 }
                             } else if let e = error {
-                                SessionManager.shared.handleParse(error: e)
+                                reportInvalidParseSession(e)
                                 continuation.resume(throwing: e)
                             } else {
                                 continuation.resume(throwing: ClientError.generic)
@@ -226,7 +232,7 @@ extension Objectable where Self: PFObject {
             query?.findObjectsInBackground(block: { objects, error in
                 PFObject.pinAll(inBackground: objects, withName: container.name) { (success, error) in
                     if let e = error {
-                        SessionManager.shared.handleParse(error: e)
+                        reportInvalidParseSession(e)
                         continuation.resume(throwing: e)
                     } else if let objectsForType = objects as? [Self] {
                         continuation.resume(returning: objectsForType)
@@ -263,7 +269,7 @@ extension Objectable where Self: PFObject {
                         nonCacheQuery.findObjectsInBackground { (objects, error) in
                             PFObject.pinAll(inBackground: objects, withName: container.name) { (success, error) in
                                 if let e = error {
-                                    SessionManager.shared.handleParse(error: e)
+                                    reportInvalidParseSession(e)
                                     continuation.resume(throwing: e)
                                 } else if let objectsForType = objects as? [Self] {
                                     continuation.resume(returning: objectsForType)
@@ -290,7 +296,7 @@ extension Objectable where Self: PFObject {
             } else {
                 self.fetchIfNeededInBackground { (object, error) in
                     if let e = error {
-                        SessionManager.shared.handleParse(error: e)
+                        reportInvalidParseSession(e)
                         continuation.resume(throwing: e)
                     } else if let objectWithData = object as? Self {
                         continuation.resume(returning: objectWithData)
@@ -312,12 +318,12 @@ extension Objectable where Self: PFObject {
             return try await withCheckedThrowingContinuation { continuation in
                 self.fetchIfNeededInBackground { (object, error) in
                     if let e = error {
-                        SessionManager.shared.handleParse(error: e)
+                        reportInvalidParseSession(e)
                         continuation.resume(throwing: e)
                     } else if let objectWithData = object as? Self, let objectId = objectWithData.objectId {
                         objectWithData.pinInBackground(withName: objectId) { (success, error) in
                             if let e = error {
-                                SessionManager.shared.handleParse(error: e)
+                                reportInvalidParseSession(e)
                                 continuation.resume(throwing: e)
                             } else {
                                 continuation.resume(returning: objectWithData)

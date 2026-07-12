@@ -9,6 +9,7 @@
 import Foundation
 import UIKit
 
+@MainActor
 class ToastQueue {
     static let shared = ToastQueue()
 
@@ -48,6 +49,7 @@ class ToastQueue {
     }
 }
 
+@MainActor
 fileprivate class Toaster {
 
     var items: [ToastViewable] = []

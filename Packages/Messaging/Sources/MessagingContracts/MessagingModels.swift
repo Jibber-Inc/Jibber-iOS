@@ -12,7 +12,7 @@ public typealias MessagingConversationID = String
 public typealias MessagingMessageID = String
 public typealias MessagingUserID = String
 
-public enum MessagingConversationKind: String, Codable, CaseIterable, Hashable {
+public enum MessagingConversationKind: String, Codable, CaseIterable, Hashable, Sendable {
     case direct
     case group
     case moment
@@ -20,19 +20,19 @@ public enum MessagingConversationKind: String, Codable, CaseIterable, Hashable {
     case pass
 }
 
-public enum MessagingMemberRole: String, Codable, CaseIterable, Hashable {
+public enum MessagingMemberRole: String, Codable, CaseIterable, Hashable, Sendable {
     case owner
     case admin
     case member
 }
 
-public enum MessagingDeliveryKind: String, Codable, CaseIterable, Hashable {
+public enum MessagingDeliveryKind: String, Codable, CaseIterable, Hashable, Sendable {
     case timeSensitive = "time-sensitive"
     case conversational
     case respectful
 }
 
-public enum MessagingContentKind: String, Codable, CaseIterable, Hashable {
+public enum MessagingContentKind: String, Codable, CaseIterable, Hashable, Sendable {
     case text
     case image
     case video
@@ -42,20 +42,20 @@ public enum MessagingContentKind: String, Codable, CaseIterable, Hashable {
     case moment
 }
 
-public enum MessagingAttachmentKind: String, Codable, CaseIterable, Hashable {
+public enum MessagingAttachmentKind: String, Codable, CaseIterable, Hashable, Sendable {
     case image
     case video
     case file
     case linkPreview
 }
 
-public enum MessagingReceiptState: String, Codable, CaseIterable, Hashable {
+public enum MessagingReceiptState: String, Codable, CaseIterable, Hashable, Sendable {
     case sent
     case delivered
     case read
 }
 
-public struct MessagingExpressionReference: Codable, Hashable {
+public struct MessagingExpressionReference: Codable, Hashable, Sendable {
     public var authorID: MessagingUserID
     public var expressionID: String
 
@@ -71,7 +71,7 @@ public struct MessagingExpressionReference: Codable, Hashable {
 }
 
 /// Local-only delivery state. The server never needs to trust this value.
-public enum MessagingLocalMessageState: String, Codable, CaseIterable, Hashable {
+public enum MessagingLocalMessageState: String, Codable, CaseIterable, Hashable, Sendable {
     case confirmed
     case queued
     case uploading
@@ -80,7 +80,7 @@ public enum MessagingLocalMessageState: String, Codable, CaseIterable, Hashable 
     case failed
 }
 
-public struct MessagingAttachmentSnapshot: Codable, Hashable {
+public struct MessagingAttachmentSnapshot: Codable, Hashable, Sendable {
     public var id: String
     public var kind: MessagingAttachmentKind
     public var localURL: URL?
@@ -124,7 +124,7 @@ public struct MessagingAttachmentSnapshot: Codable, Hashable {
     }
 }
 
-public struct MessagingMessageContent: Codable, Hashable {
+public struct MessagingMessageContent: Codable, Hashable, Sendable {
     public var kind: MessagingContentKind
     public var text: String?
     public var linkURL: URL?
@@ -153,7 +153,7 @@ public struct MessagingMessageContent: Codable, Hashable {
 
 /// Input for an idempotent send. Reusing `clientMessageID` intentionally reuses
 /// the same optimistic row and remote write.
-public struct MessagingMessageDraft: Codable, Hashable {
+public struct MessagingMessageDraft: Codable, Hashable, Sendable {
     public var conversationID: MessagingConversationID
     public var clientMessageID: String
     public var clientCreatedAt: Date
@@ -181,7 +181,7 @@ public struct MessagingMessageDraft: Codable, Hashable {
     }
 }
 
-public struct MessagingReactionSnapshot: Codable, Hashable {
+public struct MessagingReactionSnapshot: Codable, Hashable, Sendable {
     public var objectID: String?
     public var messageID: MessagingMessageID
     public var userID: MessagingUserID
@@ -209,7 +209,7 @@ public struct MessagingReactionSnapshot: Codable, Hashable {
     }
 }
 
-public struct MessagingReceiptSnapshot: Codable, Hashable {
+public struct MessagingReceiptSnapshot: Codable, Hashable, Sendable {
     public var objectID: String?
     public var messageID: MessagingMessageID
     public var userID: MessagingUserID
@@ -231,7 +231,7 @@ public struct MessagingReceiptSnapshot: Codable, Hashable {
     }
 }
 
-public struct MessagingMessageSnapshot: Codable, Hashable, Identifiable {
+public struct MessagingMessageSnapshot: Codable, Hashable, Identifiable, Sendable {
     public var objectID: String?
     public var clientMessageID: String
     public var conversationID: MessagingConversationID
@@ -314,7 +314,7 @@ public struct MessagingMessageSnapshot: Codable, Hashable, Identifiable {
 
 }
 
-public struct MessagingConversationSnapshot: Codable, Hashable, Identifiable {
+public struct MessagingConversationSnapshot: Codable, Hashable, Identifiable, Sendable {
     public var id: MessagingConversationID
     public var createdAt: Date?
     public var clientConversationID: String?
@@ -366,7 +366,7 @@ public struct MessagingConversationSnapshot: Codable, Hashable, Identifiable {
     }
 }
 
-public struct MessagingMemberSnapshot: Codable, Hashable, Identifiable {
+public struct MessagingMemberSnapshot: Codable, Hashable, Identifiable, Sendable {
     public var objectID: String
     public var conversationID: MessagingConversationID
     public var userID: MessagingUserID
@@ -481,7 +481,7 @@ public struct MessagingMemberSnapshot: Codable, Hashable, Identifiable {
     }
 }
 
-public enum MessagingModelError: Error, Equatable {
+public enum MessagingModelError: Error, Equatable, Sendable {
     case missingField(className: String, field: String)
     case invalidDraft(String)
     case identityMismatch(expected: String, actual: String?)

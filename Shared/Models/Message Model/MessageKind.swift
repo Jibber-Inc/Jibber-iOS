@@ -204,7 +204,6 @@ protocol MediaItem: ImageDisplayable {
 private func ==(lhs: MediaItem, rhs: MediaItem) -> Bool {
     return lhs.url == rhs.url
     && lhs.previewURL == rhs.previewURL
-    && lhs.image == rhs.image
     && lhs.size == rhs.size
     && lhs.fileName == rhs.fileName
     && lhs.type == rhs.type

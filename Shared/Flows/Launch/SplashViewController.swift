@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import Coordinator
 import Lottie
 import StoreKit
 import Localization

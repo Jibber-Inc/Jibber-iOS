@@ -7,6 +7,8 @@
 //
 
 import Foundation
+import Combine
+import Coordinator
 import Localization
 import UIKit
 import KeyboardManager
@@ -15,8 +17,9 @@ class TextFieldToolBar: UIToolbar {
 
     init(button: UIBarButtonItem) {
         super.init(frame: .init(origin: .zero,
-                                size: CGSize(width: UIScreen.main.bounds.width,
+                                size: CGSize(width: 0,
                                              height: Theme.buttonHeight + Theme.ContentOffset.standard.value.doubled)))
+        self.autoresizingMask = [.flexibleWidth]
         self.setItems([button], animated: false)
         self.isTranslucent = true
         self.setBackgroundImage(UIImage(), forToolbarPosition: .any, barMetrics: .default)
@@ -138,4 +141,3 @@ class TextInputViewController<ResultType>: ViewController, Sizeable, Completable
 
     func textFieldDidEndEditing(_ textField: UITextField) {}
 }
-

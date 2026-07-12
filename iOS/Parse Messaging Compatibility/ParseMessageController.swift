@@ -6,6 +6,8 @@
 import Combine
 import Foundation
 import MessagingContracts
+import MessagingPersistence
+import ParseCore
 
 enum ParseMessageListOrdering {
     case bottomToTop
@@ -301,7 +303,7 @@ final class ParseMessageController: Hashable {
     // MARK: - Writes
 
     @discardableResult
-    func createNewReply(with sendable: Sendable) async throws -> String {
+    func createNewReply(with sendable: MessageSendable) async throws -> String {
         let id = try await self.conversationController.createNewReply(
             with: sendable,
             messageID: self.messageID
@@ -310,7 +312,7 @@ final class ParseMessageController: Hashable {
         return id
     }
 
-    func editMessage(with sendable: Sendable) async throws {
+    func editMessage(with sendable: MessageSendable) async throws {
         guard case .text(let text) = sendable.kind else {
             throw ParseMessagingCompatibilityError.unsupportedMessageKind("edited non-text")
         }

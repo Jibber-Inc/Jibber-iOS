@@ -55,6 +55,7 @@ enum MomentAction: String, CaseIterable {
                                     icon: icon)
     }
     
+    @MainActor
     static func getActions(for moment: Moment) -> [MomentAction] {
         guard !moment.isFromCurrentUser else { return [] }
         

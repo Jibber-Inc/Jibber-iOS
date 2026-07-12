@@ -7,6 +7,8 @@
 //
 
 import Foundation
+import QuartzCore
+import UIKit
 
 class MomentExpressiontVideoView: VideoView {
     
@@ -64,5 +66,4 @@ class MomentExpressiontVideoView: VideoView {
         }
     }
 }
-
 

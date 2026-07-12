@@ -7,22 +7,22 @@
 //
 
 import Foundation
+import Combine
+import Coordinator
 import JibberParseLiveQuery
 
 extension MainCoordinator: LaunchManagerDelegate {
 
-    nonisolated func launchManager(_ manager: LaunchManager, didReceive activity: LaunchActivity) {
-        Task.onMainActor {
-            switch activity {
-            case .deepLink(let deepLinkable):
-                self.handle(deeplink: deepLinkable)
-            default:
-                if let furthestChild = self.furthestChild as? LaunchActivityHandler {
-                    furthestChild.handle(launchActivity: activity)
-                } else {
-                    // We may not have completed launching yet, so store it
-                    self.launchActivity = activity
-                }
+    func launchManager(_ manager: LaunchManager, didReceive activity: LaunchActivity) {
+        switch activity {
+        case .deepLink(let deepLinkable):
+            self.handle(deeplink: deepLinkable)
+        default:
+            if let furthestChild = self.furthestChild as? LaunchActivityHandler {
+                furthestChild.handle(launchActivity: activity)
+            } else {
+                // We may not have completed launching yet, so store it
+                self.launchActivity = activity
             }
         }
     }
@@ -55,10 +55,8 @@ extension MainCoordinator: LaunchManagerDelegate {
 
 extension MainCoordinator: ToastSchedulerDelegate {
 
-    nonisolated func didInteractWith(type: ToastType, deeplink: DeepLinkable?) {
-        Task.onMainActor {
-            guard let link = deeplink else { return }
-            self.handle(deeplink: link)
-        }
+    func didInteractWith(type: ToastType, deeplink: DeepLinkable?) {
+        guard let link = deeplink else { return }
+        self.handle(deeplink: link)
     }
 }

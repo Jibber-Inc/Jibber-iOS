@@ -7,6 +7,8 @@
 //
 
 import Foundation
+import KeyboardManager
+import ParseCore
 
 class MessageContentContextMenuDelegate: NSObject, UIContextMenuInteractionDelegate {
 

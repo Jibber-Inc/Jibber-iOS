@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import Transitions
 
 extension TransitionRouter {
 
@@ -65,7 +66,9 @@ extension TransitionRouter {
                 }
             }
         }) { (completed) in
-            transitionContext.completeTransition(true)
+            MainActor.assumeIsolated {
+                transitionContext.completeTransition(true)
+            }
         }
     }
 }

@@ -16,15 +16,30 @@ struct PiPRecording: Swift.Sendable {
     var previewURL: URL?
 }
 
-actor PiPRecorder {
+/// AVFoundation supplies these as property-list dictionaries. The settings and
+/// recorder are both main-actor confined.
+struct PiPAssetWriterSettings {
+    let backVideo: [String: Any]?
+    let audio: [String: Any]?
+}
+
+/// A uniquely owned copy used synchronously to satisfy the iOS 27 receiver's
+/// consuming initializer. This value never leaves the main actor or outlives
+/// the capture callback.
+struct SynchronousPiPRecorderSample: @unchecked Sendable {
+    var buffer: CMSampleBuffer
+}
+
+@MainActor
+final class PiPRecorder {
     
     private var frontAssetWriter: AVAssetWriter?
-    private var frontAssetWriterVideoInput: AVAssetWriterInput?
+    private var frontVideoReceiver: AVAssetWriterInput.PixelBufferReceiver?
     
     private var backAssetWriter: AVAssetWriter?
-    private var backAssetWriterVideoInput: AVAssetWriterInput?
+    private var backVideoReceiver: AVAssetWriterInput.SampleBufferReceiver?
     
-    private var assetWriterAudioInput: AVAssetWriterInput?
+    private var audioReceiver: AVAssetWriterInput.SampleBufferReceiver?
     
     private let frontVideoSettings: [String: Any] = [AVVideoCodecKey : AVVideoCodecType.hevcWithAlpha,
                                                      AVVideoWidthKey : 480,
@@ -35,12 +50,12 @@ actor PiPRecorder {
     private var backVideoSettings: [String: Any]?
     private var audioSettings: [String: Any]?
     
-    let pixelBufferAttributes: [String: Any] = [kCVPixelBufferPixelFormatTypeKey: kCVPixelFormatType_32BGRA,
-                                                          kCVPixelBufferWidthKey: 480,
-                                                         kCVPixelBufferHeightKey: 480,
-                                             kCVPixelBufferMetalCompatibilityKey: true] as [String: Any]
+    private let pixelBufferAttributes = CVPixelBufferCreationAttributes(
+        pixelFormatType: CVPixelFormatType(rawValue: kCVPixelFormatType_32BGRA),
+        size: CVImageSize(width: 480, height: 480),
+        compatibility: [.metalTexture]
+    )
     
-    private var pixelBufferAdaptor: AVAssetWriterInputPixelBufferAdaptor?
     private let ciContext = CIContext()
 
     private var isReadyToRecord: Bool = false
@@ -56,11 +71,11 @@ actor PiPRecorder {
     
     // MARK: - PUBLIC
     
-    func initialize(backVideoSettings: [String: Any]?, audioSettings: [String: Any]?) {
+    func initialize(settings: PiPAssetWriterSettings) {
         self.reset()
-        
-        self.backVideoSettings = backVideoSettings
-        self.audioSettings = audioSettings
+
+        self.backVideoSettings = settings.backVideo
+        self.audioSettings = settings.audio
         self.initializeFront()
         self.initializeBack()
         self.initializeAudio()
@@ -70,36 +85,38 @@ actor PiPRecorder {
     
     // MARK: - RECORDING
     
-    func startRecording(with sampleBuffer: CMSampleBuffer,
+    func startRecording(sample: consuming SynchronousPiPRecorderSample,
                         isVideoOutput: Bool,
-                        isFrontVideoOutput: Bool, 
-                        ciImage: CIImage?) {
+                        isFrontVideoOutput: Bool,
+                        image: CIImage?) {
         guard self.isReadyToRecord else { return }
-        
+
+        let readySampleBuffer = CMReadySampleBuffer(unsafeBuffer: sample.buffer)
+
         if isVideoOutput {
             if isFrontVideoOutput {
-                self.recordFrontVideo(sampleBuffer: sampleBuffer, ciImage: ciImage)
+                self.recordFrontVideo(at: readySampleBuffer.presentationTimeStamp, image: image)
             } else {
-                self.recordBackVideo(sampleBuffer: sampleBuffer)
+                self.recordBackVideo(sampleBuffer: readySampleBuffer)
             }
         } else {
-            self.recordAudio(sampleBuffer: sampleBuffer)
+            self.recordAudio(sampleBuffer: readySampleBuffer)
         }
     }
-    
-    private func recordFrontVideo(sampleBuffer: CMSampleBuffer, ciImage: CIImage?) {
+
+    private func recordFrontVideo(at presentationTime: CMTime, image: CIImage?) {
         guard self.isReadyToRecord, let assetWriter = self.frontAssetWriter else { return }
-        
+
         if assetWriter.status == .unknown {
-            self.startTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
-            self.startWritingSession(with: assetWriter, startTime: self.startTime!)
-            self.handleFrontInput(from: sampleBuffer, image: ciImage)
+            self.startTime = presentationTime
+            self.startWritingSession(with: assetWriter, startTime: presentationTime)
+            self.handleFrontInput(at: presentationTime, image: image)
         } else if assetWriter.status == .writing {
-            self.handleFrontInput(from: sampleBuffer, image: ciImage)
+            self.handleFrontInput(at: presentationTime, image: image)
         }
     }
-    
-    private func recordBackVideo(sampleBuffer: CMSampleBuffer) {
+
+    private func recordBackVideo(sampleBuffer: CMReadySampleBuffer<CMSampleBuffer.DynamicContent>) {
         guard self.isReadyToRecord, let assetWriter = self.backAssetWriter else { return }
         
         if assetWriter.status == .unknown {
@@ -112,7 +129,7 @@ actor PiPRecorder {
         }
     }
     
-    private func recordAudio(sampleBuffer: CMSampleBuffer) {
+    private func recordAudio(sampleBuffer: CMReadySampleBuffer<CMSampleBuffer.DynamicContent>) {
         guard self.isReadyToRecord,
                 let assetWriter = self.frontAssetWriter,
                 self.hasWrittenFirstFrontVideoFrame else { return }
@@ -162,11 +179,10 @@ actor PiPRecorder {
         FileManager.clearTmpDirectory()
         self.stopRecordingTask = nil
         self.frontAssetWriter = nil
-        self.frontAssetWriterVideoInput = nil
+        self.frontVideoReceiver = nil
         self.backAssetWriter = nil
-        self.backAssetWriterVideoInput = nil
-        self.assetWriterAudioInput = nil
-        self.pixelBufferAdaptor = nil
+        self.backVideoReceiver = nil
+        self.audioReceiver = nil
         self.isReadyToRecord = false
         self.startTime = nil
         self.hasWrittenFirstFrontVideoFrame = false
@@ -189,18 +205,13 @@ actor PiPRecorder {
         // Add a video input
         let assetWriterVideoInput = AVAssetWriterInput(mediaType: .video,
                                                        outputSettings: self.frontVideoSettings)
-        assetWriterVideoInput.expectsMediaDataInRealTime = true
         assetWriterVideoInput.mediaTimeScale = CMTimeScale(bitPattern: 600)
-        if assetWriter.canAdd(assetWriterVideoInput) {
-            assetWriter.add(assetWriterVideoInput)
-        }
         
         self.frontAssetWriter = assetWriter
-        self.frontAssetWriterVideoInput = assetWriterVideoInput
-        
-        self.pixelBufferAdaptor
-        = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: assetWriterVideoInput,
-                                               sourcePixelBufferAttributes: self.pixelBufferAttributes)
+        self.frontVideoReceiver = assetWriter.inputPixelBufferReceiver(
+            for: assetWriterVideoInput,
+            pixelBufferAttributes: self.pixelBufferAttributes
+        )
     }
     
     private func initializeBack() {
@@ -214,47 +225,40 @@ actor PiPRecorder {
               let settings = self.backVideoSettings else {
             return
         }
-                
+
         // Add a video input
         let assetWriterVideoInput = AVAssetWriterInput(mediaType: .video, outputSettings: settings)
-        assetWriterVideoInput.expectsMediaDataInRealTime = true
-        if assetWriter.canAdd(assetWriterVideoInput) {
-            assetWriter.add(assetWriterVideoInput)
-        }
-        
+
         self.backAssetWriter = assetWriter
-        self.backAssetWriterVideoInput = assetWriterVideoInput
+        self.backVideoReceiver = assetWriter.inputReceiver(for: assetWriterVideoInput)
     }
     
     private func initializeAudio() {
         guard let settings = self.audioSettings,
               let frontAssetWriter = self.frontAssetWriter,
-              self.assetWriterAudioInput.isNil else {
+              self.audioReceiver.isNil else {
             return
         }
 
         // Add an audio input
         let assetWriterAudioInput = AVAssetWriterInput(mediaType: .audio, outputSettings: settings)
-        assetWriterAudioInput.expectsMediaDataInRealTime = true
-        if frontAssetWriter.canAdd(assetWriterAudioInput) {
-            frontAssetWriter.add(assetWriterAudioInput)
-        }
-
-        self.assetWriterAudioInput = assetWriterAudioInput
+        self.audioReceiver = frontAssetWriter.inputReceiver(for: assetWriterAudioInput)
     }
     
     private func startWritingSession(with writer: AVAssetWriter,
                                      startTime: CMTime) {
-        writer.startWriting()
-        writer.startSession(atSourceTime: startTime)
+        do {
+            try writer.start()
+            writer.startSession(atSourceTime: startTime)
+        } catch {
+            logError(error)
+        }
     }
     
     // MARK: - HANDLE SAMPLE BUFFERS
     
-    private func handleFrontInput(from sampleBuffer: CMSampleBuffer, image: CIImage?) {
-        let currentTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
-        guard let input = self.frontAssetWriterVideoInput,
-              input.isReadyForMoreMediaData,
+    private func handleFrontInput(at currentTime: CMTime, image: CIImage?) {
+        guard let receiver = self.frontVideoReceiver,
               let currentImage = image,
               self.shouldAppend(currentTime, after: self.lastFrontVideoTime) else { return }
         
@@ -277,31 +281,44 @@ actor PiPRecorder {
         guard let pixelBuffer else { return }
         self.ciContext.render(adjustedImage, to: pixelBuffer)
 
-        if self.pixelBufferAdaptor?.append(pixelBuffer, withPresentationTime: currentTime) == true {
-            self.lastFrontVideoTime = currentTime
-            self.hasWrittenFirstFrontVideoFrame = true
+        do {
+            let readOnlyPixelBuffer = CVReadOnlyPixelBuffer(unsafeBuffer: pixelBuffer)
+            if try receiver.appendImmediately(readOnlyPixelBuffer, with: currentTime) {
+                self.lastFrontVideoTime = currentTime
+                self.hasWrittenFirstFrontVideoFrame = true
+            }
+        } catch {
+            logError(error)
         }
     }
     
-    private func handleBackInput(from sampleBuffer: CMSampleBuffer) {
-        let currentTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
-        guard let input = self.backAssetWriterVideoInput,
-              input.isReadyForMoreMediaData,
+    private func handleBackInput(from sampleBuffer: CMReadySampleBuffer<CMSampleBuffer.DynamicContent>) {
+        let currentTime = sampleBuffer.presentationTimeStamp
+        guard let receiver = self.backVideoReceiver,
               self.hasWrittenFirstFrontVideoFrame,
               self.shouldAppend(currentTime, after: self.lastBackVideoTime) else { return }
-        if input.append(sampleBuffer) {
-            self.lastBackVideoTime = currentTime
+
+        do {
+            if try receiver.appendImmediately(sampleBuffer) {
+                self.lastBackVideoTime = currentTime
+            }
+        } catch {
+            logError(error)
         }
     }
     
-    private func handleAudioInput(from sampleBuffer: CMSampleBuffer) {
-        let currentTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
-        guard let input = self.assetWriterAudioInput,
-              input.isReadyForMoreMediaData,
+    private func handleAudioInput(from sampleBuffer: CMReadySampleBuffer<CMSampleBuffer.DynamicContent>) {
+        let currentTime = sampleBuffer.presentationTimeStamp
+        guard let receiver = self.audioReceiver,
               self.hasWrittenFirstFrontVideoFrame,
               self.shouldAppend(currentTime, after: self.lastAudioTime) else { return }
-        if input.append(sampleBuffer) {
-            self.lastAudioTime = currentTime
+
+        do {
+            if try receiver.appendImmediately(sampleBuffer) {
+                self.lastAudioTime = currentTime
+            }
+        } catch {
+            logError(error)
         }
     }
 
@@ -321,8 +338,8 @@ actor PiPRecorder {
         }
 
         if writer.status == .writing {
-            self.frontAssetWriterVideoInput?.markAsFinished()
-            self.assetWriterAudioInput?.markAsFinished()
+            self.frontVideoReceiver?.finish()
+            self.audioReceiver?.finish()
             await writer.finishWriting()
             return writer.outputURL
         } else {
@@ -336,7 +353,7 @@ actor PiPRecorder {
         }
 
         if writer.status == .writing {
-            self.backAssetWriterVideoInput?.markAsFinished()
+            self.backVideoReceiver?.finish()
             await writer.finishWriting()
             return writer.outputURL
         } else {
@@ -354,16 +371,19 @@ actor PiPRecorder {
         let urlAsset = AVURLAsset(url: inputURL, options: nil)
         
         let outputFileName = NSUUID().uuidString + "preview"
-        let outputURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(outputFileName).appendingPathExtension("mov")
+        let outputURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(outputFileName).appendingPathExtension("mp4")
         
         guard let exportSession = AVAssetExportSession(asset: urlAsset,
                                                        presetName: AVAssetExportPresetLowQuality) else {
             return nil
         }
         
-        exportSession.outputURL = outputURL
-        exportSession.outputFileType = .mp4
-        await exportSession.export()
-        return outputURL
+        do {
+            try await exportSession.export(to: outputURL, as: .mp4)
+            return outputURL
+        } catch {
+            logError(error)
+            return nil
+        }
     }
 }

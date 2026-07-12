@@ -10,7 +10,8 @@ import Foundation
 import CoreLocation
 import Combine
 
-class LocationManager: NSObject, CLLocationManagerDelegate {
+@MainActor
+final class LocationManager: NSObject, CLLocationManagerDelegate {
     
     static let shared = LocationManager()
     private let manager = CLLocationManager()

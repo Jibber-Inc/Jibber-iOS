@@ -9,6 +9,7 @@
 import Combine
 import Foundation
 import MessagingContracts
+import ParseCore
 
 class ConversationSelectionViewController: DiffableCollectionViewController<ConversationSelectionDataSource.SectionType,
                                            ConversationSelectionDataSource.ItemType,

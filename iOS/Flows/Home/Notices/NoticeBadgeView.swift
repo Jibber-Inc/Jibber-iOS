@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import Combine
 import ScrollCounter
 
 class NoticeBadgeView: BadgeCounterView {

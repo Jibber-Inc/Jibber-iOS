@@ -64,7 +64,7 @@ enum FocusStatus: String {
     }
 }
 
-final class User: PFUser {
+final class User: PFUser, @unchecked Sendable {
 
     var phoneNumber: String? {
         get { return self.getObject(for: .phoneNumber) }
@@ -116,6 +116,7 @@ final class User: PFUser {
     }
     
     #if IOS
+    @MainActor
     var isConnection: Bool {
         return PeopleStore.shared.connectedPeople.contains { type in
             return type.personId == self.personId

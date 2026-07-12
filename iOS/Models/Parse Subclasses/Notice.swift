@@ -16,7 +16,7 @@ enum NoticeKey: String {
     case body
 }
 
-final class Notice: PFObject, PFSubclassing {
+final class Notice: PFObject, PFSubclassing, @unchecked Sendable {
 
     enum NoticeType: String {
         case timeSensitiveMessage = "ALERT_MESSAGE"

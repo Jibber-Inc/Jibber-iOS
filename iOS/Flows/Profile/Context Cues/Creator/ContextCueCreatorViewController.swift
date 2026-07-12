@@ -10,6 +10,7 @@ import Foundation
 import Combine
 import Localization
 import KeyboardManager
+import ParseCore
 
 class ContextCueCreatorViewController: EmojiPickerViewController {
             

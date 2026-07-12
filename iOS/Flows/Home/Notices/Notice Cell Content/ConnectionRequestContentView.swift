@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import ParseCore
 
 class ConnectionRequestContentView: NoticeDetailContentView {
     

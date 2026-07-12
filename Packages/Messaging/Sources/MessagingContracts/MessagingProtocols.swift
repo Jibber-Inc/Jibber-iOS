@@ -5,7 +5,7 @@
 
 import Foundation
 
-public struct MessagingAuthSession: Codable, Hashable {
+public struct MessagingAuthSession: Codable, Hashable, Sendable {
     public var userID: MessagingUserID
     public var sessionToken: String
 
@@ -26,7 +26,7 @@ public protocol MessagingSessionActivating {
     func activateMessagingSession(_ session: MessagingAuthSession) async throws -> MessagingUserID
 }
 
-public enum MessagingMutation: Codable, Hashable {
+public enum MessagingMutation: Codable, Hashable, Sendable {
     case send(draft: MessagingMessageDraft, authorID: MessagingUserID)
     case setConversationTitle(
         conversationID: MessagingConversationID,
@@ -117,7 +117,7 @@ public enum MessagingMutation: Codable, Hashable {
     }
 }
 
-public enum MessagingMutationResult: Codable, Hashable {
+public enum MessagingMutationResult: Codable, Hashable, Sendable {
     case message(MessagingMessageSnapshot)
     case conversation(MessagingConversationSnapshot)
     case member(MessagingMemberSnapshot)
@@ -166,7 +166,7 @@ public protocol MessagingMembershipRepository {
     ) async throws -> [MessagingMemberSnapshot]
 }
 
-public enum MessagingRealtimeEvent: Hashable {
+public enum MessagingRealtimeEvent: Hashable, Sendable {
     case connected
     case disconnected(errorDescription: String?)
     /// The current user's membership set changed. Refresh the conversation
@@ -225,14 +225,14 @@ public protocol MessagingCache: AnyObject {
     func removeAllMessagingData() throws
 }
 
-public enum MessagingOutboxState: String, Codable, CaseIterable, Hashable {
+public enum MessagingOutboxState: String, Codable, CaseIterable, Hashable, Sendable {
     case queued
     case inFlight
     case retryScheduled
     case blocked
 }
 
-public struct MessagingOutboxEntry: Codable, Hashable, Identifiable {
+public struct MessagingOutboxEntry: Codable, Hashable, Identifiable, Sendable {
     public var id: String
     public var idempotencyKey: String
     public var conversationID: MessagingConversationID
@@ -311,7 +311,7 @@ public protocol MessagingClock {
     var now: Date { get }
 }
 
-public struct SystemMessagingClock: MessagingClock {
+public struct SystemMessagingClock: MessagingClock, Sendable {
     public init() {}
     public var now: Date { Date() }
 }

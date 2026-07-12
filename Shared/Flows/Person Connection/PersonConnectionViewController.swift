@@ -7,7 +7,9 @@
 //
 
 import Foundation
+import Coordinator
 import Localization
+import Combine
 
 class PersonConnectionViewController: ViewController {
     

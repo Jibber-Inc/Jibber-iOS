@@ -11,7 +11,13 @@ import Foundation
 class MemberCellLayoutAttributes: UICollectionViewLayoutAttributes {
 
     /// If true, the cell is centered on the screen.
-    var isCentered = false
+    var isCentered = false {
+        didSet { self.equalityIsCentered = self.isCentered }
+    }
+
+    // NSObject's equality requirement is nonisolated even though UIKit layout attributes are main-thread state.
+    // Mirror only the scalar value needed by isEqual instead of exposing the UI property across actors.
+    nonisolated(unsafe) private var equalityIsCentered = false
 
     override func copy(with zone: NSZone? = nil) -> Any {
         let copy = super.copy(with: zone) as! MemberCellLayoutAttributes
@@ -23,7 +29,7 @@ class MemberCellLayoutAttributes: UICollectionViewLayoutAttributes {
         guard let layoutAttributes = object as? MemberCellLayoutAttributes else { return false }
 
         return super.isEqual(object)
-        && layoutAttributes.isCentered == self.isCentered
+        && layoutAttributes.equalityIsCentered == self.equalityIsCentered
     }
 }
 

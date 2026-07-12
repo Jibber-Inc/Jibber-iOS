@@ -12,6 +12,7 @@ import Photos
 import Localization
 import Lightbox
 import Coordinator
+import KeyboardManager
 
 protocol SwipeableInputControllerHandler where Self: ViewController {
     var messageContentDelegate: MessageContentDelegate? { get set }
@@ -218,6 +219,8 @@ class InputHandlerCoordinator<Result>: PresentableCoordinator<Result>,
     
     // https://developer.apple.com/documentation/photokit/selecting_photos_and_videos_in_ios
     nonisolated func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+        let identifiers = results.compactMap(\.assetIdentifier)
+
         Task.onMainActorAsync {
             self.inputHandlerViewController.dismiss(animated: true) {
                 self.inputHandlerViewController.becomeResponder()
@@ -225,11 +228,7 @@ class InputHandlerCoordinator<Result>: PresentableCoordinator<Result>,
             
             let text = self.inputHandlerViewController.swipeableVC.swipeInputView.textView.text ?? ""
             
-            let indentifiers = results.compactMap({ asset in
-                return asset.assetIdentifier
-            })
-            
-            let result = PHAsset.fetchAssets(withLocalIdentifiers: indentifiers, options: nil)
+            let result = PHAsset.fetchAssets(withLocalIdentifiers: identifiers, options: nil)
             var attachments: [Attachment] = []
             
             guard result.count > 0 else { return }

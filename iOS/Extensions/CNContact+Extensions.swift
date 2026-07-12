@@ -101,6 +101,7 @@ extension CNContact: PersonType {
         return self.findBestPhoneNumberString()
     }
 
+    @MainActor
     var image: UIImage? {
         return self.imageWith(text: self.initials)
     }
@@ -110,6 +111,7 @@ extension CNContact: PersonType {
     }
 
     /// Returns an image with the provided text baked into it.
+    @MainActor
     private func imageWith(text: String) -> UIImage? {
         let label = UILabel(frame: CGRect(x: 0, y: 0, width: 200, height: 200))
         label.text = text

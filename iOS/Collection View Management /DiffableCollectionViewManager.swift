@@ -7,9 +7,11 @@
 //
 
 import Foundation
+import Combine
+import Lottie
 
-class DiffableCollectionViewManager<SectionType: Hashable,
-                                    ItemType: Hashable,
+class DiffableCollectionViewManager<SectionType: Hashable & Sendable,
+                                    ItemType: Hashable & Sendable,
                                     DataSource: CollectionViewDataSource<SectionType, ItemType>>:
                                         NSObject, UICollectionViewDelegate {
 

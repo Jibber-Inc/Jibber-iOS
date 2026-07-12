@@ -7,6 +7,8 @@
 //
 
 import Foundation
+import Combine
+import ParseCore
 
 class MemberCell: CollectionViewManagerCell, ManageableCell {
 

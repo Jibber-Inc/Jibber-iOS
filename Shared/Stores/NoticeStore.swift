@@ -12,7 +12,20 @@ import ParseCore
 import JibberParseLiveQuery
 import Localization
 
-class NoticeStore {
+/// Carries one legacy Parse object from the LiveQuery callback to the main actor.
+private struct NoticeLiveQueryTransfer: @unchecked Sendable {
+    enum Change: Sendable {
+        case added
+        case updated
+        case removed
+    }
+
+    let change: Change
+    let notice: Notice
+}
+
+@MainActor
+final class NoticeStore {
 
     static let shared = NoticeStore()
     
@@ -29,6 +42,34 @@ class NoticeStore {
     }
 
     private var initializeTask: Task<Void, Error>?
+
+    private lazy var liveQueryRelay = OrderedMainActorEventRelay<NoticeLiveQueryTransfer> { [weak self] transfer in
+        guard let self else { return }
+
+        switch transfer.change {
+        case .added:
+            if !self.__notices.contains(where: { existing in
+                existing.notice?.objectId == transfer.notice.objectId
+            }) {
+                self.__notices.append(SystemNotice(with: transfer.notice))
+            }
+
+        case .updated:
+            if let first = self.__notices.first(where: { existing in
+                existing.notice?.objectId == transfer.notice.objectId
+            }) {
+                self.__notices.remove(object: first)
+            }
+            self.__notices.append(SystemNotice(with: transfer.notice))
+
+        case .removed:
+            if let first = self.__notices.first(where: { existing in
+                existing.notice?.objectId == transfer.notice.objectId
+            }) {
+                self.__notices.remove(object: first)
+            }
+        }
+    }
 
     func initializeIfNeeded() async throws {
         // If we already have an initialization task, wait for it to finish.
@@ -90,40 +131,25 @@ class NoticeStore {
         // Query for all notices related to the user.
         let query = Notice.query()!
         let subscription = Client.shared.subscribe(query)
-        subscription.handleEvent { query, event in
+        let liveQueryRelay = self.liveQueryRelay
+        subscription.handleEvent { _, event in
+            let transfer: NoticeLiveQueryTransfer
+
             switch event {
             case .entered(let object), .created(let object):
-                // When a new notice is made, add to the notices array.
-                guard let notice = object as? Notice else { break }
-                
-                if !self.__notices.contains(where: { existing in
-                    return existing.notice?.objectId == notice.objectId
-                }) {
-                    self.__notices.append(SystemNotice(with: notice))
-                }
+                guard let notice = object as? Notice else { return }
+                transfer = NoticeLiveQueryTransfer(change: .added, notice: notice)
 
             case .updated(let object):
-                // When a notice is updated, we update the corresponding notice.
-                guard let notice = object as? Notice else { break }
-                
-                if let first = self.__notices.first(where: { existing in
-                    return existing.notice?.objectId == notice.objectId
-                }) {
-                    self.__notices.remove(object: first)
-                }
-                
-                self.__notices.append(SystemNotice(with: notice))
+                guard let notice = object as? Notice else { return }
+                transfer = NoticeLiveQueryTransfer(change: .updated, notice: notice)
 
             case .left(let object), .deleted(let object):
-                // Remove notices when they are deleted.
-                guard let notice = object as? Notice else { break }
-
-                if let first = self.__notices.first(where: { existing in
-                    return existing.notice?.objectId == notice.objectId
-                }) {
-                    self.__notices.remove(object: first)
-                }
+                guard let notice = object as? Notice else { return }
+                transfer = NoticeLiveQueryTransfer(change: .removed, notice: notice)
             }
+
+            liveQueryRelay.send(transfer)
         }
     }
 }

@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct LocalizedString: Localized {
+public struct LocalizedString: Localized, Sendable {
 
     public var identifier: String
     public var arguments: [Localized]

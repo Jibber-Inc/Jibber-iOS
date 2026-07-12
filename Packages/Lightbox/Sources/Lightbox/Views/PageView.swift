@@ -115,8 +115,11 @@ class PageView: UIScrollView {
   // MARK: - Fetch
   private func fetchImage () {
     loadingIndicator.alpha = 1
-    self.image.addImageTo(imageView) { [weak self] image in
-      guard let self = self else {
+    let requestedImage = self.image
+    requestedImage.addImageTo(imageView) { [weak self, weak requestedImage] image in
+      guard let self,
+            let requestedImage,
+            self.image === requestedImage else {
         return
       }
 

@@ -15,7 +15,7 @@ enum EventLogKey: String {
     case payload = "payload"
 }
 
-final class EventLog: PFObject, PFSubclassing {
+final class EventLog: PFObject, PFSubclassing, @unchecked Sendable {
 
     static func parseClassName() -> String {
         return String(describing: self)

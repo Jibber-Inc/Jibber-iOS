@@ -7,6 +7,8 @@
 //
 
 import AVFoundation
+import Combine
+import CoreVideo
 import Vision
 import MetalKit
 import CoreImage.CIFilterBuiltins
@@ -14,8 +16,106 @@ import Lottie
 import Localization
 import VideoToolbox
 
+private nonisolated struct FaceCaptureFrame: Sendable {
+    let generation: UUID
+    let image: CIImage
+    let faceDetected: Bool
+    let presentationTime: CMTime
+}
+
+/// Processes capture buffers synchronously on the serial queue supplied by
+/// `PhotoVideoCaptureSession`, then publishes only immutable frame results to the main actor.
+private nonisolated final class FaceCaptureFrameProcessor: NSObject,
+                                                           AVCaptureVideoDataOutputSampleBufferDelegate,
+                                                           @unchecked Sendable {
+
+    private let generation: UUID
+    private let orientation: CGImagePropertyOrientation
+    private let segmentationRequest = VNGeneratePersonSegmentationRequest()
+    private let sequenceHandler = VNSequenceRequestHandler()
+    private let context = CIContext()
+    private let didProcess: @MainActor @Sendable (FaceCaptureFrame) -> Void
+
+    init(generation: UUID,
+         orientation: CGImagePropertyOrientation,
+         didProcess: @escaping @MainActor @Sendable (FaceCaptureFrame) -> Void) {
+        self.generation = generation
+        self.orientation = orientation
+        self.didProcess = didProcess
+    }
+
+    func captureOutput(_ output: AVCaptureOutput,
+                       didOutput sampleBuffer: CMSampleBuffer,
+                       from connection: AVCaptureConnection) {
+        guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+
+        let faceRequest = VNDetectFaceLandmarksRequest()
+
+        do {
+            try self.sequenceHandler.perform([faceRequest, self.segmentationRequest],
+                                             on: imageBuffer,
+                                             orientation: self.orientation)
+
+            guard let maskPixelBuffer = self.segmentationRequest.results?.first?.pixelBuffer,
+                  let blendedImage = self.blend(original: imageBuffer,
+                                                mask: maskPixelBuffer),
+                  let renderedImage = self.context.createCGImage(blendedImage,
+                                                                 from: blendedImage.extent) else { return }
+
+            // Rendering to a CGImage eagerly detaches the result from AVFoundation's pooled
+            // source and Vision mask pixel buffers before the frame crosses executors.
+            let detachedImage = CIImage(cgImage: renderedImage).transformed(
+                by: .init(translationX: blendedImage.extent.origin.x,
+                          y: blendedImage.extent.origin.y)
+            )
+
+            let frame = FaceCaptureFrame(
+                generation: self.generation,
+                image: detachedImage,
+                faceDetected: !(faceRequest.results?.isEmpty ?? true),
+                presentationTime: CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+            )
+            let didProcess = self.didProcess
+
+            // This FIFO dispatch preserves capture-frame order while crossing to UI isolation.
+            DispatchQueue.main.async { @MainActor in
+                didProcess(frame)
+            }
+        } catch {
+            debugPrint("Face capture frame processing failed:", error)
+        }
+    }
+
+    /// Makes the image black and white, and makes the background clear.
+    private func blend(original framePixelBuffer: CVPixelBuffer,
+                       mask maskPixelBuffer: CVPixelBuffer) -> CIImage? {
+        let color = CIColor(red: 0, green: 0, blue: 0, alpha: 0)
+
+        let originalImage = CIImage(cvPixelBuffer: framePixelBuffer).oriented(self.orientation)
+        var maskImage = CIImage(cvPixelBuffer: maskPixelBuffer)
+
+        let scaleX = originalImage.extent.width / maskImage.extent.width
+        let scaleY = originalImage.extent.height / maskImage.extent.height
+        maskImage = maskImage.transformed(by: .init(scaleX: scaleX, y: scaleY))
+
+        let solidColor = CIImage(color: color).cropped(to: maskImage.extent)
+        let filter = CIFilter(name: "CIPhotoEffectNoir")
+        filter?.setValue(originalImage, forKey: "inputImage")
+
+        guard let blackAndWhiteImage = filter?.outputImage else { return nil }
+
+        let blendFilter = CIFilter.blendWithRedMask()
+        blendFilter.inputImage = blackAndWhiteImage
+        blendFilter.backgroundImage = solidColor
+        blendFilter.maskImage = maskImage
+
+        return blendFilter.outputImage?.oriented(.leftMirrored)
+    }
+}
+
 /// A view controller that allows a user to capture an image of their face.
 /// A live preview of the camera is shown on the main view.
+@MainActor
 class FaceCaptureViewController: ViewController {
 
     enum VideoCaptureState {
@@ -57,24 +157,22 @@ class FaceCaptureViewController: ViewController {
     let orientation: CGImagePropertyOrientation = .left
 
     lazy var faceCaptureSession = PhotoVideoCaptureSession()
-
-    /// A request to separate a person from the background in an image.
-    private var segmentationRequest = VNGeneratePersonSegmentationRequest()
-    private var sequenceHandler = VNSequenceRequestHandler()
+    private var frameProcessor: FaceCaptureFrameProcessor?
+    private var captureGeneration = UUID()
     
     let animationView = LottieAnimationView.with(animation: .faceScan)
     let label = ThemeLabel(font: .medium, textColor: .white)
     
-    deinit {
-        if self.isSessionRunning {
-            self.stopSession()
-        }
+    isolated deinit {
+        self.stopSession()
     }
 
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        self.faceCaptureSession.avCaptureDelegate = self
+        self.faceCaptureSession.didCapturePhoto = { [weak self] in
+            self?.captureCurrentImageAsPhoto()
+        }
         
         self.view.addSubview(self.cameraViewContainer)
         self.cameraViewContainer.addSubview(self.cameraView)
@@ -146,14 +244,27 @@ class FaceCaptureViewController: ViewController {
 
     /// Starts the face capture session so that we can display the photo preview and capture a photo/video.
     func beginSession() {
-        guard !self.isSessionRunning else { return }
+        guard !self.faceCaptureSession.isActive else { return }
+
+        let captureGeneration = UUID()
+        let frameProcessor = FaceCaptureFrameProcessor(
+            generation: captureGeneration,
+            orientation: self.orientation
+        ) { [weak self] frame in
+            self?.process(frame)
+        }
+        self.captureGeneration = captureGeneration
+        self.frameProcessor = frameProcessor
+        self.faceCaptureSession.avCaptureDelegate = frameProcessor
         self.faceCaptureSession.begin()
     }
     
     /// Stops the face capture session.
     func stopSession() {
-        guard self.isSessionRunning else { return }
+        self.captureGeneration = UUID()
+        self.faceCaptureSession.avCaptureDelegate = nil
         self.faceCaptureSession.stop()
+        self.frameProcessor = nil
         self.currentCIImage = nil
     }
 
@@ -175,9 +286,12 @@ class FaceCaptureViewController: ViewController {
 
     // MARK: - AVAssetWriter Vars
 
+    private static let encodedVideoDimension = 480
+
     private var videoWriter: AVAssetWriter?
-    private var videoWriterInput: AVAssetWriterInput?
-    private var pixelBufferAdaptor: AVAssetWriterInputPixelBufferAdaptor?
+    private var pixelBufferReceiver: AVAssetWriterInput.PixelBufferReceiver?
+    private var hasStartedAssetWriterSession = false
+    private let videoWriterContext = CIContext()
 
     func startVideoCapture() {
         guard self.videoCaptureState == .idle else { return }
@@ -196,32 +310,13 @@ class FaceCaptureViewController: ViewController {
     }
 }
 
-extension FaceCaptureViewController: AVCaptureVideoDataOutputSampleBufferDelegate {
+extension FaceCaptureViewController {
 
-    func captureOutput(_ output: AVCaptureOutput,
-                       didOutput sampleBuffer: CMSampleBuffer,
-                       from connection: AVCaptureConnection) {
+    private func process(_ frame: FaceCaptureFrame) {
+        guard frame.generation == self.captureGeneration else { return }
 
-        guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
-
-        let detectFaceRequest = VNDetectFaceLandmarksRequest(completionHandler: self.detectedFace)
-
-        do {
-            try self.sequenceHandler.perform([detectFaceRequest, self.segmentationRequest],
-                                             on: imageBuffer,
-                                             orientation: self.orientation)
-
-            // Get the pixel buffer that contains the mask image.
-            guard let maskPixelBuffer
-                    = self.segmentationRequest.results?.first?.pixelBuffer else { return }
-            // Process the images.
-            let blendedImage = self.blend(original: imageBuffer, mask: maskPixelBuffer)
-
-            // Set the new, blended image as current.
-            self.currentCIImage = blendedImage
-        } catch {
-            logError(error)
-        }
+        self.faceDetected = frame.faceDetected
+        self.currentCIImage = frame.image
 
         switch self.videoCaptureState {
         case .idle:
@@ -229,55 +324,22 @@ extension FaceCaptureViewController: AVCaptureVideoDataOutputSampleBufferDelegat
             break
         case .starting:
             // Initialize the AVAsset writer to prepare for capture
-            self.startAssetWriter()
-            self.videoCaptureState = .started
+            self.videoCaptureState = self.startAssetWriter() ? .started : .idle
         case .started:
-            // Wait for the input to be ready before starting the session
-            guard let input = self.videoWriterInput, input.isReadyForMoreMediaData else { break }
-            self.startSession(with: sampleBuffer)
-            self.writeSampleToFile(sampleBuffer)
+            guard self.startSession(at: frame.presentationTime),
+                  self.writeSampleToFile(frame.image,
+                                         presentationTime: frame.presentationTime) else { break }
             self.videoCaptureState = .capturing
         case .capturing:
-            self.writeSampleToFile(sampleBuffer)
+            _ = self.writeSampleToFile(frame.image,
+                                       presentationTime: frame.presentationTime)
         case .ending:
             self.finishWritingVideo()
             self.videoCaptureState = .idle
         }
     }
 
-    /// Makes the image black and white, and makes the background clear.
-    func blend(original framePixelBuffer: CVPixelBuffer, mask maskPixelBuffer: CVPixelBuffer) -> CIImage? {
-        // Make the background clear.
-        let color = CIColor(color: UIColor.clear)
-
-        // Create CIImage objects for the video frame and the segmentation mask.
-        let originalImage = CIImage(cvPixelBuffer: framePixelBuffer).oriented(self.orientation)
-        var maskImage = CIImage(cvPixelBuffer: maskPixelBuffer)
-
-        // Scale the mask image to fit the bounds of the video frame.
-        let scaleX = originalImage.extent.width / maskImage.extent.width
-        let scaleY = originalImage.extent.height / maskImage.extent.height
-        maskImage = maskImage.transformed(by: .init(scaleX: scaleX, y: scaleY))
-
-        let solidColor = CIImage(color: color).cropped(to: maskImage.extent)
-
-        // List of all filters: https://developer.apple.com/library/archive/documentation/GraphicsImaging/Reference/CoreImageFilterReference/
-
-        let filter = CIFilter(name: "CIPhotoEffectNoir")
-        filter?.setValue(originalImage, forKey: "inputImage")
-
-        guard let bwImage = filter?.outputImage else { return nil }
-
-        // Blend the original, background, and mask images.
-        let blendFilter = CIFilter.blendWithRedMask()
-        blendFilter.inputImage = bwImage
-        blendFilter.backgroundImage = solidColor
-        blendFilter.maskImage = maskImage
-
-        return blendFilter.outputImage?.oriented(.leftMirrored)
-    }
-
-    private func startAssetWriter() {
+    private func startAssetWriter() -> Bool {
         do {
             // Get a url to temporarily store the video
             let uuid = UUID().uuidString
@@ -287,105 +349,132 @@ extension FaceCaptureViewController: AVCaptureVideoDataOutputSampleBufferDelegat
             // Create an asset writer that will write the video to the url
             self.videoWriter = try AVAssetWriter(outputURL: url, fileType: .mov)
             let settings: [String : Any] = [AVVideoCodecKey : AVVideoCodecType.hevcWithAlpha,
-                                            AVVideoWidthKey : 480,
-                                           AVVideoHeightKey : 480,
+                                            AVVideoWidthKey : Self.encodedVideoDimension,
+                                           AVVideoHeightKey : Self.encodedVideoDimension,
                             AVVideoCompressionPropertiesKey : [AVVideoQualityKey : 0.5,
                                  kVTCompressionPropertyKey_TargetQualityForAlpha : 0.5]
             ]
 
-            self.videoWriterInput = AVAssetWriterInput(mediaType: AVMediaType.video,
-                                                       outputSettings: settings)
+            let input = AVAssetWriterInput(mediaType: AVMediaType.video,
+                                           outputSettings: settings)
 
-            self.videoWriterInput?.mediaTimeScale = CMTimeScale(bitPattern: 600)
-            self.videoWriterInput?.expectsMediaDataInRealTime = true
+            input.mediaTimeScale = CMTimeScale(bitPattern: 600)
 
-            let pixelBufferAttributes = [
-                kCVPixelBufferPixelFormatTypeKey: kCVPixelFormatType_32BGRA,
-                kCVPixelBufferWidthKey: 480,
-                kCVPixelBufferHeightKey: 480,
-                kCVPixelBufferMetalCompatibilityKey: true] as [String: Any]
+            let pixelBufferAttributes = CVPixelBufferCreationAttributes(
+                pixelFormatType: CVPixelFormatType(rawValue: kCVPixelFormatType_32BGRA),
+                size: CVImageSize(width: Self.encodedVideoDimension,
+                                  height: Self.encodedVideoDimension),
+                compatibility: [.metalTexture]
+            )
             
-            guard let writer = self.videoWriter, let input = self.videoWriterInput else { return }
+            guard let writer = self.videoWriter else { return false }
 
-            self.pixelBufferAdaptor
-            = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: input,
-                                                   sourcePixelBufferAttributes: pixelBufferAttributes)
-
-            if writer.canAdd(input) {
-                writer.add(input)
-            }
-
-            writer.startWriting()
+            self.pixelBufferReceiver = writer.inputPixelBufferReceiver(
+                for: input,
+                pixelBufferAttributes: pixelBufferAttributes
+            )
+            try writer.start()
+            self.hasStartedAssetWriterSession = false
+            return true
         } catch {
             logError(error)
+            self.pixelBufferReceiver = nil
+            self.videoWriter = nil
+            self.hasStartedAssetWriterSession = false
+            return false
         }
     }
 
-    private func startSession(with sampleBuffer: CMSampleBuffer) {
-        let startTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
-        self.videoWriter?.startSession(atSourceTime: startTime)
+    private func startSession(at presentationTime: CMTime) -> Bool {
+        guard let videoWriter = self.videoWriter,
+              videoWriter.status == .writing else { return false }
+
+        guard !self.hasStartedAssetWriterSession else { return true }
+
+        videoWriter.startSession(atSourceTime: presentationTime)
+        self.hasStartedAssetWriterSession = true
+        return true
     }
 
-    private func writeSampleToFile(_ sampleBuffer: CMSampleBuffer) {
-        guard let input = self.videoWriterInput,
-                input.isReadyForMoreMediaData,
-                let currentImage = self.currentCIImage else { return }
+    private func writeSampleToFile(_ currentImage: CIImage,
+                                   presentationTime: CMTime) -> Bool {
+        guard let receiver = self.pixelBufferReceiver else { return false }
 
         var pixelBuffer: CVPixelBuffer?
         let attrs = [kCVPixelBufferCGImageCompatibilityKey : kCFBooleanTrue,
-                     kCVPixelBufferCGBitmapContextCompatibilityKey : kCFBooleanTrue] as CFDictionary
-        let width = Int(currentImage.extent.width)
-        let height = Int(currentImage.extent.width)
+                     kCVPixelBufferCGBitmapContextCompatibilityKey : kCFBooleanTrue,
+                     kCVPixelBufferMetalCompatibilityKey : kCFBooleanTrue] as CFDictionary
+        let dimension = Self.encodedVideoDimension
 
-        CVPixelBufferCreate(kCFAllocatorDefault,
-                            width,
-                            height,
-                            kCVPixelFormatType_32BGRA,
-                            attrs,
-                            &pixelBuffer)
+        let result = CVPixelBufferCreate(kCFAllocatorDefault,
+                                         dimension,
+                                         dimension,
+                                         kCVPixelFormatType_32BGRA,
+                                         attrs,
+                                         &pixelBuffer)
+        guard result == kCVReturnSuccess, let pixelBuffer else { return false }
 
-        let context = CIContext()
-        // Using a magic number (-240) for now. We should figure out the appropriate offset dynamically.
-        let transform = CGAffineTransform(translationX: 0, y: -240)
-        let adjustedImage = currentImage.transformed(by: transform)
-        context.render(adjustedImage, to: pixelBuffer!)
+        let sourceExtent = currentImage.extent
+        guard !sourceExtent.isEmpty else { return false }
 
-        let currentTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer).seconds
-        let presentationTime = CMTime(seconds: currentTime,
-                                      preferredTimescale: CMTimeScale(bitPattern: 600))
+        let outputDimension = CGFloat(dimension)
+        let outputBounds = CGRect(x: 0,
+                                  y: 0,
+                                  width: outputDimension,
+                                  height: outputDimension)
+        let normalizedImage = currentImage.transformed(
+            by: .init(translationX: -sourceExtent.minX,
+                      y: -sourceExtent.minY)
+        )
+        let scale = max(outputDimension / sourceExtent.width,
+                        outputDimension / sourceExtent.height)
+        let scaledImage = normalizedImage.transformed(by: .init(scaleX: scale, y: scale))
+        let centeredImage = scaledImage.transformed(
+            by: .init(translationX: (outputDimension - scaledImage.extent.width) * 0.5,
+                      y: (outputDimension - scaledImage.extent.height) * 0.5)
+        ).cropped(to: outputBounds)
 
-        self.pixelBufferAdaptor?.append(pixelBuffer!, withPresentationTime: presentationTime)
+        self.videoWriterContext.render(centeredImage,
+                                       to: pixelBuffer,
+                                       bounds: outputBounds,
+                                       colorSpace: CGColorSpaceCreateDeviceRGB())
+
+        let normalizedPresentationTime = CMTime(seconds: presentationTime.seconds,
+                                                preferredTimescale: CMTimeScale(bitPattern: 600))
+
+        do {
+            let readOnlyPixelBuffer = CVReadOnlyPixelBuffer(unsafeBuffer: pixelBuffer)
+            return try receiver.appendImmediately(readOnlyPixelBuffer,
+                                                  with: normalizedPresentationTime)
+        } catch {
+            logError(error)
+            return false
+        }
     }
 
     private func finishWritingVideo() {
-        self.videoWriterInput?.markAsFinished()
-        guard let videoURL = self.videoWriter?.outputURL else { return }
-        self.videoWriter?.finishWriting { [unowned self] in
-            self.didCaptureVideo?(videoURL)
-        }
-    }
-
-    private func detectedFace(request: VNRequest, error: Error?) {
-        guard let results = request.results as? [VNFaceObservation], let _ = results.first else {
-            self.faceDetected = false
+        self.pixelBufferReceiver?.finish()
+        guard let writer = self.videoWriter else {
+            self.pixelBufferReceiver = nil
+            self.hasStartedAssetWriterSession = false
             return
         }
 
-        self.faceDetected = true
+        let videoURL = writer.outputURL
+        self.pixelBufferReceiver = nil
+        self.videoWriter = nil
+        self.hasStartedAssetWriterSession = false
+
+        writer.finishWriting { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.didCaptureVideo?(videoURL)
+            }
+        }
     }
+
 }
 
-extension FaceCaptureViewController: AVCapturePhotoCaptureDelegate {
-
-    func photoOutput(_ output: AVCapturePhotoOutput,
-                     didFinishProcessingPhoto photo: AVCapturePhoto,
-                     error: Error?) {
-
-        guard let connection = output.connection(with: .video) else { return }
-        connection.automaticallyAdjustsVideoMirroring = true
-
-        self.captureCurrentImageAsPhoto()
-    }
+extension FaceCaptureViewController {
 
     func captureCurrentImageAsPhoto() {
         guard let ciImage = self.currentCIImage else { return }

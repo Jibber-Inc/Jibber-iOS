@@ -1,14 +1,32 @@
 import UIKit
 import AVKit
 import AVFoundation
-import Imaginary
+import Foundation
 
 public class LightboxConfig {
+  public typealias VideoHandler = @MainActor (UIViewController, URL) -> Void
+  public typealias ImageLoader = @MainActor (UIImageView, URL, ((UIImage?) -> Void)?) -> Void
+  public typealias LoadingIndicatorFactory = @MainActor () -> UIView
+
+  private static let imageCache = NSCache<NSURL, UIImage>()
+  private static let imageRequestIDs = NSMapTable<UIImageView, NSUUID>.weakToStrongObjects()
+
+  @discardableResult
+  static func beginImageRequest(for imageView: UIImageView) -> UUID {
+    let requestID = UUID()
+    imageRequestIDs.setObject(requestID as NSUUID, forKey: imageView)
+    return requestID
+  }
+
+  static func isCurrentImageRequest(_ requestID: UUID, for imageView: UIImageView) -> Bool {
+    imageRequestIDs.object(forKey: imageView) == requestID as NSUUID
+  }
+
   /// Whether to show status bar while Lightbox is presented
   public static var hideStatusBar = true
 
   /// Provide a closure to handle selected video
-  public static var handleVideo: (_ from: UIViewController, _ videoURL: URL) -> Void = { from, videoURL in
+  public static var handleVideo: VideoHandler = { from, videoURL in
     let videoController = AVPlayerViewController()
     videoController.player = AVPlayer(url: videoURL)
 
@@ -18,21 +36,40 @@ public class LightboxConfig {
   }
 
   /// How to load image onto UIImageView
-  public static var loadImage: (UIImageView, URL, ((UIImage?) -> Void)?) -> Void = { (imageView, imageURL, completion) in
+  public static var loadImage: ImageLoader = { imageView, imageURL, completion in
+    let requestID = imageRequestIDs.object(forKey: imageView) as UUID?
+      ?? beginImageRequest(for: imageView)
 
-    // Use Imaginary by default
-    imageView.setImage(url: imageURL, placeholder: nil, completion: { result in
-      switch result {
-      case .value(let image):
+    if let image = imageCache.object(forKey: imageURL as NSURL) {
+      guard isCurrentImageRequest(requestID, for: imageView) else { return }
+      imageView.image = image
+      completion?(image)
+      return
+    }
+
+    Task { @MainActor [weak imageView] in
+      do {
+        let request = URLRequest(url: imageURL, cachePolicy: .returnCacheDataElseLoad)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let imageView,
+              isCurrentImageRequest(requestID, for: imageView),
+              (response as? HTTPURLResponse)?.statusCode ?? 200 < 400,
+              let image = UIImage(data: data) else {
+          completion?(nil)
+          return
+        }
+
+        imageCache.setObject(image, forKey: imageURL as NSURL)
+        imageView.image = image
         completion?(image)
-      case .error:
+      } catch {
         completion?(nil)
       }
-    })
+    }
   }
 
   /// Indicator is used to show while image is being fetched
-  public static var makeLoadingIndicator: () -> UIView = {
+  public static var makeLoadingIndicator: LoadingIndicatorFactory = {
     return LoadingIndicator()
   }
 

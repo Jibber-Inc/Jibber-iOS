@@ -7,7 +7,7 @@
 //
 
 import Foundation
-import PhoneNumberKit
+import PhoneNumberKitUI
 import UIKit
 
 class PhoneTextField: PhoneNumberTextField {

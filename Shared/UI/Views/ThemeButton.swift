@@ -22,6 +22,7 @@ enum ButtonStyle {
     case custom(color: ThemeColor, textColor: ThemeColor, text: Localized)
 }
 
+@MainActor
 class ThemeButton: UIButton, Statusable {
 
     let alphaOutAnimator = UIViewPropertyAnimator(duration: Theme.animationDurationStandard,
@@ -49,10 +50,14 @@ class ThemeButton: UIButton, Statusable {
         super.init(coder: coder)
     }
     
-    override func awakeFromNib() {
+    nonisolated override func awakeFromNib() {
         super.awakeFromNib()
-        
-        self.initializeSubviews()
+
+        // UIKit's Objective-C declaration is not actor-annotated even though
+        // nib-backed controls are awakened on the main thread.
+        MainActor.assumeIsolated {
+            self.initializeSubviews()
+        }
     }
 
     func initializeSubviews() {

@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import Coordinator
 import Combine
 
 class PersonPreviewViewController: ViewController {

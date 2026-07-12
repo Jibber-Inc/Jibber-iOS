@@ -8,6 +8,7 @@
 
 import Foundation
 import QuartzCore
+import UIKit
 
 class GradientLayer: CAGradientLayer {
 

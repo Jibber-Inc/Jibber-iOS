@@ -20,7 +20,7 @@ extension String {
     }
 
     func formatPhoneNumber() -> String? {
-        return try? PhoneKit.shared.parse(self, withRegion: PhoneKit.formatter.currentRegion).numberString
+        return try? PhoneKit.shared.parse(self, withRegion: PhoneKit.defaultRegion).numberString
     }
 
     func removeAllNonNumbers() -> String {

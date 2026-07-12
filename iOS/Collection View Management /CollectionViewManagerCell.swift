@@ -10,6 +10,7 @@ import Foundation
 import Combine
 import UIKit
 
+@MainActor
 struct ManageableCellRegistration<Cell: UICollectionViewCell & ManageableCell> {
     let provider = UICollectionView.CellRegistration<Cell, Cell.ItemType> { (cell, indexPath, model)  in
         cell.configure(with: model)
@@ -18,23 +19,28 @@ struct ManageableCellRegistration<Cell: UICollectionViewCell & ManageableCell> {
     }
 }
 
+@MainActor
 struct ManageableFooterRegistration<Footer: UICollectionReusableView> {
     let provider = UICollectionView.SupplementaryRegistration<Footer>(elementKind: UICollectionView.elementKindSectionFooter) { footerView, elementKind, indexPath in }
 }
 
+@MainActor
 struct ManageableHeaderRegistration<Header: UICollectionReusableView> {
     let provider = UICollectionView.SupplementaryRegistration<Header>(elementKind: UICollectionView.elementKindSectionHeader) { headerView, elementKind, indexPath in }
 }
 
+@MainActor
 protocol ElementKind {
     static var kind: String { get set }
 }
 
+@MainActor
 struct ManageableSupplementaryViewRegistration<View: UICollectionReusableView & ElementKind> {
     let provider = UICollectionView.SupplementaryRegistration<View>(elementKind: View.kind) { headerView, elementKind, indexPath in }
 }
 
 /// A base class that other cells managed by a CollectionViewManager can inherit from.
+@MainActor
 class CollectionViewManagerCell: UICollectionViewListCell {
 
     var cancellables = Set<AnyCancellable>()
@@ -65,7 +71,7 @@ class CollectionViewManagerCell: UICollectionViewListCell {
 
     override func updateConfiguration(using state: UICellConfigurationState) {
         // Get the system default background configuration for a plain style list cell in the current state.
-        var backgroundConfig = UIBackgroundConfiguration.listPlainCell().updated(for: state)
+        var backgroundConfig = UIBackgroundConfiguration.listCell().updated(for: state)
 
         // Customize the background color to be clear, no matter the state.
         backgroundConfig.backgroundColor = ThemeColor.clear.color

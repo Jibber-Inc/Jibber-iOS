@@ -12,8 +12,37 @@ import ParseCore
 import JibberParseLiveQuery
 import Contacts
 
+/// Carries one legacy Parse object from a LiveQuery callback to the main actor.
+private struct ConnectionLiveQueryTransfer: @unchecked Sendable {
+    enum Change: Sendable {
+        case added
+        case updated
+        case removed
+    }
+
+    let change: Change
+    let connection: Connection
+}
+
+/// Carries one legacy Parse object from a LiveQuery callback to the main actor.
+private struct ReservationLiveQueryTransfer: @unchecked Sendable {
+    enum Change: Sendable {
+        case upserted
+        case removed
+    }
+
+    let change: Change
+    let reservation: Reservation
+}
+
+/// Carries one legacy Parse object from a LiveQuery callback to the main actor.
+private struct UserLiveQueryTransfer: @unchecked Sendable {
+    let user: User
+}
+
 /// A store that contains all people that the user has some relationship with. This could take the form of a directly connected Jibber chat user
 /// or it could just be another person that has been invited but not yet joined Jibber.
+@MainActor
 class PeopleStore {
 
     static let shared = PeopleStore()
@@ -83,6 +112,65 @@ class PeopleStore {
     private(set) var allConnections: [Connection] = []
 
     private var initializeTask: Task<Void, Error>?
+
+    private lazy var connectionEventRelay = OrderedMainActorEventRelay<ConnectionLiveQueryTransfer> { [weak self] transfer in
+        guard let self,
+              let nonMeUser = transfer.connection.nonMeUser else { return }
+
+        switch transfer.change {
+        case .added:
+            if !self.allConnections.contains(where: { existing in
+                existing.objectId == transfer.connection.objectId
+            }) {
+                self.allConnections.append(transfer.connection)
+            }
+            self.personAdded = nonMeUser
+            self.usersDictionary[nonMeUser.personId] = nonMeUser
+
+        case .updated:
+            self.personUpdated = nonMeUser
+            if let first = self.allConnections.first(where: { existing in
+                existing.objectId == transfer.connection.objectId
+            }) {
+                self.allConnections.remove(object: first)
+            }
+            self.allConnections.append(transfer.connection)
+            self.usersDictionary[nonMeUser.personId] = nonMeUser
+
+        case .removed:
+            self.allConnections.remove(object: transfer.connection)
+            self.usersDictionary[nonMeUser.personId] = nil
+            self.personDeleted = nonMeUser
+        }
+    }
+
+    private lazy var reservationEventRelay = OrderedMainActorEventRelay<ReservationLiveQueryTransfer> { [weak self] transfer in
+        guard let self,
+              let reservationId = transfer.reservation.objectId else { return }
+
+        switch transfer.change {
+        case .upserted:
+            self.unclaimedReservations[reservationId] = transfer.reservation
+            guard let contactId = transfer.reservation.contactId,
+                  ContactsManager.shared.hasPermissions,
+                  let contact = ContactsManager.shared.searchForContact(with: .identifier(contactId)).first else {
+                return
+            }
+            self.contactsDictionary[contactId] = contact
+
+        case .removed:
+            self.unclaimedReservations[reservationId] = nil
+            guard let contactId = transfer.reservation.contactId else { return }
+            self.contactsDictionary[contactId] = nil
+            guard let contact = ContactsManager.shared
+                .searchForContact(with: .identifier(contactId)).first else { return }
+            self.personDeleted = contact
+        }
+    }
+
+    private lazy var userEventRelay = OrderedMainActorEventRelay<UserLiveQueryTransfer> { [weak self] transfer in
+        self?.personUpdated = transfer.user
+    }
 
     func initializeIfNeeded() async throws {
         // If we already have an initialization task, wait for it to finish.
@@ -187,81 +275,45 @@ class PeopleStore {
         let fromQuery = Connection.query()!.whereKey("from", equalTo: User.current()!)
         let orQuery = PFQuery.orQuery(withSubqueries: [toQuery, fromQuery])
         let connectionSubscription = Client.shared.subscribe(orQuery)
-        connectionSubscription.handleEvent { query, event in
+        let connectionEventRelay = self.connectionEventRelay
+        connectionSubscription.handleEvent { _, event in
+            let transfer: ConnectionLiveQueryTransfer
+
             switch event {
             case .entered(let object), .created(let object):
-                // When a new connection is made, add the connected user to the array.
-                guard let connection = object as? Connection,
-                      let nonMeUser = connection.nonMeUser else { break }
-                
-                if !self.allConnections.contains(where: { existing in
-                    return existing.objectId == connection.objectId
-                }) {
-                    self.allConnections.append(connection)
-                }
+                guard let connection = object as? Connection else { return }
+                transfer = ConnectionLiveQueryTransfer(change: .added, connection: connection)
 
-                self.personAdded = nonMeUser
-                self.usersDictionary[nonMeUser.personId] = nonMeUser
             case .updated(let object):
-                // When a connection is updated, we update the corresponding user.
-                guard let connection = object as? Connection,
-                      let nonMeUser = connection.nonMeUser else { break }
-                self.personUpdated = nonMeUser
-                
-                if let first = self.allConnections.first(where: { existing in
-                    return existing.objectId == connection.objectId
-                }) {
-                    self.allConnections.remove(object: first)
-                }
-                
-                self.allConnections.append(connection)
+                guard let connection = object as? Connection else { return }
+                transfer = ConnectionLiveQueryTransfer(change: .updated, connection: connection)
 
-                self.usersDictionary[nonMeUser.personId] = nonMeUser
             case .left(let object), .deleted(let object):
-                // Remove users when their connections are deleted.
-                guard let connection = object as? Connection,
-                      let nonMeUser = connection.nonMeUser else { break }
-
-                self.allConnections.remove(object: connection)
-                
-                self.usersDictionary[nonMeUser.personId] = nil
-                self.personDeleted = nonMeUser
+                guard let connection = object as? Connection else { return }
+                transfer = ConnectionLiveQueryTransfer(change: .removed, connection: connection)
             }
+
+            connectionEventRelay.send(transfer)
         }
 
         // Observe changes to all unclaimed reservations that the user owns.
         let reservationQuery = Reservation.allUnclaimedQuery()
         let reservationSubscription = Client.shared.subscribe(reservationQuery)
-        reservationSubscription.handleEvent { query, event in
+        let reservationEventRelay = self.reservationEventRelay
+        reservationSubscription.handleEvent { _, event in
+            let transfer: ReservationLiveQueryTransfer
+
             switch event {
             case .entered(let object), .created(let object), .updated(let object):
                 guard let reservation = object as? Reservation else { return }
+                transfer = ReservationLiveQueryTransfer(change: .upserted, reservation: reservation)
 
-                self.unclaimedReservations[reservation.objectId!] = reservation
-                
-                guard let contactId = reservation.contactId else { return }
-
-                guard ContactsManager.shared.hasPermissions, let contact =
-                        ContactsManager.shared.searchForContact(with: .identifier(contactId)).first else {
-                            return
-                        }
-                self.contactsDictionary[contactId] = contact
             case .left(let object), .deleted(let object):
                 guard let reservation = object as? Reservation else { return }
-
-                self.unclaimedReservations[reservation.objectId!] = nil
-
-                
-                guard let contactId = reservation.contactId else { return }
-
-                self.contactsDictionary[contactId] = nil
-
-                guard let contact =
-                        ContactsManager.shared.searchForContact(with: .identifier(contactId)).first else {
-                            return
-                        }
-                self.personDeleted = contact
+                transfer = ReservationLiveQueryTransfer(change: .removed, reservation: reservation)
             }
+
+            reservationEventRelay.send(transfer)
         }
     }
     
@@ -278,11 +330,14 @@ class PeopleStore {
         query.whereKey("objectId", containedIn: connectedUsersObjectIds)
         query.includeKey("latestContextCue")
         let subscription = Client.shared.subscribe(query)
-        subscription.handleEvent { query, event in
+        let userEventRelay = self.userEventRelay
+        subscription.handleEvent { _, event in
             switch event {
             case .updated(let object):
                 guard let user = object as? User else { return }
-                self.personUpdated = user
+                let transfer = UserLiveQueryTransfer(user: user)
+
+                userEventRelay.send(transfer)
             default:
                 break
             }

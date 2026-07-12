@@ -7,7 +7,7 @@
 
 import Foundation
 
-public protocol Localized {
+public protocol Localized: Sendable {
     var identifier: String { get }
     var arguments: [Localized] { get }
     var defaultString: String? { get }

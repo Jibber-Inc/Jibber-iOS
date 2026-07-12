@@ -6,6 +6,7 @@
 //  Copyright © 2019 Benjamin Dodgson. All rights reserved.
 //
 
+import Combine
 import Foundation
 import UIKit
 

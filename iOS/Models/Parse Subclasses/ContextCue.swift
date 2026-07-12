@@ -16,7 +16,7 @@ enum ContextCueKey: String {
     case attributes
 }
 
-final class ContextCue: PFObject, PFSubclassing {
+final class ContextCue: PFObject, PFSubclassing, @unchecked Sendable {
 
     static func parseClassName() -> String {
         return String(describing: self)

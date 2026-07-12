@@ -11,37 +11,59 @@ public func localized(_ localized: Localized) -> String {
     return LocalizedStringLibrary.shared.getLocalizedString(for: localized)
 }
 
-public struct LocalizedStringLibrary {
+public final class LocalizedStringLibrary: @unchecked Sendable {
 
-    public static var shared = LocalizedStringLibrary()
-    
-    /// Used to access IDs for strings that have just been localized
-    public var didLocalizeStringWithID: ((String)->())?
+    public static let shared = LocalizedStringLibrary()
 
-    public var library: Dictionary<String, String> {
-        didSet {
-            self.addToPlist(dictionary: self.library)
+    private let lock = NSLock()
+    private var storedDidLocalizeStringWithID: (@Sendable (String) -> Void)?
+    private var storedLibrary: [String: String]
+
+    /// Used to access IDs for strings that have just been localized.
+    public var didLocalizeStringWithID: (@Sendable (String) -> Void)? {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            return storedDidLocalizeStringWithID
+        }
+        set {
+            lock.lock()
+            storedDidLocalizeStringWithID = newValue
+            lock.unlock()
         }
     }
 
-    init() {
+    public var library: [String: String] {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            return storedLibrary
+        }
+        set {
+            lock.lock()
+            storedLibrary = newValue
+            addToPlist(dictionary: newValue)
+            lock.unlock()
+        }
+    }
+
+    private init() {
         let documentDirectory = NSSearchPathForDirectoriesInDomains(.documentDirectory, .userDomainMask, true)[0] as String
         let path = documentDirectory.appending("/localization.plist")
         if let dict = NSDictionary(contentsOfFile: path),
             let library = dict as? Dictionary<String, String> {
-            self.library = library
+            self.storedLibrary = library
         } else {
-            self.library = [:]
+            self.storedLibrary = [:]
         }
     }
 
     internal func getLocalizedString(for localized: Localized) -> String {
-        var localizedString: String
-        if let string = self.library[localized.identifier] {
-            localizedString = string
-        } else {
-            localizedString = String(optional: localized.defaultString)
-        }
+        lock.lock()
+        let localizedString = storedLibrary[localized.identifier]
+            ?? String(optional: localized.defaultString)
+        let callback = storedDidLocalizeStringWithID
+        lock.unlock()
 
         let localizedArguments = localized.arguments.map { (argument) -> String in
             return LocalizedStringLibrary.shared.getLocalizedString(for: argument)
@@ -50,7 +72,7 @@ public struct LocalizedStringLibrary {
         let mutableString = NSMutableAttributedString(string: localizedString)
         mutableString.replace(arguments: localizedArguments)
 
-        self.didLocalizeStringWithID?(localized.identifier)
+        callback?(localized.identifier)
         return mutableString.string
     }
 

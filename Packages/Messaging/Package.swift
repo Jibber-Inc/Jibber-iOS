@@ -1,11 +1,17 @@
-// swift-tools-version:5.9
+// swift-tools-version: 6.4
 
 import PackageDescription
+
+let swift6Settings: [SwiftSetting] = [
+    .enableUpcomingFeature("InferIsolatedConformances"),
+    .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
+    .enableUpcomingFeature("MemberImportVisibility")
+]
 
 let package = Package(
     name: "Messaging",
     platforms: [
-        .iOS(.v14),
+        .iOS(.v27),
         .macOS(.v12)
     ],
     products: [
@@ -19,27 +25,33 @@ let package = Package(
         ),
         .package(
             url: "https://github.com/groue/GRDB.swift.git",
-            exact: "7.10.0"
+            exact: "7.11.1"
         )
     ],
     targets: [
-        .target(name: "MessagingContracts"),
+        .target(
+            name: "MessagingContracts",
+            swiftSettings: swift6Settings
+        ),
         .target(
             name: "MessagingPersistence",
             dependencies: [
                 "MessagingContracts",
                 .product(name: "ParseSwift", package: "Parse-Swift"),
                 .product(name: "GRDB", package: "GRDB.swift")
-            ]
+            ],
+            swiftSettings: swift6Settings
         ),
         .testTarget(
             name: "MessagingContractsTests",
-            dependencies: ["MessagingContracts"]
+            dependencies: ["MessagingContracts"],
+            swiftSettings: swift6Settings
         ),
         .testTarget(
             name: "MessagingPersistenceTests",
-            dependencies: ["MessagingPersistence"]
+            dependencies: ["MessagingPersistence"],
+            swiftSettings: swift6Settings
         )
-    ]
+    ],
+    swiftLanguageModes: [.v6]
 )
-

@@ -7,11 +7,25 @@
 //
 
 import Foundation
+import MessagingContracts
 import Combine
 import ParseCore
 import JibberParseLiveQuery
 import Localization
 
+/// Carries one legacy Parse object from the LiveQuery callback to the main actor.
+private struct MomentLiveQueryTransfer: @unchecked Sendable {
+    enum Change: Sendable {
+        case added
+        case updated
+        case removed
+    }
+
+    let change: Change
+    let moment: Moment
+}
+
+@MainActor
 class MomentsStore {
 
     static let shared = MomentsStore()
@@ -32,6 +46,34 @@ class MomentsStore {
 
     private var initializeTask: Task<Void, Error>?
     private var cancellables = Set<AnyCancellable>()
+
+    private lazy var liveQueryRelay = OrderedMainActorEventRelay<MomentLiveQueryTransfer> { [weak self] transfer in
+        guard let self else { return }
+
+        switch transfer.change {
+        case .added:
+            if !self.__moments.contains(where: { existing in
+                existing.objectId == transfer.moment.objectId
+            }) {
+                self.__moments.append(transfer.moment)
+            }
+
+        case .updated:
+            if let first = self.__moments.first(where: { existing in
+                existing.objectId == transfer.moment.objectId
+            }) {
+                self.__moments.remove(object: first)
+            }
+            self.__moments.append(transfer.moment)
+
+        case .removed:
+            if let first = self.__moments.first(where: { existing in
+                existing.objectId == transfer.moment.objectId
+            }) {
+                self.__moments.remove(object: first)
+            }
+        }
+    }
     
     //MARK: PUBLIC
 
@@ -232,40 +274,25 @@ class MomentsStore {
         // Query for all of todays moments.
         let query = Moment.query()!
         let subscription = Client.shared.subscribe(query)
-        subscription.handleEvent { query, event in
+        let liveQueryRelay = self.liveQueryRelay
+        subscription.handleEvent { _, event in
+            let transfer: MomentLiveQueryTransfer
+
             switch event {
             case .entered(let object), .created(let object):
-                // When a new moment is made, add to the moments array.
-                guard let moment = object as? Moment else { break }
-                
-                if !self.__moments.contains(where: { existing in
-                    return existing.objectId == moment.objectId
-                }) {
-                    self.__moments.append(moment)
-                }
+                guard let moment = object as? Moment else { return }
+                transfer = MomentLiveQueryTransfer(change: .added, moment: moment)
 
             case .updated(let object):
-                // When a moment is updated, we update the corresponding moment.
-                guard let moment = object as? Moment else { break }
-                
-                if let first = self.__moments.first(where: { existing in
-                    return existing.objectId == moment.objectId
-                }) {
-                    self.__moments.remove(object: first)
-                }
-                
-                self.__moments.append(moment)
+                guard let moment = object as? Moment else { return }
+                transfer = MomentLiveQueryTransfer(change: .updated, moment: moment)
 
             case .left(let object), .deleted(let object):
-                // Remove moments when they are deleted.
-                guard let moment = object as? Moment else { break }
-
-                if let first = self.__moments.first(where: { existing in
-                    return existing.objectId == moment.objectId
-                }) {
-                    self.__moments.remove(object: first)
-                }
+                guard let moment = object as? Moment else { return }
+                transfer = MomentLiveQueryTransfer(change: .removed, moment: moment)
             }
+
+            liveQueryRelay.send(transfer)
         }
     }
 }

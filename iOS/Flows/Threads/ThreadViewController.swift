@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import Coordinator
 import ParseCore
 import Combine
 import KeyboardManager
@@ -330,7 +331,7 @@ extension ThreadViewController: MessageSendingViewControllerType {
         self.dataSource.set(messagesController: self.messageController)
     }
 
-    func sendMessage(_ message: Sendable) async throws {
+    func sendMessage(_ message: MessageSendable) async throws {
         try await self.messageController.createNewReply(with: message)
     }
 }

@@ -8,6 +8,8 @@
 
 import Foundation
 import AVKit
+import Coordinator
+import ParseCore
 
 class MomentViewController: ViewController {
     

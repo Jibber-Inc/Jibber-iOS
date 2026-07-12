@@ -34,6 +34,7 @@ enum OnboardingContent: Switchable {
         }
     }
 
+    @MainActor
     func getDescription(with user: User?) -> Localized? {
         switch self {
         case .welcome(_):
