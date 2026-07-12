@@ -7,6 +7,7 @@
 
 import Foundation
 import MessagingContracts
+import ParseCore
 import UIKit
 
 struct ParseConversationID: RawRepresentable, Codable, Hashable, Comparable,
@@ -39,7 +40,7 @@ struct ParseConversationID: RawRepresentable, Codable, Hashable, Comparable,
     }
 }
 
-struct ParseConversationMember: PersonType, Identifiable, Hashable {
+struct ParseConversationMember: @MainActor PersonType, Identifiable, Hashable {
     let snapshot: MessagingMemberSnapshot
 
     /// Matches Stream's member identity semantics for UI callers. Use
@@ -57,16 +58,16 @@ struct ParseConversationMember: PersonType, Identifiable, Hashable {
     var lastReadAt: Date? { self.snapshot.lastReadAt }
     var typingExpiresAt: Date? { self.snapshot.typingExpiresAt }
     var isCurrentUser: Bool { self.userID == User.current()?.objectId }
-    var person: PersonType? { ParsePeopleResolver.person(withID: self.userID) }
-    var name: String? { self.person?.fullName }
+    @MainActor var person: PersonType? { ParsePeopleResolver.person(withID: self.userID) }
+    @MainActor var name: String? { self.person?.fullName }
     var personId: String { self.userID }
-    var givenName: String { self.person?.givenName ?? "" }
-    var familyName: String { self.person?.familyName ?? "" }
-    var handle: String { self.person?.handle ?? "" }
-    var focusStatus: FocusStatus? { self.person?.focusStatus }
-    var phoneNumber: String? { self.person?.phoneNumber }
-    var updatedAt: Date? { self.person?.updatedAt }
-    var image: UIImage? { self.person?.image }
+    @MainActor var givenName: String { self.person?.givenName ?? "" }
+    @MainActor var familyName: String { self.person?.familyName ?? "" }
+    @MainActor var handle: String { self.person?.handle ?? "" }
+    @MainActor var focusStatus: FocusStatus? { self.person?.focusStatus }
+    @MainActor var phoneNumber: String? { self.person?.phoneNumber }
+    @MainActor var updatedAt: Date? { self.person?.updatedAt }
+    @MainActor var image: UIImage? { self.person?.image }
 
     func isTyping(at date: Date = Date()) -> Bool {
         self.snapshot.isTyping(at: date)
@@ -76,7 +77,7 @@ struct ParseConversationMember: PersonType, Identifiable, Hashable {
 struct ParsePinnedMessageAuthor {
     let personID: String?
 
-    var person: PersonType? {
+    @MainActor var person: PersonType? {
         self.personID.flatMap(ParsePeopleResolver.person(withID:))
     }
     var isCurrentUser: Bool { self.personID == User.current()?.objectId }
@@ -87,7 +88,7 @@ struct ParseMessagePinDetails {
     let pinnedBy: ParsePinnedMessageAuthor
 }
 
-struct ParseMessage: Messageable, Identifiable, Hashable {
+struct ParseMessage: @MainActor Messageable, Identifiable, Hashable {
     let snapshot: MessagingMessageSnapshot
     private let loadedReplies: [ParseMessage]
 
@@ -107,7 +108,7 @@ struct ParseMessage: Messageable, Identifiable, Hashable {
     var createdAt: Date { self.snapshot.sortDate }
     var authorId: String { self.snapshot.authorID }
     var isFromCurrentUser: Bool { self.authorId == User.current()?.objectId }
-    var person: PersonType? { ParsePeopleResolver.person(withID: self.authorId) }
+    @MainActor var person: PersonType? { ParsePeopleResolver.person(withID: self.authorId) }
 
     var attributes: [String: Any]? {
         guard !self.snapshot.content.attributes.isEmpty else { return nil }
@@ -135,7 +136,7 @@ struct ParseMessage: Messageable, Identifiable, Hashable {
         }
     }
 
-    var hasBeenConsumedBy: [PersonType] {
+    @MainActor var hasBeenConsumedBy: [PersonType] {
         let ids = self.snapshot.receipts
             .filter { $0.state == .read }
             .map(\.userID)
@@ -182,11 +183,11 @@ struct ParseMessage: Messageable, Identifiable, Hashable {
     var lastFailureDescription: String? { self.snapshot.lastFailureDescription }
     var totalReplyCount: Int { max(self.snapshot.replyCount ?? 0, self.loadedReplies.count) }
     var replyCount: Int { self.totalReplyCount }
-    var recentReplies: [Messageable] { self.loadedReplies }
+    @MainActor var recentReplies: [Messageable] { self.loadedReplies }
     var replies: [ParseMessage] { self.loadedReplies }
     var latestReplies: [ParseMessage] { self.loadedReplies }
 
-    var threadParticipants: [PersonType] {
+    @MainActor var threadParticipants: [PersonType] {
         ParsePeopleResolver.people(withIDs: [self.authorId] + self.loadedReplies.map(\.authorId))
     }
 
@@ -258,13 +259,14 @@ struct ParseMessage: Messageable, Identifiable, Hashable {
     }
 }
 
+@MainActor
 extension ParseMessage: MessageSequence {
     var updatedAt: Date { self.lastUpdatedAt ?? self.createdAt }
     var title: String? { nil }
     var messages: [Messageable] { self.loadedReplies }
 }
 
-struct ParseConversation: MessageSequence, Identifiable, Hashable {
+struct ParseConversation: @MainActor MessageSequence, Identifiable, Hashable {
     let snapshot: MessagingConversationSnapshot
     let members: [ParseConversationMember]
     let parseMessages: [ParseMessage]
@@ -306,9 +308,9 @@ struct ParseConversation: MessageSequence, Identifiable, Hashable {
         ["kind": self.snapshot.kind.rawValue]
     }
 
-    var messages: [Messageable] { self.parseMessages }
+    @MainActor var messages: [Messageable] { self.parseMessages }
 
-    var title: String? {
+    @MainActor var title: String? {
         if let explicitTitle = self.snapshot.title?.trimmingCharacters(in: .whitespacesAndNewlines),
            !explicitTitle.isEmpty {
             return explicitTitle
@@ -381,6 +383,7 @@ enum ParseMessagingCompatibilityError: Error, LocalizedError {
     }
 }
 
+@MainActor
 private enum ParsePeopleResolver {
     static func person(withID id: String) -> PersonType? {
         if let current = User.current(), current.objectId == id {

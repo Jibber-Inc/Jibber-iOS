@@ -25,10 +25,10 @@ class ViewController: CoordinatorViewController {
         return .lightContent
     }
 
-    deinit {
-        self.cancellables.forEach { (cancellable) in
-            cancellable.cancel()
-        }
+    isolated deinit {
+        // AnyCancellable cancels automatically on release. Tasks need explicit
+        // cancellation because a running Task can outlive its handle.
+        self.autocancelTaskPool.cancelAndRemoveAll()
     }
     
     override func viewDidLoad() {
@@ -64,4 +64,3 @@ class ViewController: CoordinatorViewController {
     /// Called when the app enters the foreground
     func willEnterForeground() {}
 }
-

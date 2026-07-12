@@ -8,17 +8,20 @@
 
 import Foundation
 
+@MainActor
 protocol MessageSendingViewControllerType: UIViewController {
     func getCurrentMessageSequence() -> MessageSequence?
     func set(messageSequencePreparingToSend: MessageSequence?)
-    func sendMessage(_ message: Sendable) async throws
+    func sendMessage(_ message: MessageSendable) async throws
 }
 
+@MainActor
 protocol MessageSendingCollectionViewType: CollectionView {
     func getMessageDropZoneFrame(convertedTo view: UIView) -> CGRect
 }
 
-class SwipeableInputAccessoryMessageSender: SwipeableInputAccessoryViewControllerDelegate {
+@MainActor
+final class SwipeableInputAccessoryMessageSender: @MainActor SwipeableInputAccessoryViewControllerDelegate {
 
     unowned let viewController: MessageSendingViewControllerType
     unowned let collectionView: MessageSendingCollectionViewType
@@ -47,11 +50,11 @@ class SwipeableInputAccessoryMessageSender: SwipeableInputAccessoryViewControlle
     }
 
     func swipeableInputAccessory(_ controller: SwipeableInputAccessoryViewController,
-                                 triggeredSendFor sendable: Sendable,
+                                 triggeredSendFor sendable: MessageSendable,
                                  withPreviewFrame frame: CGRect) async -> Bool {
 
         // Ensure that the preview has been dragged far up enough to send.
-        let dropZoneFrame = await controller.dropZoneFrame
+        let dropZoneFrame = controller.dropZoneFrame
         let shouldSend = dropZoneFrame.bottom > frame.centerY
 
         guard shouldSend else { return false }

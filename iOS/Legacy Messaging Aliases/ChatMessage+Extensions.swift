@@ -5,6 +5,7 @@
 
 import Foundation
 import MessagingContracts
+import ParseCore
 
 typealias Message = ParseMessage
 
@@ -14,6 +15,7 @@ struct ParseReadReaction {
 }
 
 extension Message {
+    @MainActor
     var readReactions: [ParseReadReaction] {
         self.snapshot.receipts.compactMap { receipt in
             guard receipt.state == .read else { return nil }

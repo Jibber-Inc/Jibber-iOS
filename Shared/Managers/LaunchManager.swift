@@ -17,6 +17,7 @@ enum LaunchActivity {
     case deepLink(DeepLinkable)
 }
 
+@MainActor
 protocol LaunchActivityHandler {
     func handle(launchActivity: LaunchActivity)
 }
@@ -27,10 +28,12 @@ enum LaunchStatus {
     case updateRequired(message: String)
 }
 
+@MainActor
 protocol LaunchManagerDelegate: AnyObject {
     func launchManager(_ manager: LaunchManager, didReceive activity: LaunchActivity)
 }
 
+@MainActor
 class LaunchManager {
     
     static let shared = LaunchManager()
@@ -134,7 +137,7 @@ extension LaunchManager {
 #if !APPCLIP && !NOTIFICATION
     func finishMessagingLaunch(for user: User, deepLink: DeepLinkable?) async -> LaunchStatus {
         if let user = User.current(), user.isAuthenticated {
-            await UserNotificationManager.shared.silentRegister(withApplication: UIApplication.shared)
+            UserNotificationManager.shared.silentRegister(withApplication: UIApplication.shared)
         }
 
         return .success(deepLink: deepLink)

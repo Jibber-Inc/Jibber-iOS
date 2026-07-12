@@ -5,11 +5,13 @@
 
 import Foundation
 import MessagingContracts
+import ParseCore
 
+@MainActor
 enum ParseMessageDraftTranslator {
 
     static func draft(
-        from sendable: Sendable,
+        from sendable: MessageSendable,
         conversationID: ParseConversationID,
         replyToMessageID: String? = nil,
         clientMessageID: String = UUID().uuidString.lowercased()
@@ -103,4 +105,3 @@ enum ParseMessageDraftTranslator {
         )
     }
 }
-

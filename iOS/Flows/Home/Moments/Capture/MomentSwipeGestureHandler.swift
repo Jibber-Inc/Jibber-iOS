@@ -8,7 +8,8 @@
 
 import Foundation
 
-class MomentSwipeGestureHandler {
+@MainActor
+final class MomentSwipeGestureHandler {
 
     unowned let viewController: MomentCaptureViewController
 

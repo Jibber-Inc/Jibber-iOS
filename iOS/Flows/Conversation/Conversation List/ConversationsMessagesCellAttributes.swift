@@ -10,7 +10,9 @@ import Foundation
 
 class ConversationsMessagesCellAttributes: UICollectionViewLayoutAttributes {
 
-    var canScroll: Bool = true
+    // UIKit may compare layout attributes from a nonisolated NSObject entry point.
+    // This value is copied before comparison and is otherwise main-thread owned.
+    nonisolated(unsafe) var canScroll: Bool = true
 
     override func copy(with zone: NSZone? = nil) -> Any {
         let copy = super.copy(with: zone) as! ConversationsMessagesCellAttributes

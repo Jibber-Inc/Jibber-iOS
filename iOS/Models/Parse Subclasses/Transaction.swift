@@ -18,7 +18,7 @@ enum TransactionKey: String {
     case achievement
 }
 
-final class Transaction: PFObject, PFSubclassing {
+final class Transaction: PFObject, PFSubclassing, @unchecked Sendable {
 
     static func parseClassName() -> String {
         return String(describing: self)
@@ -156,6 +156,7 @@ struct TransactionsCalculator {
         return total
     }
     
+    @MainActor
     func calculateInterestEarned() -> Double {
         
         guard let latestCreatedAt = AchievementsManager.shared.achievements.first(where: { achievement in

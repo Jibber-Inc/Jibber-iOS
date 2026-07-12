@@ -9,7 +9,7 @@
 import Foundation
 
 protocol OptionDisplayable {
-    var image: UIImage? { get }
+    @MainActor var image: UIImage? { get }
     var title: String { get }
     var color: ThemeColor { get }
 }

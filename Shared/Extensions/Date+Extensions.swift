@@ -10,7 +10,7 @@ import Foundation
 
 extension Date {
 
-    static var currentTimeZoneCalendar: Calendar = {
+    static let currentTimeZoneCalendar: Calendar = {
         var calendar = Calendar.current
         calendar.timeZone = TimeZone.current
         return calendar
@@ -318,4 +318,3 @@ extension Calendar {
         return numberOfDays.day!
     }
 }
-

@@ -9,7 +9,8 @@
 import Foundation
 import Lottie
 
-private var microAnimationHandlerKey: UInt = 0
+// Stable-address token used only as an Objective-C associated-object key.
+nonisolated(unsafe) private var microAnimationHandlerKey: UInt = 0
 
 extension LottieAnimationView {
 

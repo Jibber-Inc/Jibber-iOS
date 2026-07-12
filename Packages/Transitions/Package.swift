@@ -1,11 +1,17 @@
-// swift-tools-version: 5.6
-// The swift-tools-version declares the minimum version of Swift required to build this package.
+// swift-tools-version: 6.4
 
 import PackageDescription
 
+let swift6Settings: [SwiftSetting] = [
+    .defaultIsolation(MainActor.self),
+    .enableUpcomingFeature("InferIsolatedConformances"),
+    .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
+    .enableUpcomingFeature("MemberImportVisibility")
+]
+
 let package = Package(
     name: "Transitions",
-    platforms: [.iOS(.v15)],
+    platforms: [.iOS(.v27)],
     products: [
         // Products define the executables and libraries a package produces, and make them visible to other packages.
         .library(
@@ -21,9 +27,12 @@ let package = Package(
         // Targets can depend on other targets in this package, and on products in packages this package depends on.
         .target(
             name: "Transitions",
-            dependencies: []),
+            dependencies: [],
+            swiftSettings: swift6Settings),
         .testTarget(
             name: "TransitionsTests",
-            dependencies: ["Transitions"]),
-    ]
+            dependencies: ["Transitions"],
+            swiftSettings: swift6Settings),
+    ],
+    swiftLanguageModes: [.v6]
 )

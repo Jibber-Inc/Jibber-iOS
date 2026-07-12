@@ -102,8 +102,11 @@ public class KeyboardManager {
     -> CGFloat {
 
         let keyboardFrame = notification.keyboardEndFrame
-        return UIScreen.main.bounds.height - keyboardFrame.top
+        guard let window = (UIResponder.firstResponder as? UIView)?.window else {
+            return keyboardFrame.height
+        }
+        let frameInWindow = window.convert(keyboardFrame, from: nil)
+        return max(0, window.bounds.maxY - frameInWindow.minY)
     }
 }
-
 

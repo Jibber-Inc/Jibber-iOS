@@ -6,6 +6,7 @@
 //  Copyright © 2022 Benjamin Dodgson. All rights reserved.
 //
 
+import AVFoundation
 import Foundation
 import ParseCore
 import Lottie

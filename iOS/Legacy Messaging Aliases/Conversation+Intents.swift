@@ -9,6 +9,7 @@ import Intents
 typealias Conversation = ParseConversation
 typealias ConversationId = ParseConversationID
 
+@MainActor
 extension Conversation {
     var speakableGroupName: INSpeakableString? {
         guard let title, !title.isEmpty else { return nil }

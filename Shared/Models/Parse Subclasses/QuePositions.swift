@@ -16,7 +16,7 @@ enum QuePositionsKey: String {
     case claimed = "claimedPosition"
 }
 
-final class QuePositions: PFObject, PFSubclassing {
+final class QuePositions: PFObject, PFSubclassing, @unchecked Sendable {
 
     static func parseClassName() -> String {
         return String(describing: self)

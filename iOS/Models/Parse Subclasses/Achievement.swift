@@ -16,7 +16,7 @@ enum AchievementKey: String {
     case transaction
 }
 
-final class Achievement: PFObject, PFSubclassing {
+final class Achievement: PFObject, PFSubclassing, @unchecked Sendable {
 
     static func parseClassName() -> String {
         return String(describing: self)
@@ -57,4 +57,3 @@ extension Achievement: Objectable {
         return self.relation(forKey: key.rawValue) as? PFRelation
     }
 }
-

@@ -19,7 +19,7 @@ enum ReservationKey: String {
     case conversationCid
 }
 
-final class Reservation: PFObject, PFSubclassing {
+final class Reservation: PFObject, PFSubclassing, @unchecked Sendable {
     
     static func parseClassName() -> String {
         return String(describing: self)
@@ -78,8 +78,9 @@ extension Reservation: Objectable {
     }
 }
 
-private var reservationMetadataKey: UInt8 = 0
-private var linkKey: UInt8 = 0
+// Stable-address tokens used only as Objective-C associated-object keys.
+nonisolated(unsafe) private var reservationMetadataKey: UInt8 = 0
+nonisolated(unsafe) private var linkKey: UInt8 = 0
 extension Reservation: UIActivityItemSource {
 
     private(set) var metadata: LPLinkMetadata? {

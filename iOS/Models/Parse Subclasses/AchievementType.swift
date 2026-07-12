@@ -17,7 +17,7 @@ enum AchievementTypeKey: String {
     case type
 }
 
-final class AchievementType: PFObject, PFSubclassing {
+final class AchievementType: PFObject, PFSubclassing, @unchecked Sendable {
     
     enum LocalType: String {
         case sendInvite = "INVITE_SENT"

@@ -10,7 +10,13 @@ import Foundation
 import ParseCore
 import JibberParseLiveQuery
 
-class AchievementsManager {
+/// Carries one legacy Parse object from the LiveQuery callback to the main actor.
+private struct AchievementLiveQueryTransfer: @unchecked Sendable {
+    let achievement: Achievement
+}
+
+@MainActor
+final class AchievementsManager {
     
     static let shared = AchievementsManager()
     
@@ -18,6 +24,12 @@ class AchievementsManager {
     private(set) var types: [AchievementType] = []
         
     private var initializeTask: Task<Void, Error>?
+
+    private lazy var liveQueryRelay = OrderedMainActorEventRelay<AchievementLiveQueryTransfer> { [weak self] transfer in
+        guard let self else { return }
+        self.achievements.append(transfer.achievement)
+        await ToastScheduler.shared.schedule(toastType: .achievement(transfer.achievement))
+    }
     
     func initializeIfNeeded() async throws {
         
@@ -61,15 +73,13 @@ class AchievementsManager {
         
         query.includeKey("type")
         let subscription = Client.shared.subscribe(query)
-        subscription.handleEvent { query, event in
+        let liveQueryRelay = self.liveQueryRelay
+        subscription.handleEvent { _, event in
             switch event {
             case .created(let object):
                 guard let achievement = object as? Achievement else { return }
-                
-                Task {
-                    await ToastScheduler.shared.schedule(toastType: .achievement(achievement))
-                }
-                self.achievements.append(achievement)
+                let transfer = AchievementLiveQueryTransfer(achievement: achievement)
+                liveQueryRelay.send(transfer)
             default:
                 break
             }

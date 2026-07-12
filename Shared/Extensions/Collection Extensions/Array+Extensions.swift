@@ -100,6 +100,7 @@ extension Array where Element: Hashable {
     }
 }
 
+@MainActor
 extension Array where Element: UIView {
 
     mutating func append(_ newElement: Element, toSuperview superview: UIView) {

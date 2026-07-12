@@ -9,6 +9,7 @@
 import Combine
 import Foundation
 import MessagingContracts
+import ParseCore
 
 class ProfileViewController: DiffableCollectionViewController<ProfileDataSource.SectionType,
                              ProfileDataSource.ItemType,

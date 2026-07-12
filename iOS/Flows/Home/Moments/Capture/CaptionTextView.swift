@@ -12,6 +12,31 @@ import Speech
 import Combine
 import UIKit
 
+/// A value-only representation of Speech framework output that can safely
+/// cross from its callback queue to the main actor.
+struct SpeechTranscriptionSnapshot: Sendable {
+    struct Segment: Sendable {
+        let location: Int
+        let length: Int
+
+        var range: NSRange {
+            NSRange(location: self.location, length: self.length)
+        }
+    }
+
+    let formattedString: String
+    let segments: [Segment]
+
+    init(result: SFSpeechRecognitionResult) {
+        let transcription = result.bestTranscription
+        self.formattedString = transcription.formattedString
+        self.segments = transcription.segments.map { segment in
+            Segment(location: segment.substringRange.location,
+                    length: segment.substringRange.length)
+        }
+    }
+}
+
 class CaptionTextView: TextView {
     
     var cancellables = Set<AnyCancellable>()
@@ -24,12 +49,6 @@ class CaptionTextView: TextView {
     
     required init?(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
-    }
-    
-    deinit {
-        self.cancellables.forEach { (cancellable) in
-            cancellable.cancel()
-        }
     }
     
     override func initializeViews() {
@@ -164,21 +183,20 @@ class CaptionTextView: TextView {
         await self.animationTask?.value
     }
     
-    func animateSpeech(result: SFSpeechRecognitionResult?) {
+    func animateSpeech(snapshot: SpeechTranscriptionSnapshot?) {
 
-        if let result = result {
+        if let snapshot {
             self.animationTask?.cancel()
             self.setTextColor(.clear)
             self.alpha = 0
             
-            self.setText(result.bestTranscription.formattedString)
-                    
-            Task {
-                async let fadeIn: () = UIView.awaitAnimation(with: .fast, animations: {
+            self.setText(snapshot.formattedString)
+
+            Task { @MainActor in
+                UIView.animate(withDuration: Theme.animationDurationFast) {
                     self.alpha = 1.0
-                })
-                async let textAnimation: () = self.startAnimation(with: result.bestTranscription.segments)
-                let _: [()] = await [fadeIn, textAnimation]
+                }
+                await self.startAnimation(with: snapshot.segments)
             }
         } else {
             UIView.animate(withDuration: Theme.animationDurationFast) {
@@ -187,7 +205,7 @@ class CaptionTextView: TextView {
         }
     }
     
-    func startAnimation(with segments: [SFTranscriptionSegment]) async {
+    func startAnimation(with segments: [SpeechTranscriptionSnapshot.Segment]) async {
         self.animationTask?.cancel()
 
         self.animationTask = Task {
@@ -205,7 +223,7 @@ class CaptionTextView: TextView {
                     let alpha = lerp(CGFloat(i)/CGFloat(keyPoints.count), keyPoints: keyPoints)
                     updatedText.addAttribute(.foregroundColor,
                                              value: ThemeColor.white.color.withAlphaComponent(alpha),
-                                             range: nextSegment.substringRange)
+                                             range: nextSegment.range)
 
                 }
 
@@ -236,4 +254,3 @@ extension CaptionTextView: UITextViewDelegate {
         return true
     }
 }
-

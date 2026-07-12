@@ -212,9 +212,7 @@ extension OnboardingCoordinator: OnboardingViewControllerDelegate {
 
 extension OnboardingCoordinator: LaunchActivityHandler {
     
-    nonisolated func handle(launchActivity: LaunchActivity) {
-        Task.onMainActor {
-            self.onboardingVC.handle(launchActivity: launchActivity)
-        }
+    func handle(launchActivity: LaunchActivity) {
+        self.onboardingVC.handle(launchActivity: launchActivity)
     }
 }

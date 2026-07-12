@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import Transitions
 import UIKit 
 
 protocol MessageInteractableController where Self: DismissInteractableController {

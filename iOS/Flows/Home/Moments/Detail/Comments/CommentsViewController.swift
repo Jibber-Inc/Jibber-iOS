@@ -8,6 +8,9 @@
 
 import Foundation
 import Combine
+import Coordinator
+import KeyboardManager
+import Lottie
 import PhotosUI
 import Transitions
 
@@ -356,7 +359,7 @@ extension CommentsViewController: MessageSendingViewControllerType {
         self.dataSource.set(conversationPreparingToSend: messageSequencePreparingToSend?.id)
     }
 
-    func sendMessage(_ message: Sendable) async throws {
+    func sendMessage(_ message: MessageSendable) async throws {
         guard let conversationController = self.getCurrentConversationController() else { return }
         _ = try await conversationController.createNewMessage(with: message)
     }

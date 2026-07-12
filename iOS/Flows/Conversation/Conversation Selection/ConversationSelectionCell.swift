@@ -8,6 +8,7 @@
 
 import Combine
 import Foundation
+import ParseCore
 
 class ConversationSelectionCell: CollectionViewManagerCell, ManageableCell {
     
@@ -110,7 +111,7 @@ class ConversationSelectionCell: CollectionViewManagerCell, ManageableCell {
     
     override func updateConfiguration(using state: UICellConfigurationState) {
         // Get the system default background configuration for a plain style list cell in the current state.
-        var backgroundConfig = UIBackgroundConfiguration.listPlainCell().updated(for: state)
+        var backgroundConfig = UIBackgroundConfiguration.listCell().updated(for: state)
 
         // Customize the background color to be clear, no matter the state.
         backgroundConfig.backgroundColor = ThemeColor.clear.color

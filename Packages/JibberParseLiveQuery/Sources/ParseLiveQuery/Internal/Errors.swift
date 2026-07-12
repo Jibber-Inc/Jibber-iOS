@@ -30,7 +30,7 @@ public struct LiveQueryErrors {
     /**
      An error that is reported when the server returns valid JSON, but it doesn't match the format we expect.
      */
-    public struct InvalidJSONError: Error {
+    public struct InvalidJSONError: Error, @unchecked Sendable {
         /// JSON used for matching.
         public let json: [String:AnyObject]
         /// Key that was expected to match.
@@ -40,7 +40,7 @@ public struct LiveQueryErrors {
     /**
      An error that is reported when the server returns valid JSON, but it doesn't match the format we expect.
      */
-    public struct InvalidJSONObject: Error {
+    public struct InvalidJSONObject: Error, @unchecked Sendable {
         /// JSON used for matching.
         public let json: [String:AnyObject]
         /// Details about the error

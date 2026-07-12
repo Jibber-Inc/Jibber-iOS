@@ -77,10 +77,14 @@ class SwipeableInputAccessoryView: BaseView {
         self.addSubview(self.unreadMessagesCounter)
     }
     
-    override func awakeFromNib() {
+    nonisolated override func awakeFromNib() {
         super.awakeFromNib()
-        
-        self.doneButton.set(style: .custom(color: .white, textColor: .B0, text: "Done"))
+
+        // UIKit awakens nib-backed views on the main thread, though the
+        // Objective-C lifecycle entry point itself is not actor annotated.
+        MainActor.assumeIsolated {
+            self.doneButton.set(style: .custom(color: .white, textColor: .B0, text: "Done"))
+        }
     }
 
     override func layoutSubviews() {

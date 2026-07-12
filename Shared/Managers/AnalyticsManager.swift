@@ -8,7 +8,8 @@
 
 import Foundation
 
-class AnalyticsManager {
+@MainActor
+final class AnalyticsManager {
     
     static let shared = AnalyticsManager()
     

@@ -14,7 +14,7 @@ enum ConnectionPreferenceKey: String {
     case bio = "bio"
 }
 
-final class ConnectionPreference: PFObject, PFSubclassing {
+final class ConnectionPreference: PFObject, PFSubclassing, @unchecked Sendable {
 
     static func parseClassName() -> String {
         return String(describing: self)

@@ -10,22 +10,14 @@ import Foundation
 import UIKit
 
 extension UIScreen {
-    static var currentSize: ScreenSize {
-        return ScreenSize.current
+    var currentSize: ScreenSize {
+        return ScreenSize.closest(to: self.diagonalDistance)
     }
 
-    private static var cachedDistance: CGFloat?
-
     var diagonalDistance: CGFloat {
-        if let distance = UIScreen.cachedDistance {
-            return distance
-        }
-
         let width: CGFloat = self.bounds.width
         let height: CGFloat = self.bounds.height
-        let diagonal = sqrt(width * width + height * height)
-        UIScreen.cachedDistance = diagonal
-        return diagonal
+        return sqrt(width * width + height * height)
     }
 
     func isEqualTo(screenSize: ScreenSize) -> Bool {

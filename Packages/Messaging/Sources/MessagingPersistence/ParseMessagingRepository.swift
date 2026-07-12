@@ -584,12 +584,12 @@ public final class ParseMessagingRepository:
 
 // MARK: Cloud function payloads
 
-private struct GetCapabilitiesCall: ParseCloudable {
+private struct GetCapabilitiesCall: ParseCloudable, Sendable {
     typealias ReturnType = MessagingCapabilities
     var functionJobName: String { get { "messagingGetCapabilities" } set {} }
 }
 
-private struct CreateConversationCall: ParseCloudable {
+private struct CreateConversationCall: ParseCloudable, Sendable {
     typealias ReturnType = MessagingParseConversation
     var functionJobName: String { get { "messagingCreateConversation" } set {} }
     let memberIds: [MessagingUserID]
@@ -599,7 +599,7 @@ private struct CreateConversationCall: ParseCloudable {
     let contextKey: String?
 }
 
-private struct SendMessageCall: ParseCloudable {
+private struct SendMessageCall: ParseCloudable, Sendable {
     typealias ReturnType = MessagingParseMessage
     var functionJobName: String { get { "messagingSendMessage" } set {} }
     let conversationId: MessagingConversationID
@@ -629,21 +629,21 @@ private struct SendMessageCall: ParseCloudable {
     }
 }
 
-private struct RecoverMessageCall: ParseCloudable {
+private struct RecoverMessageCall: ParseCloudable, Sendable {
     typealias ReturnType = MessagingParseMessage?
     var functionJobName: String { get { "messagingGetMessageByClientId" } set {} }
     let conversationId: MessagingConversationID
     let clientMessageId: String
 }
 
-private struct AddReactionCall: ParseCloudable {
+private struct AddReactionCall: ParseCloudable, Sendable {
     typealias ReturnType = MessagingParseReaction
     var functionJobName: String { get { "messagingAddReaction" } set {} }
     let messageId: MessagingMessageID
     let type: String
 }
 
-private struct SetConversationHiddenCall: ParseCloudable {
+private struct SetConversationHiddenCall: ParseCloudable, Sendable {
     typealias ReturnType = MessagingParseConversationMember
     var functionJobName: String { get { "messagingSetConversationHidden" } set {} }
     let conversationId: MessagingConversationID

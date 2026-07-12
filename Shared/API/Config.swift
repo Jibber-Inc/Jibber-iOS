@@ -71,9 +71,10 @@ var isRelease: Bool {
     return Config.shared.buildType == .release
 }
 
-class Config: NSObject {
+final class Config: NSObject, @unchecked Sendable {
 
     static let shared = Config.init()
+    private let parseInitializationLock = NSLock()
     
     static let domain = "https://joinjibber.com"
 
@@ -112,6 +113,9 @@ class Config: NSObject {
     }()
     
     func initializeParseIfNeeded(includeBundleId: Bool = true) {
+        parseInitializationLock.lock()
+        defer { parseInitializationLock.unlock() }
+
         if Parse.currentConfiguration.isNil  {
             Parse.initialize(with: ParseClientConfiguration(block: { (configuration: ParseMutableClientConfiguration) in
                 let sessionConfiguration = URLSessionConfiguration.default

@@ -10,13 +10,13 @@ import Foundation
 import UIKit
 
 @MainActor
-class DiffableDataSource<SectionType: Hashable, ItemType: Hashable>: UICollectionViewDiffableDataSource<SectionType, ItemType> {}
+class DiffableDataSource<SectionType: Hashable & Sendable, ItemType: Hashable & Sendable>: UICollectionViewDiffableDataSource<SectionType, ItemType> {}
 
 /// A base class for types that can act as a data source for a UICollectionview.
 /// Subclasses should override functions related to dequeuing cells and supplementary views.
 /// This class works the same as UICollectionViewDiffableDataSource but it allows you to subclass it more easily and hold additional state.
 @MainActor
-class CollectionViewDataSource<SectionType: Hashable, ItemType: Hashable> {
+class CollectionViewDataSource<SectionType: Hashable & Sendable, ItemType: Hashable & Sendable> {
     
     typealias SnapshotType = NSDiffableDataSourceSnapshot<SectionType, ItemType>
     

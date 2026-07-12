@@ -8,6 +8,7 @@
 
 import UIKit
 import AVFoundation
+import Combine
 
 class VideoView: BaseView {
     
@@ -102,7 +103,7 @@ class VideoView: BaseView {
             
             await urls.asyncForEach { videoURL in
                 // Retrieve the video asset.
-                let asset = AVAsset(url: videoURL)
+                let asset = AVURLAsset(url: videoURL)
                 
                 guard let tracks = try? await asset.loadTracks(withMediaType: .video), !Task.isCancelled else { return }
 
@@ -152,10 +153,19 @@ class VideoView: BaseView {
         self.token = self.playerLayer.player?.observe(\.currentItem) { [weak self] player, _ in
             guard let quePlayer = player as? AVQueuePlayer else { return }
 
-            if quePlayer.items().count == 1 {
-                self?.reAddURLs(to: quePlayer)
+            guard quePlayer.items().count == 1 else { return }
+
+            Task { @MainActor [weak self] in
+                self?.reAddURLsToCurrentPlayerIfNeeded()
             }
         }
+    }
+
+    private func reAddURLsToCurrentPlayerIfNeeded() {
+        guard let player = self.playerLayer.player as? AVQueuePlayer,
+              player.items().count == 1 else { return }
+
+        self.reAddURLs(to: player)
     }
     
     private func reAddURLs(to player: AVQueuePlayer) {

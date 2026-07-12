@@ -9,13 +9,16 @@
 import Foundation
 import UIKit
 
+@MainActor
 protocol Selectable {
     func didSelect(useImpact: Bool, _ completion: CompletionOptional)
 }
 
-private var selectionHandlerKey: UInt8 = 0
-private var didSelectHandlerKey: UInt8 = 0
-private var actionHandlerKey: UInt = 0
+// These values are never read or mutated; their stable addresses are the
+// Objective-C associated-object keys used by main-actor UIKit code below.
+nonisolated(unsafe) private var selectionHandlerKey: UInt8 = 0
+nonisolated(unsafe) private var didSelectHandlerKey: UInt8 = 0
+nonisolated(unsafe) private var actionHandlerKey: UInt = 0
 extension Selectable where Self: UIControl {
 
     private(set) var selectionImpact: UIImpactFeedbackGenerator? {
@@ -54,7 +57,8 @@ extension Selectable where Self: UIControl {
     }
 }
 
-private var tapHandlerKey: UInt = 0
+// See the associated-object key lifetime note above.
+nonisolated(unsafe) private var tapHandlerKey: UInt = 0
 extension Selectable where Self: UIView {
 
     private(set) var tapRecognizer: UITapGestureRecognizer? {

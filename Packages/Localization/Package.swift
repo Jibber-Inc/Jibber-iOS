@@ -1,12 +1,17 @@
-// swift-tools-version:5.5
-// The swift-tools-version declares the minimum version of Swift required to build this package.
+// swift-tools-version: 6.4
 
 import PackageDescription
+
+let swift6Settings: [SwiftSetting] = [
+    .enableUpcomingFeature("InferIsolatedConformances"),
+    .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
+    .enableUpcomingFeature("MemberImportVisibility")
+]
 
 let package = Package(
     name: "Localization",
     platforms: [
-        .iOS(.v15)
+        .iOS(.v27)
     ],
     products: [
         // Products define the executables and libraries a package produces, and make them visible to other packages.
@@ -23,9 +28,12 @@ let package = Package(
         // Targets can depend on other targets in this package, and on products in packages this package depends on.
         .target(
             name: "Localization",
-            dependencies: []),
+            dependencies: [],
+            swiftSettings: swift6Settings),
         .testTarget(
             name: "LocalizationTests",
-            dependencies: ["Localization"]),
-    ]
+            dependencies: ["Localization"],
+            swiftSettings: swift6Settings),
+    ],
+    swiftLanguageModes: [.v6]
 )

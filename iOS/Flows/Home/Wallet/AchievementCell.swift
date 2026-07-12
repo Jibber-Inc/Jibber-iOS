@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import ParseCore
 
 struct AchievementViewModel: Hashable {
     var type: AchievementType

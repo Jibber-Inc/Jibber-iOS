@@ -10,7 +10,9 @@ import Foundation
 import Contacts
 import Combine
 
-class ContactsManager {
+// CNContactStore supports concurrent requests and this type owns no mutable
+// state beyond that framework-provided store.
+final class ContactsManager: @unchecked Sendable {
 
     static let shared = ContactsManager()
     private let store = CNContactStore()

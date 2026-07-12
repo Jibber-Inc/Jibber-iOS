@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import Combine
 import Lottie
 import MetalKit
 import AVKit
@@ -235,4 +236,3 @@ extension FrontPreviewVideoView: CAAnimationDelegate {
          // Delegate method not implemented.
      }
  }
-

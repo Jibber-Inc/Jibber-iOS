@@ -6,6 +6,7 @@
 //  Copyright © 2021 Benjamin Dodgson. All rights reserved.
 //
 
+import Coordinator
 import Foundation
 import Localization
 import UIKit

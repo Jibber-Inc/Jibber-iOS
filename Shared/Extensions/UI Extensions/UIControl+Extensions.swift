@@ -51,7 +51,9 @@ extension UIControl {
 }
 
 
-private var boxesKey: UInt8 = 0
+// The value is never read or mutated; only its stable address is used as an
+// Objective-C associated-object key by main-actor UIControl code.
+nonisolated(unsafe) private var boxesKey: UInt8 = 0
 private extension UIControl {
     var boxes: Set<ClosureBox>? {
         get {

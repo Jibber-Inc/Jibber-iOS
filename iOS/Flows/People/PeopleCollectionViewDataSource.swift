@@ -17,7 +17,9 @@ class PeopleCollectionViewDataSource: CollectionViewDataSource<PeopleCollectionV
         case people
     }
 
-    enum ItemType: Hashable {
+    /// Diffable snapshots hold UI-owned `Person` values and do not mutate them
+    /// while UIKit may copy identifiers between its internal queues.
+    enum ItemType: Hashable, @unchecked Sendable {
         case person(Person)
     }
 

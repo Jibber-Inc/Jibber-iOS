@@ -115,63 +115,65 @@ func == (first: Client.RequestId, second: Client.RequestId) -> Bool {
 
 extension Client: WebSocketDelegate {
     public func didReceive(event: WebSocketEvent, client: WebSocketClient) {
-        switch event {
-        
-        case .connected(_):
-            isConnecting = false
-            let sessionToken = PFUser.current()?.sessionToken ?? ""
-            _ = self.sendOperationAsync(.connect(applicationId: applicationId, sessionToken: sessionToken, clientKey: clientKey))
-        case .disconnected(let reason, let code):
-            isConnecting = false
-            if shouldPrintWebSocketLog { NSLog("ParseLiveQuery: WebSocket did disconnect with error: \(reason) code:\(code)") }
+        withQueueStateSync { state in
+            switch event {
 
-            // TODO: Better retry logic, unless `disconnect()` was explicitly called
-            if !userDisconnected {
-                reconnect()
-            }
-        case .text(let text):
-            handleOperationAsync(text).continueWith { [weak self] task in
-                if let error = task.error, self?.shouldPrintWebSocketLog == true {
-                    NSLog("ParseLiveQuery: Error processing message: \(error)")
+            case .connected(_):
+                state.isConnecting = false
+                let sessionToken = PFUser.current()?.sessionToken ?? ""
+                _ = self.sendOperationAsync(.connect(applicationId: applicationId, sessionToken: sessionToken, clientKey: clientKey))
+            case .disconnected(let reason, let code):
+                state.isConnecting = false
+                if state.shouldPrintWebSocketLog { NSLog("ParseLiveQuery: WebSocket did disconnect with error: \(reason) code:\(code)") }
+
+                // TODO: Better retry logic, unless `disconnect()` was explicitly called
+                if !state.userDisconnected {
+                    reconnect()
                 }
+            case .text(let text):
+                handleOperationAsync(text).continueWith { [weak self] task in
+                    if let error = task.error, self?.shouldPrintWebSocketLog == true {
+                        NSLog("ParseLiveQuery: Error processing message: \(error)")
+                    }
+                }
+            case .binary(_):
+                if state.shouldPrintWebSocketLog { NSLog("ParseLiveQuery: Received binary data but we don't handle it...") }
+            case .error(let error):
+                NSLog("ParseLiveQuery: Error processing message: \(String(describing: error))")
+            case .viabilityChanged(let isViable):
+                if state.shouldPrintWebSocketLog { NSLog("ParseLiveQuery: WebSocket viability changed to \(isViable ? "" : "not-")viable") }
+                if !isViable {
+                    state.isConnecting = false
+                }
+                // TODO: Better retry logic, unless `disconnect()` was explicitly called
+                if !state.userDisconnected, isViable {
+                    reconnect()
+                }
+            case .reconnectSuggested(let isSuggested):
+                if state.shouldPrintWebSocketLog { NSLog("ParseLiveQuery: WebSocket reconnect is \(isSuggested ? "" : "not ")suggested") }
+                // TODO: Better retry logic, unless `disconnect()` was explicitly called
+                if !state.userDisconnected, isSuggested {
+                    reconnect()
+                }
+            case .cancelled:
+                state.isConnecting = false
+                if state.shouldPrintWebSocketLog { NSLog("ParseLiveQuery: WebSocket connection cancelled...") }
+                // TODO: Better retry logic, unless `disconnect()` was explicitly called
+                if !state.userDisconnected {
+                    reconnect()
+                }
+            case .peerClosed:
+                state.isConnecting = false
+                if state.shouldPrintWebSocketLog { NSLog("ParseLiveQuery: WebSocket connection closed...") }
+                // TODO: Better retry logic, unless `disconnect()` was explicitly called
+                if !state.userDisconnected {
+                    reconnect()
+                }
+            case .pong(_):
+                if state.shouldPrintWebSocketLog { NSLog("ParseLiveQuery: Received pong but we don't handle it...") }
+            case .ping(_):
+                if state.shouldPrintWebSocketLog { NSLog("ParseLiveQuery: Received ping but we don't handle it...") }
             }
-        case .binary(_):
-            if shouldPrintWebSocketLog { NSLog("ParseLiveQuery: Received binary data but we don't handle it...") }
-        case .error(let error):
-            NSLog("ParseLiveQuery: Error processing message: \(String(describing: error))")
-        case .viabilityChanged(let isViable):
-            if shouldPrintWebSocketLog { NSLog("ParseLiveQuery: WebSocket viability changed to \(isViable ? "" : "not-")viable") }
-            if !isViable {
-                isConnecting = false
-            }
-            // TODO: Better retry logic, unless `disconnect()` was explicitly called
-            if !userDisconnected, isViable {
-                reconnect()
-            }
-        case .reconnectSuggested(let isSuggested):
-            if shouldPrintWebSocketLog { NSLog("ParseLiveQuery: WebSocket reconnect is \(isSuggested ? "" : "not ")suggested") }
-            // TODO: Better retry logic, unless `disconnect()` was explicitly called
-            if !userDisconnected, isSuggested {
-                reconnect()
-            }
-        case .cancelled:
-            isConnecting = false
-            if shouldPrintWebSocketLog { NSLog("ParseLiveQuery: WebSocket connection cancelled...") }
-            // TODO: Better retry logic, unless `disconnect()` was explicitly called
-            if !userDisconnected {
-                reconnect()
-            }
-        case .peerClosed:
-            isConnecting = false
-            if shouldPrintWebSocketLog { NSLog("ParseLiveQuery: WebSocket connection closed...") }
-            // TODO: Better retry logic, unless `disconnect()` was explicitly called
-            if !userDisconnected {
-                reconnect()
-            }
-        case .pong(_):
-            if shouldPrintWebSocketLog { NSLog("ParseLiveQuery: Received pong but we don't handle it...") }
-        case .ping(_):
-            if shouldPrintWebSocketLog { NSLog("ParseLiveQuery: Received ping but we don't handle it...") }
         }
     }
 }
@@ -209,28 +211,28 @@ extension Event {
 }
 
 extension Client {
-    fileprivate func subscriptionRecord(_ requestId: RequestId) -> SubscriptionRecord? {
+    fileprivate func subscriptionRecord(_ requestId: RequestId, state: QueueState) -> SubscriptionRecord? {
         guard
-            let recordIndex = self.subscriptions.firstIndex(where: { $0.requestId == requestId }) else {
+            let recordIndex = state.subscriptions.firstIndex(where: { $0.requestId == requestId }) else {
                 return nil
         }
-        let record = self.subscriptions[recordIndex]
+        let record = state.subscriptions[recordIndex]
         return record.subscriptionHandler != nil ? record : nil
     }
 
     func sendOperationAsync(_ operation: ClientOperation) -> Task<Void> {
-        return Task(.queue(queue)) {
+        return withQueueStateAsync { state in
             let jsonEncoded = operation.JSONObjectRepresentation
             let jsonData = try JSONSerialization.data(withJSONObject: jsonEncoded, options: JSONSerialization.WritingOptions(rawValue: 0))
             let jsonString = String(data: jsonData, encoding: String.Encoding.utf8)
-            if self.shouldPrintWebSocketTrace { NSLog("ParseLiveQuery: Sending message: \(jsonString!)") }
-            self.socket?.write(string: jsonString!)
+            if state.shouldPrintWebSocketTrace { NSLog("ParseLiveQuery: Sending message: \(jsonString!)") }
+            state.socket?.write(string: jsonString!)
         }
     }
 
     func handleOperationAsync(_ string: String) -> Task<Void> {
-        return Task(.queue(queue)) {
-            if self.shouldPrintWebSocketTrace { NSLog("ParseLiveQuery: Received message: \(string)") }
+        return withQueueStateAsync { state in
+            if state.shouldPrintWebSocketTrace { NSLog("ParseLiveQuery: Received message: \(string)") }
             guard
                 let jsonData = string.data(using: String.Encoding.utf8),
                 let jsonDecoded = try JSONSerialization.jsonObject(with: jsonData, options: JSONSerialization.ReadingOptions(rawValue: 0))
@@ -243,7 +245,7 @@ extension Client {
             switch response {
             case .connected:
                 let sessionToken = PFUser.current()?.sessionToken
-                self.subscriptions.forEach {
+                state.subscriptions.forEach {
                     _ = self.sendOperationAsync(.subscribe(requestId: $0.requestId, query: $0.query, sessionToken: sessionToken))
                 }
 
@@ -252,23 +254,23 @@ extension Client {
                 break
 
             case .subscribed(let requestId):
-                self.subscriptionRecord(requestId)?.subscribeHandlerClosure(self)
+                self.subscriptionRecord(requestId, state: state)?.subscribeHandlerClosure(self)
 
             case .unsubscribed(let requestId):
                 guard
-                    let recordIndex = self.subscriptions.firstIndex(where: { $0.requestId == requestId })
+                    let recordIndex = state.subscriptions.firstIndex(where: { $0.requestId == requestId })
                      else {
                         break
                 }
-                let record: SubscriptionRecord = self.subscriptions[recordIndex]
+                let record: SubscriptionRecord = state.subscriptions[recordIndex]
                 record.unsubscribeHandlerClosure(self)
-                self.subscriptions.remove(at: recordIndex)
+                state.subscriptions.remove(at: recordIndex)
 
             case .create, .delete, .enter, .leave, .update:
                 var requestId: RequestId = RequestId(value: 0)
                 guard
                     let event: Event<PFObject> = try? Event(serverResponse: response, requestId: &requestId),
-                    let record = self.subscriptionRecord(requestId)
+                    let record = self.subscriptionRecord(requestId, state: state)
                     else {
                         break
                 }
@@ -277,7 +279,7 @@ extension Client {
             case .error(let requestId, let code, let error, let reconnect):
                 let error = LiveQueryErrors.ServerReportedError(code: code, error: error, reconnect: reconnect)
                 if let requestId = requestId {
-                    self.subscriptionRecord(requestId)?.errorHandlerClosure(error, self)
+                    self.subscriptionRecord(requestId, state: state)?.errorHandlerClosure(error, self)
                 } else {
                     throw error
                 }

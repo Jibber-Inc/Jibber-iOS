@@ -5,6 +5,8 @@
 
 import Combine
 import Foundation
+import MessagingContracts
+import MessagingPersistence
 
 @MainActor
 protocol ActiveConversationable {

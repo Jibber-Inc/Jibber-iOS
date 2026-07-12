@@ -50,6 +50,7 @@ struct Person: PersonType, Hashable, Comparable {
 
     var isSelected: Bool
     
+    @MainActor
     init(withContact contact: CNContact, isSelected: Bool = false) {
         self.personId = contact.personId
         self.phoneNumber = contact.phoneNumber

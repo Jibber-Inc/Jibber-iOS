@@ -11,6 +11,11 @@ import Intents
 import ParseCore
 import UserNotifications
 
+/// Moves one extension callback value into one asynchronous consumer.
+private struct FocusIntentTransfer<Value>: @unchecked Sendable {
+    let value: Value
+}
+
 final class FocusIntentHandler: NSObject, INShareFocusStatusIntentHandling {
 
     private let messaging = ParseIntentMessagingService.shared
@@ -33,15 +38,19 @@ final class FocusIntentHandler: NSObject, INShareFocusStatusIntentHandling {
         let newStatus: FocusStatus = isFocused ? .focused : .available
         let shouldRecoverUnreadMessages = currentUser.focusStatus != newStatus && !isFocused
 
+        let handler = FocusIntentTransfer(value: self)
+        let completion = FocusIntentTransfer(value: completion)
         Task {
+            let handler = handler.value
+            let completion = completion.value
             do {
                 currentUser.focusStatus = newStatus
                 try await currentUser.saveLocalThenServer()
 
                 if shouldRecoverUnreadMessages {
-                    let messages = try await self.messaging.unreadMessagesForFocusRecovery()
+                    let messages = try await handler.messaging.unreadMessagesForFocusRecovery()
                     for message in messages.reversed() {
-                        await self.scheduleNotification(with: message)
+                        await handler.scheduleNotification(with: message)
                     }
                 }
 

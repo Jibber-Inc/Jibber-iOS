@@ -137,7 +137,7 @@ class MomentCell: CollectionViewManagerCell, ManageableCell {
         }
         
         // Get the system default background configuration for a plain style list cell in the current state.
-        var backgroundConfig = UIBackgroundConfiguration.listPlainCell().updated(for: state)
+        var backgroundConfig = UIBackgroundConfiguration.listCell().updated(for: state)
 
         // Customize the background color to be clear, no matter the state.
         backgroundConfig.backgroundColor = ThemeColor.clear.color

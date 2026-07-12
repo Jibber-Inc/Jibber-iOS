@@ -6,6 +6,8 @@
 import Combine
 import Foundation
 import MessagingContracts
+import MessagingPersistence
+import ParseCore
 
 @MainActor
 final class ParseConversationController: Hashable {
@@ -276,7 +278,7 @@ final class ParseConversationController: Hashable {
     // MARK: - Writes
 
     @discardableResult
-    func createNewMessage(with sendable: Sendable) async throws -> String {
+    func createNewMessage(with sendable: MessageSendable) async throws -> String {
         let draft = try await ParseMessageDraftTranslator.draft(
             from: sendable,
             conversationID: self.conversationID
@@ -297,7 +299,7 @@ final class ParseConversationController: Hashable {
     }
 
     @discardableResult
-    func createNewReply(with sendable: Sendable, messageID: String) async throws -> String {
+    func createNewReply(with sendable: MessageSendable, messageID: String) async throws -> String {
         let rootID = try ParseMessagingControllerSupport.serverMessageID(
             for: messageID,
             in: self.allSnapshots
@@ -322,7 +324,7 @@ final class ParseConversationController: Hashable {
         return staged.stableID
     }
 
-    func editMessage(with sendable: Sendable) async throws {
+    func editMessage(with sendable: MessageSendable) async throws {
         guard let previousMessage = sendable.previousMessage else {
             throw ParseMessagingCompatibilityError.messageNotFound("previous")
         }

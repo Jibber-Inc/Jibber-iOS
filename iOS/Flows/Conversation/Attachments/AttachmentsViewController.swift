@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import Combine
 
 class AttachmentsViewController: DiffableCollectionViewController<AttachmentsCollectionViewDataSource.SectionType,
                                  AttachmentsCollectionViewDataSource.ItemType,

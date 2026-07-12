@@ -1,8 +1,8 @@
 # ParseLiveQuery provenance
 
 The Swift sources in `Sources/ParseLiveQuery` are copied from
-`parse-community/Parse-SDK-iOS-OSX` tag `4.2.0`, revision
-`d4a1b351ed291a013f37894116115b90bbd97f39`. The only source adaptation is an
+`parse-community/Parse-SDK-iOS-OSX` tag `6.1.1`, revision
+`af5d63cc38dc614f7017029c6f3f586a8d737ec7`. The only source adaptation is an
 unqualified `Event<T>` reference in `ObjCCompat.swift`, required because this
 fork uses a unique module name to coexist with ParseObjC's unused upstream
 `ParseLiveQuery` target in the SwiftPM graph.

@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import ParseCore
 
 enum DeliveryStatus {
     case sending

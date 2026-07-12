@@ -191,8 +191,8 @@ class MomentCaptureViewController: PiPRecordingViewController {
         }
     }
     
-    override func handleSpeech(result: SFSpeechRecognitionResult?) {
-        self.textView.animateSpeech(result: result)
+    override func handleSpeech(snapshot: SpeechTranscriptionSnapshot?) {
+        self.textView.animateSpeech(snapshot: snapshot)
         self.view.layoutNow()
     }
     

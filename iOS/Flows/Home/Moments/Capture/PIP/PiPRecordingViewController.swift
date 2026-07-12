@@ -8,6 +8,8 @@
 
 import Foundation
 import AVFoundation
+import Combine
+import Coordinator
 import Vision
 import Speech
 import VideoToolbox
@@ -33,11 +35,6 @@ class PiPRecordingViewController: ViewController, AVCaptureVideoDataOutputSample
 
     @Published var state: State = .idle
     
-    // Communicate with the session and other session objects on this queue.
-    private let sessionQueue = DispatchQueue(label: "session queue")
-    
-    let dataOutputQue = DispatchQueue(label: "data output queue")
-
     let backCameraView = VideoPreviewView()
     let frontCameraView = FrontPreviewVideoView()
     
@@ -67,18 +64,9 @@ class PiPRecordingViewController: ViewController, AVCaptureVideoDataOutputSample
         // Set up the back video preview views.
         self.backCameraView.videoPreviewLayer.setSessionWithNoConnection(self.session)
         
-        /*
-        Configure the capture session.
-        In general it is not safe to mutate an AVCaptureSession or any of its
-        inputs, outputs, or connections from multiple threads at the same time.
-        
-        Don't do this on the main queue, because AVCaptureMultiCamSession.startRunning()
-        is a blocking call, which can take a long time. Dispatch session setup
-        to the sessionQueue so as not to block the main queue, which keeps the UI responsive.
-        */
-        self.sessionQueue.async {
-            self.configureSession()
-        }
+        // The topology, delegate callbacks, and lifecycle share the main actor.
+        // This prevents AVFoundation objects from being mutated concurrently.
+        self.configureSession()
         
         self.$state
             .removeDuplicates()
@@ -138,16 +126,13 @@ class PiPRecordingViewController: ViewController, AVCaptureVideoDataOutputSample
         backVideoSettings?[AVVideoCompressionPropertiesKey] = compressionSettings
 
         let audioSettings = self.micDataOutput.recommendedAudioSettingsForAssetWriter(writingTo: .mov)
-        Task {
-            await self.recorder.initialize(backVideoSettings: backVideoSettings,
-                                           audioSettings: audioSettings)
-            await MainActor.run {
-                self.state = .recording
-                self.selectionImpact.impactOccurred(intensity: 1.0)
-                if !self.frontCameraView.isAnimating {
-                    self.frontCameraView.startRecordingAnimation()
-                }
-            }
+        let writerSettings = PiPAssetWriterSettings(backVideo: backVideoSettings,
+                                                    audio: audioSettings)
+        self.recorder.initialize(settings: writerSettings)
+        self.state = .recording
+        self.selectionImpact.impactOccurred(intensity: 1.0)
+        if !self.frontCameraView.isAnimating {
+            self.frontCameraView.startRecordingAnimation()
         }
     }
     
@@ -226,17 +211,13 @@ class PiPRecordingViewController: ViewController, AVCaptureVideoDataOutputSample
     }
     
     private func beginSession() {
-        self.sessionQueue.async { [unowned self] in
-            guard !self.isSessionRunning, !self.isSessiongBeingConfigured else { return }
-            self.session.startRunning()
-        }
+        guard !self.isSessiongBeingConfigured, !self.session.isRunning else { return }
+        self.session.startRunning()
     }
     
     private func endSession() {
-        self.sessionQueue.async { [unowned self] in
-            guard self.isSessionRunning else { return }
-            self.session.stopRunning()
-        }
+        guard self.session.isRunning else { return }
+        self.session.stopRunning()
     }
     
     private func beginPlayback() {
@@ -278,17 +259,24 @@ class PiPRecordingViewController: ViewController, AVCaptureVideoDataOutputSample
         recognizer?.recognitionTask(with: request) { [weak self] (result, error) in
             // abort if we didn't get any transcription back
             guard let result = result else {
-                logDebug("There was an error: \(error!)")
-                self?.handleSpeech(result: nil)
+                if let error {
+                    logDebug("There was an error: \(error)")
+                }
+                Task { @MainActor [weak self] in
+                    self?.handleSpeech(snapshot: nil)
+                }
                 return
             }
             
             // if we got the final transcription back, print it
             if result.isFinal {
-                self?.handleSpeech(result: result)
+                let snapshot = SpeechTranscriptionSnapshot(result: result)
+                Task { @MainActor [weak self] in
+                    self?.handleSpeech(snapshot: snapshot)
+                }
             }
         }
     }
     
-    func handleSpeech(result: SFSpeechRecognitionResult?) {}
+    func handleSpeech(snapshot: SpeechTranscriptionSnapshot?) {}
 }

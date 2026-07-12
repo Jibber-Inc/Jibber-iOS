@@ -19,6 +19,7 @@ enum AnimationPosition {
     case inward
     case outward
 
+    @MainActor
     func xPosition(view: UIView, multiplier: CGFloat = 0.5) -> CGFloat {
         switch self {
         case .left:
@@ -30,6 +31,7 @@ enum AnimationPosition {
         }
     }
 
+    @MainActor
     func yPosition(view: UIView, multiplier: CGFloat) -> CGFloat {
         switch self {
         case .up:
@@ -41,6 +43,7 @@ enum AnimationPosition {
         }
     }
 
+    @MainActor
     func getTransform(for view: UIView, multiplier: CGFloat = 0.5) -> CGAffineTransform {
         switch self {
         case .left, .right:

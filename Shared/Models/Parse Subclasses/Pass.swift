@@ -16,7 +16,7 @@ enum PassKey: String {
     case connections
 }
 
-final class Pass: PFObject, PFSubclassing {
+final class Pass: PFObject, PFSubclassing, @unchecked Sendable {
 
     static func parseClassName() -> String {
         return String(describing: self)
@@ -52,8 +52,9 @@ extension Pass: Objectable {
     }
 }
 
-private var passMetadataKey: UInt8 = 0
-private var linkKey: UInt8 = 0
+// Stable-address tokens used only as Objective-C associated-object keys.
+nonisolated(unsafe) private var passMetadataKey: UInt8 = 0
+nonisolated(unsafe) private var linkKey: UInt8 = 0
 extension Pass: UIActivityItemSource {
     
     private(set) var metadata: LPLinkMetadata? {

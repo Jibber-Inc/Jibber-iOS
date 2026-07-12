@@ -23,11 +23,12 @@ extension DispatchQueue {
         }
     }
 
-    private static var trackedCallers: [TrackedCaller] = []
+    // Access is serialized by objc_sync_enter(self) in once(caller:token:closure:).
+    nonisolated(unsafe) private static var trackedCallers: [TrackedCaller] = []
     // Closures that aren't associated with a caller will be associated with this object.
     // Because this object is never released from memory, those closues will be called only
     // once for the entire lifetime of the app
-    private static let permanentObject = NSObject()
+    nonisolated(unsafe) private static let permanentObject = NSObject()
 
     /**
      Executes a closure once for the lifetime of the calling object. A token is used to distinguish
@@ -93,19 +94,6 @@ extension DispatchQueue {
     return work
 }
 
-@available(*, deprecated, message: "Use Task.onMainActor")
-func runMain(_ execute: @escaping () -> ()) {
-    DispatchQueue.main.async {
-        execute()
-    }
-}
-
-func background(_ execute: @escaping () -> ()) {
-    DispatchQueue.global(qos: DispatchQoS.QoSClass.background).async {
-        execute()
-    }
-}
-
 func once(caller: NSObject?, token: String, closure: () -> Void) {
     DispatchQueue.once(caller: caller, token: token, closure: closure)
 }
@@ -113,4 +101,3 @@ func once(caller: NSObject?, token: String, closure: () -> Void) {
 func onceEver(token: String, closure: () -> Void) {
     DispatchQueue.onceEver(token: token, closure: closure)
 }
-

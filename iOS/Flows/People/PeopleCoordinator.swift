@@ -7,10 +7,12 @@
 //
 
 import Foundation
+import Coordinator
 import Contacts
 import ContactsUI
 import MessageUI
 import Localization
+import ParseCore
 
 class PeopleCoordinator: PresentableCoordinator<[Person]> {
 

@@ -8,7 +8,8 @@
 
 import Foundation
 
-protocol RealtimeHandler: AnyObject {
+@MainActor
+protocol RealtimeHandler: AnyObject, Sendable {
     var timeInterval: TimeInterval? { get set }
     var timer: Timer? { get set }
     func initializeTimer()
@@ -21,7 +22,9 @@ extension RealtimeHandler {
         guard let timeInterval = self.timeInterval else { return }
         self.timer?.invalidate()
         self.timer = Timer.scheduledTimer(withTimeInterval: timeInterval, repeats: true, block: { [weak self] _ in
-            self?.timerDidFire()
+            MainActor.assumeIsolated {
+                self?.timerDidFire()
+            }
         })
     }
 }

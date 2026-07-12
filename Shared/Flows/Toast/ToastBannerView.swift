@@ -123,20 +123,22 @@ class ToastBannerView: ToastView {
 
         #if !NOTIFICATION
         guard let superView = UIWindow.topWindow() else { return }
+        let usesCompactScreenLayout = superView.windowScene?.screen.isSmallerThan(screenSize: .tablet)
+            ?? (self.traitCollection.userInterfaceIdiom == .phone)
         switch state {
         case .hidden:
             self.width = ToastBannerView.personHeight + ToastBannerView.padding.value.doubled
             self.maxHeight = self.minimumHeight
             self.centerOnX()
         case .left:
-            if UIScreen.main.isSmallerThan(screenSize: .tablet) {
+            if usesCompactScreenLayout {
                 self.left = ToastBannerView.padding.value
             } else {
                 self.left = superView.width * 0.175
             }
         case .expanded:
             self.maxHeight = nil
-            if UIScreen.main.isSmallerThan(screenSize: .tablet) {
+            if usesCompactScreenLayout {
                 self.width = superView.width - ToastBannerView.padding.value.doubled
             } else {
                 self.width = superView.width * Theme.iPadPortraitWidthRatio
@@ -171,7 +173,9 @@ class ToastBannerView: ToastView {
         self.imageView.clipsToBounds = true
 
         let maxTitleWidth: CGFloat
-        if UIScreen.main.isSmallerThan(screenSize: .tablet) {
+        let usesCompactScreenLayout = self.window?.windowScene?.screen.isSmallerThan(screenSize: .tablet)
+            ?? (self.traitCollection.userInterfaceIdiom == .phone)
+        if usesCompactScreenLayout {
             maxTitleWidth = self.width - (self.imageView.right + ToastBannerView.padding.value.doubled)
         } else {
             maxTitleWidth = (self.width * Theme.iPadPortraitWidthRatio) - (self.imageView.right + 22)

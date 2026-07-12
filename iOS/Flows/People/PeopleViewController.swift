@@ -11,6 +11,7 @@ import Contacts
 import UIKit
 import Localization
 import KeyboardManager
+import Combine
 
 class PeopleViewController: DiffableCollectionViewController<PeopleCollectionViewDataSource.SectionType,
                             PeopleCollectionViewDataSource.ItemType,

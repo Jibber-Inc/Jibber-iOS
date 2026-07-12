@@ -8,6 +8,7 @@
 
 import Foundation
 import Coordinator
+import ParseCore
 import UIKit
 import StoreKit
 

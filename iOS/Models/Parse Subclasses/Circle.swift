@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import Contacts
 import ParseCore
 
 enum CircleKey: String {
@@ -18,7 +19,7 @@ enum CircleKey: String {
     case limit
 }
 
-final class Circle: PFObject, PFSubclassing {
+final class Circle: PFObject, PFSubclassing, @unchecked Sendable {
     
     enum Theme: String {
         case eggplant

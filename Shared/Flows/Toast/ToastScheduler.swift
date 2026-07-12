@@ -10,6 +10,7 @@ import Foundation
 import Combine
 import Localization
 import UIKit
+import ParseCore
 
 enum ToastType {
     #if IOS
@@ -27,10 +28,12 @@ enum ToastType {
                deepLink: DeepLinkable?)
 }
 
+@MainActor
 protocol ToastSchedulerDelegate: AnyObject {
     func didInteractWith(type: ToastType, deeplink: DeepLinkable?)
 }
 
+@MainActor
 class ToastScheduler {
     static let shared = ToastScheduler()
 

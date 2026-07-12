@@ -22,9 +22,4 @@ class BaseCoordinator<ResultType>: Coordinator<ResultType> {
         super.init(router: router)
     }
     
-    deinit {
-        self.cancellables.forEach { cancellable in
-            cancellable.cancel()
-        }
-    }
 }

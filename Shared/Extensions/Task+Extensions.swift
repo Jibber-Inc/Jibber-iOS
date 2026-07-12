@@ -8,6 +8,35 @@
 
 import Foundation
 
+/// Preserves callback order while transferring `Sendable` values to the main
+/// actor. `AsyncStream.Continuation.yield` is thread-safe and its single
+/// consumer applies values serially in the order they were yielded.
+final class OrderedMainActorEventRelay<Element: Sendable>: Sendable {
+
+    private let continuation: AsyncStream<Element>.Continuation
+    private let consumer: Task<Void, Never>
+
+    init(handler: @escaping @MainActor @Sendable (Element) async -> Void) {
+        let (stream, continuation) = AsyncStream<Element>.makeStream()
+        self.continuation = continuation
+        self.consumer = Task { @MainActor in
+            for await element in stream {
+                guard !Task.isCancelled else { return }
+                await handler(element)
+            }
+        }
+    }
+
+    deinit {
+        self.continuation.finish()
+        self.consumer.cancel()
+    }
+
+    nonisolated func send(_ element: consuming Element) {
+        self.continuation.yield(element)
+    }
+}
+
 extension Task where Success == Void, Failure == Never {
 
     /// Creates a new task that runs the passed in closure on the MainActor. For use in non-async functions.

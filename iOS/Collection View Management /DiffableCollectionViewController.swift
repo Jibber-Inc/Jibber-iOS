@@ -7,9 +7,12 @@
 //
 
 import Foundation
+import Combine
+import Coordinator
+import Lottie
 
-class DiffableCollectionViewController<SectionType: Hashable,
-                                       ItemType: Hashable,
+class DiffableCollectionViewController<SectionType: Hashable & Sendable,
+                                       ItemType: Hashable & Sendable,
                                        DataSource: CollectionViewDataSource<SectionType, ItemType>>:
                                         ViewController, UICollectionViewDelegate {
     

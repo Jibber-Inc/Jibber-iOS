@@ -131,8 +131,13 @@
 		A3000000000000000000000E /* JibberParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000E /* JibberParseLiveQuery */; };
 		A3000000000000000000000F /* PhoneNumberKit in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000F /* PhoneNumberKit */; };
 		A30000000000000000000010 /* PhoneNumberKit in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000010 /* PhoneNumberKit */; };
+		F30000000000000000000001 /* PhoneNumberKitUI in Frameworks */ = {isa = PBXBuildFile; productRef = F20000000000000000000001 /* PhoneNumberKitUI */; };
+		F30000000000000000000002 /* PhoneNumberKitUI in Frameworks */ = {isa = PBXBuildFile; productRef = F20000000000000000000002 /* PhoneNumberKitUI */; };
+		F30000000000000000000003 /* PhoneNumberKitUI in Frameworks */ = {isa = PBXBuildFile; productRef = F20000000000000000000003 /* PhoneNumberKitUI */; };
 		B30000000000000000000001 /* MessagingContracts in Frameworks */ = {isa = PBXBuildFile; productRef = B20000000000000000000001 /* MessagingContracts */; };
 		B30000000000000000000002 /* MessagingPersistence in Frameworks */ = {isa = PBXBuildFile; productRef = B20000000000000000000002 /* MessagingPersistence */; };
+		B30000000000000000000003 /* MessagingContracts in Frameworks */ = {isa = PBXBuildFile; productRef = B20000000000000000000003 /* MessagingContracts */; };
+		B30000000000000000000004 /* MessagingContracts in Frameworks */ = {isa = PBXBuildFile; productRef = B20000000000000000000004 /* MessagingContracts */; };
 		B40000000000000000000001 /* ParseMessagingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B40000000000000000000002 /* ParseMessagingManager.swift */; };
 		C50000000000000000000001 /* ParseMessagingChanges.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000000000000000000101 /* ParseMessagingChanges.swift */; };
 		C50000000000000000000002 /* ParseMessagingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = C50000000000000000000102 /* ParseMessagingModels.swift */; };
@@ -1680,8 +1685,10 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B30000000000000000000003 /* MessagingContracts in Frameworks */,
 				A30000000000000000000005 /* ParseObjC in Frameworks */,
 				A30000000000000000000006 /* JibberParseLiveQuery in Frameworks */,
+				F30000000000000000000002 /* PhoneNumberKitUI in Frameworks */,
 				D6DBC0E92851296F007312FC /* Transitions in Frameworks */,
 				D611280B2804D8A400574B96 /* PhoneNumberKit in Frameworks */,
 				D61C1D23284035ED00F58F84 /* Coordinator in Frameworks */,
@@ -1699,6 +1706,7 @@
 			files = (
 				B30000000000000000000001 /* MessagingContracts in Frameworks */,
 				B30000000000000000000002 /* MessagingPersistence in Frameworks */,
+				F30000000000000000000001 /* PhoneNumberKitUI in Frameworks */,
 				A30000000000000000000001 /* ParseObjC in Frameworks */,
 				A30000000000000000000002 /* JibberParseLiveQuery in Frameworks */,
 				A30000000000000000000003 /* ScrollCounter in Frameworks */,
@@ -1717,7 +1725,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B30000000000000000000004 /* MessagingContracts in Frameworks */,
 				E10000000000000000000001 /* Coordinator in Frameworks */,
+				F30000000000000000000003 /* PhoneNumberKitUI in Frameworks */,
 				A30000000000000000000007 /* ParseObjC in Frameworks */,
 				A30000000000000000000008 /* JibberParseLiveQuery in Frameworks */,
 				D6AE0F61267CF82C00C6B048 /* Lottie in Frameworks */,
@@ -3176,8 +3186,10 @@
 			);
 			name = AppClip;
 			packageProductDependencies = (
+				B20000000000000000000003 /* MessagingContracts */,
 				A20000000000000000000005 /* ParseObjC */,
 				A20000000000000000000006 /* JibberParseLiveQuery */,
+				F20000000000000000000002 /* PhoneNumberKitUI */,
 				D61128062804D88600574B96 /* Localization */,
 				D61128082804D89100574B96 /* Lottie */,
 				D611280A2804D8A400574B96 /* PhoneNumberKit */,
@@ -3213,6 +3225,7 @@
 			packageProductDependencies = (
 				B20000000000000000000001 /* MessagingContracts */,
 				B20000000000000000000002 /* MessagingPersistence */,
+				F20000000000000000000001 /* PhoneNumberKitUI */,
 				A20000000000000000000001 /* ParseObjC */,
 				A20000000000000000000002 /* JibberParseLiveQuery */,
 				A20000000000000000000003 /* ScrollCounter */,
@@ -3243,8 +3256,10 @@
 			);
 			name = "Notification Content";
 			packageProductDependencies = (
+				B20000000000000000000004 /* MessagingContracts */,
 				A20000000000000000000007 /* ParseObjC */,
 				A20000000000000000000008 /* JibberParseLiveQuery */,
+				F20000000000000000000003 /* PhoneNumberKitUI */,
 				E10000000000000000000002 /* Coordinator */,
 				D6AE0F60267CF82C00C6B048 /* Lottie */,
 				D6AE0F67267CF8D900C6B048 /* PhoneNumberKit */,
@@ -3380,6 +3395,7 @@
 				A10000000000000000000002 /* XCRemoteSwiftPackageReference "ScrollCounter" */,
 				D6AE0F5B267CF80C00C6B048 /* XCRemoteSwiftPackageReference "lottie-ios" */,
 				D6AE0F62267CF8A400C6B048 /* XCRemoteSwiftPackageReference "PhoneNumberKit" */,
+				F10000000000000000000001 /* XCRemoteSwiftPackageReference "PhoneNumberKitUI" */,
 				D6DD0C2F2822F370004999F2 /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
 			);
 			productRefGroup = D61EC0BD21D3071400204BEE /* Products */;
@@ -4570,7 +4586,7 @@
 				INFOPLIST_KEY_UIMainStoryboardFile = LaunchScreen;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -4581,10 +4597,9 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				RELEASE_TYPE = DEBUG;
-				OTHER_SWIFT_FLAGS = "$(inherited) -Xcc -Wno-deprecated-declarations";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = APPCLIP;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
@@ -4608,7 +4623,7 @@
 				INFOPLIST_KEY_UIMainStoryboardFile = LaunchScreen;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -4618,10 +4633,9 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.Jibber-Inc.iOS.Clip";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				RELEASE_TYPE = RELEASE;
-				OTHER_SWIFT_FLAGS = "$(inherited) -Xcc -Wno-deprecated-declarations";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = APPCLIP;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
@@ -4681,14 +4695,21 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LM_SKIP_METADATA_EXTRACTION = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				OTHER_SWIFT_FLAGS = "$(inherited) -Xcc -Wno-deprecated-declarations";
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
 			};
 			name = Debug;
 		};
@@ -4741,13 +4762,20 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LM_SKIP_METADATA_EXTRACTION = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
+				OTHER_SWIFT_FLAGS = "$(inherited) -Xcc -Wno-deprecated-declarations";
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
@@ -4763,7 +4791,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
 				INFOPLIST_FILE = iOS/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -4774,8 +4802,7 @@
 				RELEASE_TYPE = DEBUG;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG IOS";
 				SWIFT_OBJC_BRIDGING_HEADER = "./Shared/App/Bridging-Header.h";
-				OTHER_SWIFT_FLAGS = "$(inherited) -Xcc -Wno-deprecated-declarations";
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
@@ -4791,7 +4818,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
 				INFOPLIST_FILE = iOS/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -4802,9 +4829,8 @@
 				RELEASE_TYPE = RELEASE;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = IOS;
 				SWIFT_OBJC_BRIDGING_HEADER = "./Shared/App/Bridging-Header.h";
-				OTHER_SWIFT_FLAGS = "$(inherited) -Xcc -Wno-deprecated-declarations";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
@@ -4817,7 +4843,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
 				INFOPLIST_FILE = "Notification Content/Info.plist";
-				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -4830,8 +4856,7 @@
 				SKIP_INSTALL = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG NOTIFICATION";
 				SWIFT_OBJC_BRIDGING_HEADER = "./Shared/App/Bridging-Header.h";
-				OTHER_SWIFT_FLAGS = "$(inherited) -Xcc -Wno-deprecated-declarations";
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
@@ -4844,7 +4869,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 2;
 				INFOPLIST_FILE = "Notification Content/Info.plist";
-				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -4857,8 +4882,7 @@
 				SKIP_INSTALL = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = NOTIFICATION;
 				SWIFT_OBJC_BRIDGING_HEADER = "./Shared/App/Bridging-Header.h";
-				OTHER_SWIFT_FLAGS = "$(inherited) -Xcc -Wno-deprecated-declarations";
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
@@ -4877,7 +4901,7 @@
 				INFOPLIST_KEY_CFBundleName = NotificationService;
 				INFOPLIST_KEY_CFBundleVersion = 1;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2021 Benjamin Dodgson. All rights reserved.";
-				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -4888,9 +4912,9 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				RELEASE_TYPE = DEBUG;
 				SKIP_INSTALL = YES;
-				OTHER_SWIFT_FLAGS = "$(inherited) -Xcc -Wno-deprecated-declarations";
+				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
@@ -4909,7 +4933,7 @@
 				INFOPLIST_KEY_CFBundleName = NotificationService;
 				INFOPLIST_KEY_CFBundleVersion = 1;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2021 Benjamin Dodgson. All rights reserved.";
-				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -4921,9 +4945,9 @@
 				RELEASE_TYPE = RELEASE;
 				SKIP_INSTALL = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = NOTIFICATION_SERVICE;
-				OTHER_SWIFT_FLAGS = "$(inherited) -Xcc -Wno-deprecated-declarations";
+				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
@@ -4942,7 +4966,7 @@
 				INFOPLIST_KEY_CFBundleName = "Intents ExtensionUI";
 				INFOPLIST_KEY_CFBundleVersion = 1;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2021 Benjamin Dodgson. All rights reserved.";
-				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -4953,9 +4977,8 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				RELEASE_TYPE = DEBUG;
 				SKIP_INSTALL = YES;
-				OTHER_SWIFT_FLAGS = "$(inherited) -Xcc -Wno-deprecated-declarations";
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
@@ -4974,7 +4997,7 @@
 				INFOPLIST_KEY_CFBundleName = "Intents ExtensionUI";
 				INFOPLIST_KEY_CFBundleVersion = 1;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2021 Benjamin Dodgson. All rights reserved.";
-				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -4986,9 +5009,8 @@
 				RELEASE_TYPE = RELEASE;
 				SKIP_INSTALL = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = INTENTS_UI;
-				OTHER_SWIFT_FLAGS = "$(inherited) -Xcc -Wno-deprecated-declarations";
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
@@ -5007,7 +5029,7 @@
 				INFOPLIST_KEY_CFBundleName = "Intents Extension";
 				INFOPLIST_KEY_CFBundleVersion = 1;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2021 Benjamin Dodgson. All rights reserved.";
-				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -5019,9 +5041,9 @@
 				RELEASE_TYPE = DEBUG;
 				SKIP_INSTALL = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = INTENTS_DEBUG;
-				OTHER_SWIFT_FLAGS = "$(inherited) -Xcc -Wno-deprecated-declarations";
+				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
@@ -5040,7 +5062,7 @@
 				INFOPLIST_KEY_CFBundleName = "Intents Extension";
 				INFOPLIST_KEY_CFBundleVersion = 1;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2021 Benjamin Dodgson. All rights reserved.";
-				IPHONEOS_DEPLOYMENT_TARGET = "$(RECOMMENDED_IPHONEOS_DEPLOYMENT_TARGET)";
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -5052,9 +5074,9 @@
 				RELEASE_TYPE = RELEASE;
 				SKIP_INSTALL = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = INTENTS;
-				OTHER_SWIFT_FLAGS = "$(inherited) -Xcc -Wno-deprecated-declarations";
+				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
@@ -5133,15 +5155,15 @@
 			repositoryURL = "https://github.com/parse-community/Parse-SDK-iOS-OSX.git";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 4.2.0;
+				minimumVersion = 6.1.1;
 			};
 		};
 		A10000000000000000000002 /* XCRemoteSwiftPackageReference "ScrollCounter" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/stokatyan/ScrollCounter.git";
 			requirement = {
-				branch = master;
-				kind = branch;
+				kind = revision;
+				revision = 0e70a50088a6cff70ddda386bc99b70c53b341ee;
 			};
 		};
 		D6AE0F5B267CF80C00C6B048 /* XCRemoteSwiftPackageReference "lottie-ios" */ = {
@@ -5154,10 +5176,18 @@
 		};
 		D6AE0F62267CF8A400C6B048 /* XCRemoteSwiftPackageReference "PhoneNumberKit" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/marmelroy/PhoneNumberKit.git";
+			repositoryURL = "https://github.com/PhoneNumberKit/PhoneNumberKit.git";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 3.0.0;
+				minimumVersion = 5.0.4;
+			};
+		};
+		F10000000000000000000001 /* XCRemoteSwiftPackageReference "PhoneNumberKitUI" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/PhoneNumberKit/PhoneNumberKitUI.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
 			};
 		};
 		D6DD0C2F2822F370004999F2 /* XCRemoteSwiftPackageReference "sentry-cocoa" */ = {
@@ -5244,6 +5274,21 @@
 			package = D6AE0F62267CF8A400C6B048 /* XCRemoteSwiftPackageReference "PhoneNumberKit" */;
 			productName = PhoneNumberKit;
 		};
+		F20000000000000000000001 /* PhoneNumberKitUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F10000000000000000000001 /* XCRemoteSwiftPackageReference "PhoneNumberKitUI" */;
+			productName = PhoneNumberKitUI;
+		};
+		F20000000000000000000002 /* PhoneNumberKitUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F10000000000000000000001 /* XCRemoteSwiftPackageReference "PhoneNumberKitUI" */;
+			productName = PhoneNumberKitUI;
+		};
+		F20000000000000000000003 /* PhoneNumberKitUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F10000000000000000000001 /* XCRemoteSwiftPackageReference "PhoneNumberKitUI" */;
+			productName = PhoneNumberKitUI;
+		};
 		B20000000000000000000001 /* MessagingContracts */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MessagingContracts;
@@ -5251,6 +5296,14 @@
 		B20000000000000000000002 /* MessagingPersistence */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MessagingPersistence;
+		};
+		B20000000000000000000003 /* MessagingContracts */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MessagingContracts;
+		};
+		B20000000000000000000004 /* MessagingContracts */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = MessagingContracts;
 		};
 		D61128062804D88600574B96 /* Localization */ = {
 			isa = XCSwiftPackageProductDependency;

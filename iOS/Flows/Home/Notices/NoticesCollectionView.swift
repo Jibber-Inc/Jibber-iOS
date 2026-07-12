@@ -7,7 +7,7 @@
 //
 
 import Foundation
-import Combine 
+import Combine
 
 class NoticesCollectionView: CollectionView {
     
@@ -26,12 +26,6 @@ class NoticesCollectionView: CollectionView {
                                          bottom: 0,
                                          right: 0)
 
-    }
-    
-    deinit {
-        self.cancellables.forEach { cancellable in
-            cancellable.cancel()
-        }
     }
     
     required init?(coder aDecoder: NSCoder) {

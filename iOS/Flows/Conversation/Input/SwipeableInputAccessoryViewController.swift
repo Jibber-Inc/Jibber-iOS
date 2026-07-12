@@ -11,13 +11,14 @@ import Lottie
 import Combine
 import KeyboardManager
 
+@MainActor
 protocol SwipeableInputAccessoryViewControllerDelegate: AnyObject {
     /// The accessory has begun a swipe interaction.
     func swipeableInputAccessoryDidBeginSwipe(_ controller: SwipeableInputAccessoryViewController)
     /// The accessory view wants to send the sendable with the preview with the specified frame.
     /// The delegate should return true if the sendable was sent.
     func swipeableInputAccessory(_ controller: SwipeableInputAccessoryViewController,
-                                 triggeredSendFor sendable: Sendable,
+                                 triggeredSendFor sendable: MessageSendable,
                                  withPreviewFrame frame: CGRect) async -> Bool
     /// The accessory view finished its swipe interaction.
     func swipeableInputAccessoryDidFinishSwipe(_ controller: SwipeableInputAccessoryViewController)

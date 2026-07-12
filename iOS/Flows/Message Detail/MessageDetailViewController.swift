@@ -7,7 +7,9 @@
 //
 
 import Foundation
+import Combine
 import MessagingContracts
+import ParseCore
 import Transitions
 
 class MessageDetailViewController: DiffableCollectionViewController<MessageDetailDataSource.SectionType,

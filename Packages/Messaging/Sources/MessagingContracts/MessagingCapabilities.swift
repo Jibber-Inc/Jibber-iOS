@@ -5,7 +5,7 @@
 
 import Foundation
 
-public struct MessagingCapabilities: Codable, Hashable {
+public struct MessagingCapabilities: Codable, Hashable, Sendable {
     public static let supportedSchemaVersion = 1
 
     public var available: Bool

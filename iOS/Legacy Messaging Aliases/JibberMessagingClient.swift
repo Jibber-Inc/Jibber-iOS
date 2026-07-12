@@ -6,6 +6,8 @@
 
 import Foundation
 import MessagingContracts
+import MessagingPersistence
+import ParseCore
 
 @MainActor
 final class JibberMessagingClient {

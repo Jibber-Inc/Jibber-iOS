@@ -9,10 +9,16 @@
 import Foundation
 import ParseCore
 
+/// Transfers the legacy Objective-C installation returned by Bolts to the
+/// single async caller that requested it.
+private struct InstallationTransfer: @unchecked Sendable {
+    let value: PFInstallation
+}
+
 extension PFInstallation {
 
     static func getCurrent() async throws -> PFInstallation {
-        return try await withCheckedThrowingContinuation { continuation in
+        let transfer: InstallationTransfer = try await withCheckedThrowingContinuation { continuation in
             self.getCurrentInstallationInBackground().continueWith { task in
                 do {
                     try Task.checkCancellation()
@@ -21,12 +27,13 @@ extension PFInstallation {
                 }
 
                 if let installation = task.result {
-                    return continuation.resume(returning: installation)
+                    return continuation.resume(returning: InstallationTransfer(value: installation))
                 } else {
                     return continuation.resume(throwing: ClientError.apiError(detail: "No installation was returned"))
                 }
             }
         }
+        return transfer.value
     }
 }
 

@@ -9,7 +9,8 @@
 import Foundation
 import ParseCore
 
-class SessionManager {
+@MainActor
+final class SessionManager {
     
     static let shared = SessionManager()
     

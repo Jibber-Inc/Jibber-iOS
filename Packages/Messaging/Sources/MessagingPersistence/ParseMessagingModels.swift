@@ -11,7 +11,7 @@ import Foundation
 import MessagingContracts
 import ParseSwift
 
-public struct MessagingParseUser: ParseUser {
+public struct MessagingParseUser: ParseUser, @unchecked Sendable {
     public var objectId: String?
     public var createdAt: Date?
     public var updatedAt: Date?
@@ -27,7 +27,7 @@ public struct MessagingParseUser: ParseUser {
     public init() {}
 }
 
-public struct MessagingParseAttachment: Codable, Hashable {
+public struct MessagingParseAttachment: Codable, Hashable, @unchecked Sendable {
     public var id: String?
     public var kind: MessagingAttachmentKind?
     public var file: ParseFile?
@@ -67,7 +67,7 @@ public struct MessagingParseAttachment: Codable, Hashable {
     }
 }
 
-public struct MessagingParseConversation: ParseObject {
+public struct MessagingParseConversation: ParseObject, @unchecked Sendable {
     public static var className: String { "Conversation" }
 
     public var objectId: String?
@@ -94,7 +94,7 @@ public struct MessagingParseConversation: ParseObject {
     public init() {}
 }
 
-public struct MessagingParseConversationMember: ParseObject {
+public struct MessagingParseConversationMember: ParseObject, @unchecked Sendable {
     public static var className: String { "ConversationMember" }
 
     public var objectId: String?
@@ -120,7 +120,7 @@ public struct MessagingParseConversationMember: ParseObject {
     public init() {}
 }
 
-public struct MessagingParseMessage: ParseObject {
+public struct MessagingParseMessage: ParseObject, @unchecked Sendable {
     public static var className: String { "Message" }
 
     public var objectId: String?
@@ -155,7 +155,7 @@ public struct MessagingParseMessage: ParseObject {
     public init() {}
 }
 
-public struct MessagingParseReaction: ParseObject {
+public struct MessagingParseReaction: ParseObject, @unchecked Sendable {
     public static var className: String { "MessageReaction" }
 
     public var objectId: String?
@@ -174,7 +174,7 @@ public struct MessagingParseReaction: ParseObject {
     public init() {}
 }
 
-public struct MessagingParseReceipt: ParseObject {
+public struct MessagingParseReceipt: ParseObject, @unchecked Sendable {
     public static var className: String { "MessageReceipt" }
 
     public var objectId: String?

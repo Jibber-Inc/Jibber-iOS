@@ -8,6 +8,7 @@
 
 import Foundation
 import Localization
+import ParseCore
 
 class ContextCueCell: CollectionViewManagerCell, ManageableCell {
     typealias ItemType = ContextCue

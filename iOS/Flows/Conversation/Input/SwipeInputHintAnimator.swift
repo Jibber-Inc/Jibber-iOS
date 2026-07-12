@@ -9,7 +9,8 @@
 import Foundation
 
 /// Manages hint animations on behalf of a SwipeableInputAccessoryView.
-class SwipeInputHintAnimator {
+@MainActor
+final class SwipeInputHintAnimator {
 
     private weak var view: SwipeableInputAccessoryView?
 
@@ -38,13 +39,13 @@ class SwipeInputHintAnimator {
 
             guard !Task.isCancelled else { return }
             
-            await swipeView.typingIndicatorView.animate(text: "Swipe up to send", highlights: ["Swipe"])
+            swipeView.typingIndicatorView.animate(text: "Swipe up to send", highlights: ["Swipe"])
             
             await Task.snooze(seconds: 1.5)
             
             guard !Task.isCancelled else { return }
             
-            await swipeView.typingIndicatorView.hideText()
+            swipeView.typingIndicatorView.hideText()
 
             await UIView.awaitSpringAnimation(with: .slow,
                                               damping: 0.2,

@@ -17,12 +17,12 @@ enum ScreenSize: Int, CaseIterable {
     case tablet = 1280 // iPad Mini & Pro
     case tabletLarge = 1707 // iPad Pro Large
 
-    static var current: ScreenSize {
+    static func closest(to diagonalDistance: CGFloat) -> ScreenSize {
         let allSizes: [ScreenSize] = ScreenSize.allCases
         var closestDistance: CGFloat = CGFloat.greatestFiniteMagnitude
         var closestScreenSize: ScreenSize = .phoneSmall
         for size in allSizes {
-            var screenSizeDiff = UIScreen.main.diagonalDistance - CGFloat(size.rawValue)
+            var screenSizeDiff = diagonalDistance - CGFloat(size.rawValue)
             screenSizeDiff = abs(screenSizeDiff)
             if closestDistance > screenSizeDiff {
                 closestDistance = screenSizeDiff

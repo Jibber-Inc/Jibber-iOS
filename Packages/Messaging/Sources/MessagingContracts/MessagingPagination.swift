@@ -8,7 +8,7 @@ import Foundation
 /// Keyset cursor. The timestamp is the primary descending sort key and the
 /// stable ID is the deterministic tie-breaker. `scope` prevents accidentally
 /// applying a cursor from one conversation or resource to another.
-public struct MessagingCursor: Codable, Hashable {
+public struct MessagingCursor: Codable, Hashable, Sendable {
     public static let currentVersion = 1
 
     public var version: Int
@@ -67,7 +67,7 @@ public struct MessagingCursor: Codable, Hashable {
     public static let conversationScope = "conversations"
 }
 
-public struct MessagingPage<Element: Codable & Hashable>: Codable, Hashable {
+public struct MessagingPage<Element: Codable & Hashable & Sendable>: Codable, Hashable, Sendable {
     public var items: [Element]
     public var nextCursor: MessagingCursor?
     public var hasMore: Bool
@@ -79,7 +79,7 @@ public struct MessagingPage<Element: Codable & Hashable>: Codable, Hashable {
     }
 }
 
-public enum MessagingPaginationError: Error, Equatable {
+public enum MessagingPaginationError: Error, Equatable, Sendable {
     case invalidPageSize(Int)
     case unsupportedCursorVersion(Int)
     case cursorScopeMismatch(expected: String, actual: String)

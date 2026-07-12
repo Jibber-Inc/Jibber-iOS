@@ -8,6 +8,7 @@
 
 import Foundation
 import PhoneNumberKit
+import PhoneNumberKitUI
 import ParseCore
 import Combine
 import UIKit

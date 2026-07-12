@@ -10,6 +10,7 @@ import Foundation
 import Intents
 import Combine
 import Localization
+import ParseCore
 import UIKit
 
 class PermissionsViewController: DisclosureModalViewController {

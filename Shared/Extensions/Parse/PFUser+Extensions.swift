@@ -9,15 +9,20 @@
 import Foundation
 import ParseCore
 
+/// Moves the legacy Objective-C user callback value into its single async caller.
+private struct UserTransfer: @unchecked Sendable {
+    let value: PFUser
+}
+
 extension PFUser {
 
     @discardableResult
     static func become(withSessionToken sessionToken: String) async throws -> PFUser {
-        let user: PFUser = try await withCheckedThrowingContinuation { continuation in
+        let transfer: UserTransfer = try await withCheckedThrowingContinuation { continuation in
             User.become(inBackground: sessionToken) { (user, error) in
                 if let user = user {
                     self.storeSession(token: sessionToken)
-                    return continuation.resume(returning: user)
+                    return continuation.resume(returning: UserTransfer(value: user))
                 } else if let error = error {
                     return continuation.resume(throwing: error)
                 } else {
@@ -29,7 +34,7 @@ extension PFUser {
 #if !NOTIFICATION
         await UserNotificationManager.shared.silentRegister(withApplication: UIApplication.shared)
 #endif
-        return user
+        return transfer.value
     }
   
     // TODO: Move this session token to the shared keychain once retrieval works reliably.

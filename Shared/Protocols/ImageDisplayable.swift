@@ -10,7 +10,7 @@ import Foundation
 import ParseCore
 
 protocol ImageDisplayable {
-    var image: UIImage? { get }
+    @MainActor var image: UIImage? { get }
     var url: URL? { get }
     var imageFileObject: PFFileObject? { get }
  }

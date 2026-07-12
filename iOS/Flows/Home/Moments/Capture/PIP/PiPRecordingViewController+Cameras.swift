@@ -64,7 +64,7 @@ extension PiPRecordingViewController {
             self.backOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA)]
         }
         
-        self.backOutput.setSampleBufferDelegate(self, queue: self.dataOutputQue)
+        self.backOutput.setSampleBufferDelegate(self, queue: .main)
                 
         // Connect the back camera device input to the back camera video data output
         let backCameraVideoDataOutputConnection = AVCaptureConnection(inputPorts: [backCameraVideoPort],
@@ -77,16 +77,14 @@ extension PiPRecordingViewController {
         self.session.addConnection(backCameraVideoDataOutputConnection)
         self.configurePortraitRotation(for: backCameraVideoDataOutputConnection)
 
-        Task.onMainActor {
-            // Connect the back camera device input to the back camera video preview layer
-            let backCameraVideoPreviewLayerConnection = AVCaptureConnection(inputPort: backCameraVideoPort,
-                                                                            videoPreviewLayer: self.backCameraView.videoPreviewLayer)
-            guard self.session.canAddConnection(backCameraVideoPreviewLayerConnection) else {
-                logDebug("Could not add a connection to the back camera video preview layer")
-                return 
-            }
-            self.session.addConnection(backCameraVideoPreviewLayerConnection)
+        // Connect the back camera input to the preview in the same topology transaction.
+        let backCameraVideoPreviewLayerConnection = AVCaptureConnection(inputPort: backCameraVideoPort,
+                                                                        videoPreviewLayer: self.backCameraView.videoPreviewLayer)
+        guard self.session.canAddConnection(backCameraVideoPreviewLayerConnection) else {
+            logDebug("Could not add a connection to the back camera video preview layer")
+            return false
         }
+        self.session.addConnection(backCameraVideoPreviewLayerConnection)
         
         return true
     }
@@ -132,7 +130,7 @@ extension PiPRecordingViewController {
         
         self.frontOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
 
-        self.frontOutput.setSampleBufferDelegate(self, queue: self.dataOutputQue)
+        self.frontOutput.setSampleBufferDelegate(self, queue: .main)
         
         // Connect the front camera device input to the front camera video data output
         let frontCameraVideoDataOutputConnection = AVCaptureConnection(inputPorts: [frontCameraVideoPort],
@@ -187,7 +185,7 @@ extension PiPRecordingViewController {
             return false
         }
         self.session.addOutputWithNoConnections(self.micDataOutput)
-        self.micDataOutput.setSampleBufferDelegate(self, queue: self.dataOutputQue)
+        self.micDataOutput.setSampleBufferDelegate(self, queue: .main)
         
         // Connect the front microphone to the back audio data output
         let frontMicrophoneAudioDataOutputConnection = AVCaptureConnection(inputPorts: [frontMicrophonePort], output: self.micDataOutput)

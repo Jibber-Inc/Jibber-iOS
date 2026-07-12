@@ -10,6 +10,7 @@ import Foundation
 import Combine
 import Localization
 import Coordinator
+import ParseCore
 
 enum DetailCoordinatorResult {
     case conversation(String)

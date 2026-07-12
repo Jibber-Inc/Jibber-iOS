@@ -8,43 +8,24 @@
 
 import Foundation
 import CoreLocation
+import MapKit
 
 extension CLLocation {
     
-    func getPlaceMark() async -> CLPlacemark? {
-        let geoCoder = CLGeocoder()
-        return try? await geoCoder.reverseGeocodeLocation(self).first
+    func getMapItem() async -> MKMapItem? {
+        guard let request = MKReverseGeocodingRequest(location: self) else { return nil }
+        return try? await request.mapItems.first
     }
     
     func getLocationString() async -> String {
-        guard let placemark = await self.getPlaceMark() else { return "" }
-        
-        var locationString = ""
-        // Street address
-        if let street = placemark.thoroughfare {
-            locationString.append(contentsOf: "\(street)\n")
-        }
-        // City
-        if let city = placemark.locality {
-            locationString.append(contentsOf: "\(city)")
-        }
-        // State
-        if let state = placemark.administrativeArea {
-            locationString.append(contentsOf: ", \(state)")
-        }
-        
-        return locationString
+        guard let representations = await self.getMapItem()?.addressRepresentations else { return "" }
+        return representations.fullAddress(includingRegion: false, singleLine: false) ?? ""
     }
     
     func getStreetString() async -> String {
-        guard let placemark = await self.getPlaceMark() else { return "" }
-        
-        var locationString = ""
-        // Street address
-        if let street = placemark.thoroughfare {
-            locationString.append(contentsOf: "\(street)")
-        }
-        
-        return locationString
+        guard let representations = await self.getMapItem()?.addressRepresentations,
+              let address = representations.fullAddress(includingRegion: false, singleLine: false)
+        else { return "" }
+        return address.split(separator: "\n", maxSplits: 1).first.map(String.init) ?? ""
     }
 }

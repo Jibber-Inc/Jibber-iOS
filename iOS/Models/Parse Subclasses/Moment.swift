@@ -20,12 +20,13 @@ import LinkPresentation
      case messagingConversationId
  }
 
- final class Moment: PFObject, PFSubclassing {
+ final class Moment: PFObject, PFSubclassing, @unchecked Sendable {
 
      static func parseClassName() -> String {
          return String(describing: self)
      }
      
+     @MainActor
      var isAvailable: Bool {
          guard let user = User.current() else { return true }
          
@@ -124,7 +125,8 @@ import LinkPresentation
      }
  }
 
-private var urlKey: UInt8 = 0
+// Stable-address token used only as an Objective-C associated-object key.
+nonisolated(unsafe) private var urlKey: UInt8 = 0
 extension Moment: UIActivityItemSource {
     
     private(set) var previewURL: URL? {

@@ -8,6 +8,7 @@
 
 import Foundation
 import Intents
+import ParseCore
 import UIKit
 
 extension User {
@@ -71,4 +72,3 @@ extension UIImage {
         return self
     }
 }
-

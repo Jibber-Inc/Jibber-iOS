@@ -78,12 +78,13 @@ extension TransitionableRouter {
                                         self.toVC.navigationController?.navigationBar.alpha = 1
                                     }
         }) { (completed) in
-            snapshot.removeFromSuperview()
-            // Unhide all of the views we tampered with so that they're visible after the transition
-            self.fromVC.view.alpha = 1
-            fromView.isHidden = false
-            transitionContext.completeTransition(!transitionContext.transitionWasCancelled)
+            MainActor.assumeIsolated {
+                snapshot.removeFromSuperview()
+                // UIKit executes animation completions on the main thread.
+                self.fromVC.view.alpha = 1
+                fromView.isHidden = false
+                transitionContext.completeTransition(!transitionContext.transitionWasCancelled)
+            }
         }
     }
 }
-

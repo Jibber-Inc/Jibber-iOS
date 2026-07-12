@@ -37,9 +37,9 @@ class NotificationViewController: UIViewController, UNNotificationContentExtensi
         case .newMessage:
             break
         case .moment:
-            
-            self.preferredContentSize = CGSize(width: UIScreen.main.bounds.width,
-                                               height: UIScreen.main.bounds.height * 0.7)
+            let screenBounds = self.view.window?.windowScene?.screen.bounds ?? self.view.bounds
+            self.preferredContentSize = CGSize(width: screenBounds.width,
+                                               height: screenBounds.height * 0.7)
             self.view.setNeedsUpdateConstraints()
             self.view.setNeedsLayout()
             

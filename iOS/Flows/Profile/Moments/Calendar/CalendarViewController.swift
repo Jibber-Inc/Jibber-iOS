@@ -8,6 +8,7 @@
 
 import Foundation
 import UIKit
+import ParseCore
 
 class CalendarViewController: DiffableCollectionViewController<CalendarRange,
                               CalendarDataSource.ItemType,
