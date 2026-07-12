@@ -178,23 +178,20 @@ class PermissionsViewController: DisclosureModalViewController {
 
     private func handleFocus(isON: Bool) {
         if isON, INFocusStatusCenter.default.authorizationStatus == .notDetermined {
-            /// Request authorization to check Focus Status
-            INFocusStatusCenter.default.requestAuthorization { status in
-                /// Provides a INFocusStatusAuthorizationStatus
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+
+                let status = await INFocusStatusCenter.default.requestAuthorization()
                 if status != .authorized {
                     self.focusSwitchView.switchView.setOn(false, animated: true)
+                } else if await UserNotificationManager.shared.getNotificationSettings().authorizationStatus != .authorized {
+                    self.state = .notificationAsk
+                    self.notificationSwitchView.state = .enabled
                 } else {
-                    Task {
-                        if await UserNotificationManager.shared.getNotificationSettings().authorizationStatus != .authorized {
-                            self.state = .notificationAsk
-                            self.notificationSwitchView.state = .enabled
-                        } else {
-                            guard let isFocused = INFocusStatusCenter.default.focusStatus.isFocused else { return }
-                            let newStatus: FocusStatus = isFocused ? .focused : .available
-                            User.current()?.focusStatus = newStatus
-                            try await User.current()?.saveInBackground()
-                        }
-                    }
+                    guard let isFocused = INFocusStatusCenter.default.focusStatus.isFocused else { return }
+                    let newStatus: FocusStatus = isFocused ? .focused : .available
+                    User.current()?.focusStatus = newStatus
+                    _ = try? await User.current()?.saveInBackground()
                 }
             }
         }

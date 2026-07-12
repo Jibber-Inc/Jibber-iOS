@@ -188,8 +188,10 @@ class InputHandlerCoordinator<Result>: PresentableCoordinator<Result>,
             break
         case .notDetermined:
             // Prompting user for the permission to use the camera.
-            AVCaptureDevice.requestAccess(for: cameraMediaType) { granted in
+            Task { @MainActor [weak self] in
+                let granted = await AVCaptureDevice.requestAccess(for: cameraMediaType)
                 if granted {
+                    guard let self else { return }
                     self.toPresentable().present(self.captureVC, animated: true, completion: nil)
                 } else {
                     print("Denied access to \(cameraMediaType)")

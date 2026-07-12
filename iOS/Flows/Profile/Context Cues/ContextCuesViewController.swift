@@ -78,10 +78,8 @@ class ContextCuesViewController: DiffableCollectionViewController<ContextCueColl
     func reloadContextCues() {
         self.loadTask?.cancel()
         
-        self.loadTask = Task { [weak self] in
+        self.loadTask = Task { @MainActor [weak self] in
             guard let `self` = self else { return }
-            var snapshot = self.dataSource.snapshot()
-            
             guard let user = self.person as? User,
                   let contextCues = try? await ContextCue.fetchAll(for: user) else { return }
             
@@ -89,8 +87,7 @@ class ContextCuesViewController: DiffableCollectionViewController<ContextCueColl
                 return .contextCue(contextCue)
             })
         
-            snapshot.setItems(items, in: .contextCues)
-            await self.dataSource.apply(snapshot)
+            self.dataSource.setItemsImmediately(items, in: .contextCues)
         }
     }
 }

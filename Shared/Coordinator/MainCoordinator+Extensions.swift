@@ -7,7 +7,7 @@
 //
 
 import Foundation
-import ParseLiveQuery
+import JibberParseLiveQuery
 
 extension MainCoordinator: LaunchManagerDelegate {
 

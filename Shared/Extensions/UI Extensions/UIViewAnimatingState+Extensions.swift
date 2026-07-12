@@ -9,7 +9,7 @@
 import Foundation
 import UIKit
 
-extension UIViewAnimatingState: CustomStringConvertible, CustomDebugStringConvertible {
+extension UIViewAnimatingState: @retroactive CustomStringConvertible, @retroactive CustomDebugStringConvertible {
     
     var isValid: Bool {
         switch self {
@@ -37,4 +37,3 @@ extension UIViewAnimatingState: CustomStringConvertible, CustomDebugStringConver
         return self.description
     }
 }
-

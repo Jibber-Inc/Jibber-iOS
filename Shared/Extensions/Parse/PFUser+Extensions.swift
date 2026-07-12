@@ -32,7 +32,7 @@ extension PFUser {
         return user
     }
   
-#warning("Saving to the keystore is far more secure and succeeds here, but can't be retrieved for some reason.")
+    // TODO: Move this session token to the shared keychain once retrieval works reliably.
 //https://developer.apple.com/documentation/app_clips/sharing_data_between_your_app_clip_and_your_full_app
     private static func storeSession(token: String) {
         guard let sharedUserDefaults = UserDefaults(suiteName: Config.shared.environment.groupId) else {

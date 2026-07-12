@@ -1,16 +1,16 @@
 import UIKit
 
-public protocol LightboxControllerPageDelegate: class {
+public protocol LightboxControllerPageDelegate: AnyObject {
 
   func lightboxController(_ controller: LightboxController, didMoveToPage page: Int)
 }
 
-public protocol LightboxControllerDismissalDelegate: class {
+public protocol LightboxControllerDismissalDelegate: AnyObject {
 
   func lightboxControllerWillDismiss(_ controller: LightboxController)
 }
 
-public protocol LightboxControllerTouchDelegate: class {
+public protocol LightboxControllerTouchDelegate: AnyObject {
 
   func lightboxController(_ controller: LightboxController, didTouch image: LightboxImage, at index: Int)
 }
@@ -144,7 +144,6 @@ open class LightboxController: UIViewController {
 
   lazy var transitionManager: LightboxTransition = LightboxTransition()
   var pageViews = [PageView]()
-  var statusBarHidden = false
 
   fileprivate var initialImages: [LightboxImage]
   fileprivate let initialPage: Int
@@ -169,8 +168,6 @@ open class LightboxController: UIViewController {
     // 9 July 2020: @3lvis
     // Lightbox hasn't been optimized to be used in presentation styles other than fullscreen.
     modalPresentationStyle = .fullScreen
-    
-    statusBarHidden = UIApplication.shared.isStatusBarHidden
 
     view.backgroundColor = UIColor.black
     transitionManager.lightboxController = self

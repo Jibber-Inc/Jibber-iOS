@@ -7,8 +7,8 @@
 //
 
 import Foundation
-import ParseLiveQuery
 import ParseCore
+import JibberParseLiveQuery
 
 class AchievementsManager {
     
@@ -79,12 +79,16 @@ class AchievementsManager {
     func createIfNeeded(with type: AchievementType.LocalType) {
 
         Task {
-            // If we already have an initialization task, wait for it to finish.
-            if let initializeTask = self.initializeTask {
-                try await initializeTask.value
+            do {
+                // If we already have an initialization task, wait for it to finish.
+                if let initializeTask = self.initializeTask {
+                    try await initializeTask.value
+                }
+
+                await self.create(with: type)
+            } catch {
+                logError(error)
             }
-            
-            await self.create(with: type)
         }
     }
     

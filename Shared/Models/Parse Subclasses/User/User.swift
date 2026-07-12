@@ -8,7 +8,7 @@
 
 import Foundation
 import ParseCore
-import ParseLiveQuery
+import JibberParseLiveQuery
 import Combine
 import SwiftUI
 

@@ -62,7 +62,7 @@ class NoticesViewController: DiffableCollectionViewController<NoticesDataSource.
         
         self.loadNoticeTask?.cancel()
         
-        self.loadNoticeTask = Task { [weak self] in
+        self.loadNoticeTask = Task { @MainActor [weak self] in
             guard let `self` = self else { return }
             
             try? await NoticeStore.shared.initializeIfNeeded()
@@ -77,10 +77,7 @@ class NoticesViewController: DiffableCollectionViewController<NoticesDataSource.
             
             self.noticesFooterView.pageIndicator.numberOfPages = items.count
             
-            var snapshot = self.dataSource.snapshot()
-            snapshot.setItems(items, in: .notices)
-            
-            await self.dataSource.apply(snapshot)
+            self.dataSource.setItemsImmediately(items, in: .notices)
         }
     }
 }

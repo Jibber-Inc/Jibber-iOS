@@ -93,7 +93,7 @@ class WaitlistCoordinator: PresentableCoordinator<Void> {
             return
         }
             
-        Task.onMainActor {
+        Task.onMainActor { [self] in
             let coordinator = MomentCoordinator(moment: moment,
                                                 router: self.router,
                                                 deepLink: deepLink)

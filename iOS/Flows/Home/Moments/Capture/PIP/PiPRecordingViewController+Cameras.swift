@@ -75,7 +75,7 @@ extension PiPRecordingViewController {
             return false
         }
         self.session.addConnection(backCameraVideoDataOutputConnection)
-        backCameraVideoDataOutputConnection.videoOrientation = .portrait
+        self.configurePortraitRotation(for: backCameraVideoDataOutputConnection)
 
         Task.onMainActor {
             // Connect the back camera device input to the back camera video preview layer
@@ -142,7 +142,7 @@ extension PiPRecordingViewController {
             return false
         }
         
-        frontCameraVideoDataOutputConnection.videoOrientation = .portrait
+        self.configurePortraitRotation(for: frontCameraVideoDataOutputConnection)
         frontCameraVideoDataOutputConnection.automaticallyAdjustsVideoMirroring = false
         frontCameraVideoDataOutputConnection.isVideoMirrored = true
         
@@ -198,5 +198,15 @@ extension PiPRecordingViewController {
         self.session.addConnection(frontMicrophoneAudioDataOutputConnection)
         
         return true
+    }
+
+    private func configurePortraitRotation(for connection: AVCaptureConnection) {
+        if #available(iOS 17.0, *) {
+            let portraitRotationAngle: CGFloat = 90
+            guard connection.isVideoRotationAngleSupported(portraitRotationAngle) else { return }
+            connection.videoRotationAngle = portraitRotationAngle
+        } else {
+            connection.videoOrientation = .portrait
+        }
     }
 }

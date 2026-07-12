@@ -132,7 +132,11 @@ class MessageMoreCell: CollectionViewManagerCell, ManageableCell {
     func setToUnread(with message: Messageable) {
         guard message.isConsumedByMe else { return }
         Task {
-            try await message.setToUnconsumed()
+            do {
+                try await message.setToUnconsumed()
+            } catch {
+                logError(error)
+            }
         }
     }
 

@@ -12,7 +12,7 @@ import UIKit
 
 class CollectionView: UICollectionView {
 
-    let animationView = AnimationView.with(animation: .loading)
+    let animationView = LottieAnimationView.with(animation: .loading)
     let backView = BaseView()
 
     init(layout: UICollectionViewLayout) {

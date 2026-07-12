@@ -55,7 +55,7 @@ class OnboardingViewController: SwitchableContentViewController<OnboardingConten
     lazy var photoVC = ProfilePhotoCaptureViewController()
 
     let loadingBlur = BlurView()
-    let loadingAnimationView = AnimationView()
+    let loadingAnimationView = LottieAnimationView()
 
     unowned let delegate: OnboardingViewControllerDelegate
 
@@ -91,7 +91,12 @@ class OnboardingViewController: SwitchableContentViewController<OnboardingConten
         
         Task {
             guard let adminId = PFConfig.current().adminUserId else { return }
-            try await self.updateInvitor(userId: adminId)
+
+            do {
+                try await self.updateInvitor(userId: adminId)
+            } catch {
+                return
+            }
         }
 
         self.welcomeVC.onDidComplete = { [unowned self] result in
@@ -231,12 +236,16 @@ class OnboardingViewController: SwitchableContentViewController<OnboardingConten
             }
         case .pass(passId: let passId):
             Task {
-                let pass = try await Pass.getObject(with: passId)
-                self.passId = passId
-                if let userId = pass.owner?.objectId {
-                    try await self.updateInvitor(userId: userId)
-                    await self.hideLoading()
-                    self.switchTo(.phone(self.phoneVC))
+                do {
+                    let pass = try await Pass.getObject(with: passId)
+                    self.passId = passId
+                    if let userId = pass.owner?.objectId {
+                        try await self.updateInvitor(userId: userId)
+                        await self.hideLoading()
+                        self.switchTo(.phone(self.phoneVC))
+                    }
+                } catch {
+                    return
                 }
             }
         case .deepLink(let deepLink):

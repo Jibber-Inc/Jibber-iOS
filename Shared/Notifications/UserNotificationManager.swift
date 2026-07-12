@@ -172,6 +172,7 @@ class UserNotificationManager: NSObject {
     // MARK: - Message Event Handling
     
 #if IOS
+    @MainActor
     func handleRead(message: Messageable) {
         self.handleRead(
             messageIDs: [message.id],
@@ -179,6 +180,7 @@ class UserNotificationManager: NSObject {
         )
     }
 
+    @MainActor
     func handleRead(message: MessagingMessageSnapshot) {
         self.handleRead(
             messageIDs: [message.stableID, message.canonicalMessageID],
@@ -186,46 +188,55 @@ class UserNotificationManager: NSObject {
         )
     }
 
+    @MainActor
     private func handleRead(
         messageIDs: Set<MessagingMessageID>,
         clientMessageID: MessagingMessageID?
     ) {
         AchievementsManager.shared.createIfNeeded(with: .firstUnreadMessage)
         
-        self.center.getDeliveredNotifications { [unowned self] delivered in
-            Task { @MainActor in
-                var resolvedMessageIDs = messageIDs
-                if let clientMessageID = clientMessageID,
-                   let cached = try? ParseMessagingManager.shared.store?.cachedMessage(
-                       clientMessageID: clientMessageID
-                   ),
-                   let objectID = cached.objectID {
-                    resolvedMessageIDs.insert(objectID)
-                }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
 
-                let identifiers: [String] = delivered.compactMap { note in
-                    guard let messageID = note.request.content.messageId,
-                          resolvedMessageIDs.contains(messageID) else { return nil }
-                    return note.request.identifier
-                }
-            
-                self.removeNotifications(with: identifiers)
-                
-                self.center.getDeliveredNotifications { [unowned self] delivered in
-                    // Must be called on Main thread or will crash
-                    let count = delivered.filter { note in
-                        return note.request.content.interruptionLevel == .timeSensitive
-                    }.count
-                    
-                    logDebug(count)
-                    self.application?.applicationIconBadgeNumber = count
-                    UserDefaults(suiteName: Config.shared.environment.groupId)?.set(
-                        count,
-                        forKey: "badgeNumber"
-                    )
-                }
+            let delivered = await self.center.deliveredNotifications()
+            var resolvedMessageIDs = messageIDs
+            if let clientMessageID = clientMessageID,
+               let cached = try? ParseMessagingManager.shared.store?.cachedMessage(
+                   clientMessageID: clientMessageID
+               ),
+               let objectID = cached.objectID {
+                resolvedMessageIDs.insert(objectID)
             }
+
+            let identifiers: [String] = delivered.compactMap { note in
+                guard let messageID = note.request.content.messageId,
+                      resolvedMessageIDs.contains(messageID) else { return nil }
+                return note.request.identifier
+            }
+
+            self.removeNotifications(with: identifiers)
+
+            await self.synchronizeBadgeCount()
         }
+    }
+
+    @MainActor
+    func synchronizeBadgeCount() async {
+        let deliveredNotifications = await self.center.deliveredNotifications()
+        let count = deliveredNotifications.filter { note in
+            return note.request.content.interruptionLevel == .timeSensitive
+        }.count
+
+        logDebug(count)
+        do {
+            try await self.center.setBadgeCount(count)
+        } catch {
+            logError(error)
+        }
+        UserDefaults(suiteName: Config.shared.environment.groupId)?.set(
+            count,
+            forKey: "badgeNumber"
+        )
     }
 #endif
     

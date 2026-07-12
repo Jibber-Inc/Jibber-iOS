@@ -61,7 +61,7 @@ class BadgeCounterView: BaseView {
     }
     
     func animateChanges(shouldShow: Bool) {
-        Task {
+        Task { [self] in
             await UIView.awaitSpringAnimation(with: .fast, animations: { [unowned self] in
                 if shouldShow {
                     self.alpha = 1.0

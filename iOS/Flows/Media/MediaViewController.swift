@@ -73,7 +73,7 @@ class MediaViewController: LightboxController, Dismissable, TransitionableViewCo
         LightboxConfig.CloseButton.image = ImageSymbol.xMark.image 
         LightboxConfig.CloseButton.size = CGSize(width: 20, height: 18)
 
-        let animationView = AnimationView.with(animation: .loading)
+        let animationView = LottieAnimationView.with(animation: .loading)
         animationView.loopMode = .loop
         animationView.play()
         animationView.squaredSize = 18

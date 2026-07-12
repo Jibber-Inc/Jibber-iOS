@@ -85,7 +85,7 @@ class OnboardingCoordinator: PresentableCoordinator<DeepLinkable?> {
     
     func presentMoment(with deepLink: DeepLinkable?) {
         
-        Task.onMainActorAsync {
+        Task.onMainActorAsync { [self] in
             guard let moment = try? await Moment.getObject(with: deepLink?.momentId) else {
                 return
             }

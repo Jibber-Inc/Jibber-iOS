@@ -44,7 +44,7 @@ class MomentCell: CollectionViewManagerCell, ManageableCell {
     var currentItem: MomentViewModel?
     let label = ThemeLabel(font: .regularBold)
     let videoView = VideoView()
-    let animationView = AnimationView.with(animation: .loading)
+    let animationView = LottieAnimationView.with(animation: .loading)
     private(set) var moment: Moment?
     
     weak var delegate: MomentCellDelegate? 
@@ -157,4 +157,3 @@ class MomentCell: CollectionViewManagerCell, ManageableCell {
         }
     }
 }
-

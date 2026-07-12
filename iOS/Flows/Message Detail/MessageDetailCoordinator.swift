@@ -61,7 +61,7 @@ class MessageDetailCoordinator: PresentableCoordinator<MessageDetailResult> {
                     guard let authorId = model.authorId, let author = await PeopleStore.shared.getPerson(withPersonId: authorId) else { return }
                     self.presentProfile(for: author)
                 }
-            case .expression(let info):
+            case .expression:
                 break 
             case .metadata(_):
                 break
@@ -96,9 +96,9 @@ class MessageDetailCoordinator: PresentableCoordinator<MessageDetailResult> {
         
         Task {
             if shouldPin {
-                try? await controller.pinMessage()
+                try? controller.pinMessage()
             } else {
-                try? await controller.unpinMessage()
+                try? controller.unpinMessage()
             }
         }
     }
@@ -106,7 +106,7 @@ class MessageDetailCoordinator: PresentableCoordinator<MessageDetailResult> {
     private func handleDelete() {
         Task {
             let controller = MessageController.controller(for: self.message)
-            try? await controller?.deleteMessage()
+            try? controller?.deleteMessage()
             
             await ToastScheduler.shared.schedule(toastType: .success(ImageSymbol.trash, "Message Deleted"))
             
@@ -212,7 +212,11 @@ extension MessageDetailCoordinator: MessageContentDelegate {
             let controller = MessageController.controller(for: message)
             
             Task {
-                try await controller?.add(expression: expression)
+                do {
+                    try await controller?.add(expression: expression)
+                } catch {
+                    logError(error)
+                }
             }
             self.messageVC.dismiss(animated: true)
         }

@@ -8,7 +8,7 @@
 
 import Foundation
 import ParseCore
-import ParseLiveQuery
+import JibberParseLiveQuery
 import Transitions
 
 class WaitlistViewController: ViewController {

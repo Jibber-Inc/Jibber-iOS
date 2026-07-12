@@ -84,7 +84,7 @@ extension HomeCoordinator {
     
     func presentProfile(for person: PersonType) {
         
-        Task.onMainActorAsync {
+        Task.onMainActorAsync { [self] in
             if let moment = await MomentsStore.shared.getTodaysMoment(withPersonId: person.personId) {
                 self.presentMoment(with: moment)
             } else {

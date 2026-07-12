@@ -67,7 +67,7 @@ class MessageContentView: BaseView {
 
     static let bubbleTailLength: CGFloat = 12
 
-    private (set) var message: Messageable?
+    private(set) var message: Messageable?
 
     /// A view that provides a safe area for  main message content (margins are already taken into account).
     /// Subviews includes author, attachments, text and date sent views.

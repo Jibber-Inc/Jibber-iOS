@@ -95,7 +95,7 @@ class CommentsCoordinator: InputHandlerCoordinator<Void>, DeepLinkHandler {
     
     override func presentThread(for message: Messageable, startingReplyId: String?) {
         
-        Task.onMainActorAsync {
+        Task.onMainActorAsync { [self] in
             let coordinator = ThreadCoordinator(with: message,
                                                 startingReplyId: startingReplyId,
                                                 router: self.router,
