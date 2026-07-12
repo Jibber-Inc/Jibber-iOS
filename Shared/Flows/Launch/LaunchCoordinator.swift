@@ -9,7 +9,7 @@
 import Foundation
 import UIKit
 import Coordinator
-import Parse
+import ParseCore
 
 enum LaunchResult {
     case success(DeepLinkable?)
@@ -51,6 +51,8 @@ class LaunchCoordinator: PresentableCoordinator<LaunchResult> {
         switch launchStatus {
         case .success(let deepLink):
             self.finishFlow(with: .success(deepLink))
+        case .updateRequired(let message):
+            self.presentUpdateRequiredAlert(message: message)
         case .failed(let error, let deepLink):
             self.splashVC.stopLoadAnimation()
             if self.retryCount == 1 {
@@ -66,6 +68,19 @@ class LaunchCoordinator: PresentableCoordinator<LaunchResult> {
                 self.presentErrorAlert(with: error)
             }
         }
+    }
+
+    private func presentUpdateRequiredAlert(message: String) {
+        self.splashVC.stopLoadAnimation()
+        let alert = UIAlertController(
+            title: "Update Required",
+            message: message + " Please update Jibber from the App Store to continue.",
+            preferredStyle: .alert
+        )
+        // There is intentionally no bypass or retry action: the server has
+        // declared this client incompatible with the messaging contract.
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        self.splashVC.present(alert, animated: true)
     }
     
     private func handleInvalidSessionError(with deepLink: DeepLinkable?) {

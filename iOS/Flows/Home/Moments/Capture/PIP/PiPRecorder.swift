@@ -10,13 +10,13 @@ import Foundation
 import AVFoundation
 import VideoToolbox
 
-struct PiPRecording {
+struct PiPRecording: Swift.Sendable {
     var frontRecordingURL: URL?
     var backRecordingURL: URL?
     var previewURL: URL?
 }
 
-class PiPRecorder {
+actor PiPRecorder {
     
     private var frontAssetWriter: AVAssetWriter?
     private var frontAssetWriterVideoInput: AVAssetWriterInput?
@@ -41,12 +41,14 @@ class PiPRecorder {
                                              kCVPixelBufferMetalCompatibilityKey: true] as [String: Any]
     
     private var pixelBufferAdaptor: AVAssetWriterInputPixelBufferAdaptor?
+    private let ciContext = CIContext()
 
-    var didCapturePIPRecording: ((PiPRecording) -> Void)?
-    
-    @Published private(set) var isReadyToRecord: Bool = false
+    private var isReadyToRecord: Bool = false
     private var hasWrittenFirstFrontVideoFrame: Bool = false
     private var startTime: CMTime?
+    private var lastFrontVideoTime: CMTime?
+    private var lastBackVideoTime: CMTime?
+    private var lastAudioTime: CMTime?
     
     deinit {
         FileManager.clearTmpDirectory()
@@ -90,7 +92,8 @@ class PiPRecorder {
         
         if assetWriter.status == .unknown {
             self.startTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
-            self.startWritingSession(with: assetWriter, startTime: self.startTime!, and: sampleBuffer)
+            self.startWritingSession(with: assetWriter, startTime: self.startTime!)
+            self.handleFrontInput(from: sampleBuffer, image: ciImage)
         } else if assetWriter.status == .writing {
             self.handleFrontInput(from: sampleBuffer, image: ciImage)
         }
@@ -101,7 +104,8 @@ class PiPRecorder {
         
         if assetWriter.status == .unknown {
             if let startTime = self.startTime, self.hasWrittenFirstFrontVideoFrame {
-                self.startWritingSession(with: assetWriter, startTime: startTime, and: sampleBuffer)
+                self.startWritingSession(with: assetWriter, startTime: startTime)
+                self.handleBackInput(from: sampleBuffer)
             }
         } else if assetWriter.status == .writing {
             self.handleBackInput(from: sampleBuffer)
@@ -121,29 +125,30 @@ class PiPRecorder {
     
     // MARK: - STOP RECORDING
     
-    private var stopRecordingTask: Task<Void, Error>?
+    private var stopRecordingTask: Task<PiPRecording, Error>?
 
     // This cant be called more than once per recording otherwise inputs will crash
-    func stopRecording() async throws {
-        // If we already have an initialization task, wait for it to finish.
+    func stopRecording() async throws -> PiPRecording {
+        // If finalization has already started, share its result.
         if let finishVideoTask = self.stopRecordingTask {
-            try await finishVideoTask.value
-            return
+            return try await finishVideoTask.value
         }
 
-        // Otherwise start a new initialization task and wait for it to finish.
+        // Prevent queued capture callbacks from appending while the writers finish.
+        self.isReadyToRecord = false
+
+        // Otherwise start a single finalization task and wait for it to finish.
         self.stopRecordingTask = Task {
             let frontURL = try await self.stopRecordingFront()
             let backURL = try await self.stopRecordingBack()
             let previewURL = await self.compressVideo(for: backURL)
-            let recording = PiPRecording(frontRecordingURL: frontURL,
-                                         backRecordingURL: backURL,
-                                         previewURL: previewURL)
-            self.didCapturePIPRecording?(recording)
+            return PiPRecording(frontRecordingURL: frontURL,
+                                backRecordingURL: backURL,
+                                previewURL: previewURL)
         }
 
         do {
-            try await self.stopRecordingTask?.value
+            return try await self.stopRecordingTask!.value
         } catch {
             // Dispose of the task because it failed, then pass the error along.
             self.stopRecordingTask = nil
@@ -156,10 +161,18 @@ class PiPRecorder {
     private func reset() {
         FileManager.clearTmpDirectory()
         self.stopRecordingTask = nil
+        self.frontAssetWriter = nil
+        self.frontAssetWriterVideoInput = nil
+        self.backAssetWriter = nil
+        self.backAssetWriterVideoInput = nil
         self.assetWriterAudioInput = nil
+        self.pixelBufferAdaptor = nil
         self.isReadyToRecord = false
         self.startTime = nil
         self.hasWrittenFirstFrontVideoFrame = false
+        self.lastFrontVideoTime = nil
+        self.lastBackVideoTime = nil
+        self.lastAudioTime = nil
     }
     
     // MARK: - INITIALZE WRITERS/INPUTS
@@ -231,8 +244,7 @@ class PiPRecorder {
     }
     
     private func startWritingSession(with writer: AVAssetWriter,
-                                     startTime: CMTime,
-                                     and sampleBuffer: CMSampleBuffer) {
+                                     startTime: CMTime) {
         writer.startWriting()
         writer.startSession(atSourceTime: startTime)
     }
@@ -240,9 +252,11 @@ class PiPRecorder {
     // MARK: - HANDLE SAMPLE BUFFERS
     
     private func handleFrontInput(from sampleBuffer: CMSampleBuffer, image: CIImage?) {
+        let currentTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
         guard let input = self.frontAssetWriterVideoInput,
-                input.isReadyForMoreMediaData,
-              let currentImage = image else { return }
+              input.isReadyForMoreMediaData,
+              let currentImage = image,
+              self.shouldAppend(currentTime, after: self.lastFrontVideoTime) else { return }
         
         var pixelBuffer: CVPixelBuffer?
         let attrs = [kCVPixelBufferCGImageCompatibilityKey : kCFBooleanTrue,
@@ -257,29 +271,46 @@ class PiPRecorder {
                             attrs,
                             &pixelBuffer)
 
-        let context = CIContext()
         // Using a magic number (-240) for now. We should figure out the appropriate offset dynamically.
         let transform = CGAffineTransform(translationX: 0, y: -240)
         let adjustedImage = currentImage.transformed(by: transform)
-        context.render(adjustedImage, to: pixelBuffer!)
+        guard let pixelBuffer else { return }
+        self.ciContext.render(adjustedImage, to: pixelBuffer)
 
-        let currentTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
-        self.pixelBufferAdaptor?.append(pixelBuffer!, withPresentationTime: currentTime)
-        self.hasWrittenFirstFrontVideoFrame = true
+        if self.pixelBufferAdaptor?.append(pixelBuffer, withPresentationTime: currentTime) == true {
+            self.lastFrontVideoTime = currentTime
+            self.hasWrittenFirstFrontVideoFrame = true
+        }
     }
     
     private func handleBackInput(from sampleBuffer: CMSampleBuffer) {
+        let currentTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
         guard let input = self.backAssetWriterVideoInput,
               input.isReadyForMoreMediaData,
-              self.hasWrittenFirstFrontVideoFrame else { return }
-        input.append(sampleBuffer)
+              self.hasWrittenFirstFrontVideoFrame,
+              self.shouldAppend(currentTime, after: self.lastBackVideoTime) else { return }
+        if input.append(sampleBuffer) {
+            self.lastBackVideoTime = currentTime
+        }
     }
     
     private func handleAudioInput(from sampleBuffer: CMSampleBuffer) {
+        let currentTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
         guard let input = self.assetWriterAudioInput,
-                input.isReadyForMoreMediaData,
-                self.hasWrittenFirstFrontVideoFrame else { return }
-        input.append(sampleBuffer)
+              input.isReadyForMoreMediaData,
+              self.hasWrittenFirstFrontVideoFrame,
+              self.shouldAppend(currentTime, after: self.lastAudioTime) else { return }
+        if input.append(sampleBuffer) {
+            self.lastAudioTime = currentTime
+        }
+    }
+
+    private func shouldAppend(_ time: CMTime, after lastTime: CMTime?) -> Bool {
+        guard time.isValid,
+              let startTime = self.startTime,
+              CMTimeCompare(time, startTime) >= 0 else { return false }
+        guard let lastTime else { return true }
+        return CMTimeCompare(time, lastTime) > 0
     }
     
     // MARK: - STOP RECORDING 
@@ -291,6 +322,7 @@ class PiPRecorder {
 
         if writer.status == .writing {
             self.frontAssetWriterVideoInput?.markAsFinished()
+            self.assetWriterAudioInput?.markAsFinished()
             await writer.finishWriting()
             return writer.outputURL
         } else {

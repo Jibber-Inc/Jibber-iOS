@@ -2,77 +2,78 @@
 //  ConversationsManager.swift
 //  Jibber
 //
-//  Created by Benji Dodgson on 10/22/21.
-//  Copyright © 2021 Benjamin Dodgson. All rights reserved.
-//
 
+import Combine
 import Foundation
-import StreamChat
 
+@MainActor
 protocol ActiveConversationable {
     var activeConversation: Conversation? { get }
 }
 
 extension ActiveConversationable {
     var activeConversation: Conversation? {
-        return ConversationsManager.shared.activeConversation
+        ConversationsManager.shared.activeConversation
     }
 }
 
-struct ReactionEvent {
-    enum EventType {
-        case updated(Conversation)
-        case new(Conversation)
-        case deleted(Conversation)
-    }
-}
-
-class ConversationsManager: EventsControllerDelegate {
+@MainActor
+final class ConversationsManager {
 
     static let shared = ConversationsManager()
 
-    lazy var controller = JibberChatClient.shared.eventsController
-
-    @Published var activeController: MessageSequenceController? 
+    @Published var activeController: MessageSequenceController?
     @Published var activeConversation: Conversation?
 
-    @Published var reactionEvent: Event?
-    @Published var messageEvent: Event?
-    @Published var conversationEvent: ChannelUpdatedEvent?
+    @Published private(set) var messageEvent: Message?
+    @Published private(set) var conversationEvent: Conversation?
 
-    init() {
-        self.initialize()
+    private var knownLatestMessageIDs: [String: String] = [:]
+    private var messagingChangeCancellable: AnyCancellable?
+
+    private init() {
+        self.messagingChangeCancellable = NotificationCenter.default
+            .publisher(for: .parseMessagingDidChange, object: ParseMessagingManager.shared)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.refreshLatestMessages()
+            }
     }
 
-    private func initialize() {
-        self.controller?.delegate = self
-    }
+    private func refreshLatestMessages() {
+        guard let store = ParseMessagingManager.shared.store,
+              let page = try? store.cachedConversations(before: nil, pageSize: 100) else {
+            return
+        }
 
-    func eventsController(_ controller: EventsController, didReceiveEvent event: Event) {
-        switch event {
-        case let event as MessageNewEvent:
+        let establishesBaseline = self.knownLatestMessageIDs.isEmpty
+        for snapshot in page.items where !snapshot.isDeleted {
+            guard let messageSnapshot = try? store.cachedMessages(
+                conversationID: snapshot.id,
+                before: nil,
+                pageSize: 1
+            ).items.first else {
+                continue
+            }
 
-            if self.activeConversation.isNil {
+            let message = ParseMessage(snapshot: messageSnapshot)
+            let previousID = self.knownLatestMessageIDs[snapshot.id]
+            self.knownLatestMessageIDs[snapshot.id] = message.id
+            guard !establishesBaseline,
+                  previousID != nil,
+                  previousID != message.id else {
+                continue
+            }
+
+            let conversation = JibberMessagingClient.shared.conversation(for: snapshot.id)
+            self.messageEvent = message
+            self.conversationEvent = conversation
+            if !message.isFromCurrentUser,
+               self.activeConversation?.id != snapshot.id {
                 Task {
-                    await ToastScheduler.shared.schedule(toastType: .newMessage(event.message))
-                }
-            } else if let last = self.activeConversation, event.channel != last {
-                Task {
-                    await ToastScheduler.shared.schedule(toastType: .newMessage(event.message))
+                    await ToastScheduler.shared.schedule(toastType: .newMessage(message))
                 }
             }
-            self.messageEvent = event
-
-        case let event as ReactionNewEvent:
-            self.reactionEvent = event
-        case let event as ReactionDeletedEvent:
-            self.reactionEvent = event
-        case let event as ReactionUpdatedEvent:
-            self.reactionEvent = event
-        case let event as ChannelUpdatedEvent:
-            self.conversationEvent = event 
-        default:
-            break
         }
     }
 }

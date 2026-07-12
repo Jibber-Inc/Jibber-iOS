@@ -8,7 +8,6 @@
 
 import Foundation
 import Combine
-import StreamChat
 
 @MainActor
 class ConversationContentView: BaseView {
@@ -50,7 +49,7 @@ class ConversationContentView: BaseView {
 
         if self.currentItem?.lastActiveMembers != item.lastActiveMembers {
             let members = item.lastActiveMembers.filter { member in
-                return member.id != ChatClient.shared.currentUserId
+                return member.id != User.current()?.objectId
             }
 
             if !members.isEmpty {

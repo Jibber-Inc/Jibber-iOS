@@ -6,18 +6,24 @@
 //  Copyright © 2022 Benjamin Dodgson. All rights reserved.
 //
 
+import Combine
 import Foundation
-import StreamChat
+import MessagingContracts
 
 class ConversationsViewController: DiffableCollectionViewController<ConversationsDataSource.SectionType,
                                    ConversationsDataSource.ItemType,
                                    ConversationsDataSource>, HomeContentType {
+
+    private static let conversationPageSize = 20
     
     var contentTitle: String {
         return "Conversations"
     }
     
-    private(set) var conversationListController: ConversationListController?
+    private(set) var conversationListController: ParseConversationListController?
+    private var conversationListChangesCancellable: AnyCancellable?
+    private var loadNextConversationsTask: Task<Void, Never>?
+    private var isInitialConversationSnapshotApplied = false
     
     private lazy var refreshControl: UIRefreshControl = {
         let action = UIAction { [unowned self] _ in
@@ -47,36 +53,32 @@ class ConversationsViewController: DiffableCollectionViewController<Conversation
     override func getAllSections() -> [ConversationsDataSource.SectionType] {
         return ConversationsDataSource.SectionType.allCases
     }
+
+    override func collectionViewDataWasLoaded() {
+        super.collectionViewDataWasLoaded()
+        self.isInitialConversationSnapshotApplied = true
+    }
     
     override func retrieveDataForSnapshot() async -> [ConversationsDataSource.SectionType : [ConversationsDataSource.ItemType]] {
         var data: [ConversationsDataSource.SectionType: [ConversationsDataSource.ItemType]] = [:]
-        
-        guard let user = User.current() else { return data }
-        
-        let userIds: [String] = [user.objectId!]
-                        
-        let filter = Filter<ChannelListFilterScope>.containsAtLeastThese(userIds: userIds)
-        let query = ChannelListQuery(filter: filter,
-                                     sort: [Sorting(key: .lastMessageAt, isAscending: false)],
-                                     pageSize: .channelsPageSize,
-                                     messagesLimit: 1)
-        
-        self.conversationListController = ConversationController.controller(query: query)
-        
-        try? await self.conversationListController?.synchronize()
-                
-        let conversations: [Conversation] = self.conversationListController?.conversations ?? []
-        
-        let items = conversations.filter({ conversation in
-            let messages = conversation.messages.filter { message in
-                return !message.isDeleted
-            }
-            return messages.count > 0
-        }).map { convo in
-            return ConversationsDataSource.ItemType.conversation(convo.cid.description)
+
+        guard let currentUserID = User.current()?.objectId else { return data }
+
+        let controller = self.makeConversationListController()
+        do {
+            try await controller.synchronize(pageSize: Self.conversationPageSize)
+            try await self.loadEnoughVisibleConversations(
+                with: controller,
+                currentUserID: currentUserID
+            )
+        } catch {
+            logError(error)
         }
-        
-        data[.conversations] = items
+
+        data[.conversations] = self.items(
+            from: controller.conversations,
+            currentUserID: currentUserID
+        )
         
         return data
     }
@@ -88,48 +90,129 @@ class ConversationsViewController: DiffableCollectionViewController<Conversation
     
     private func startLoadAllTask() {
         self.loadConversationsTask?.cancel()
-        
-        self.loadConversationsTask = Task { [weak self] in
-            guard let user = User.current() else { return }
-            
-            var userIds: [String] = []
-            userIds.append(user.objectId!)
-                        
-            let filter = Filter<ChannelListFilterScope>.containsAtLeastThese(userIds: userIds)
-            let query = ChannelListQuery(filter: filter,
-                                         sort: [Sorting(key: .lastMessageAt, isAscending: false)],
-                                         pageSize: .channelsPageSize,
-                                         messagesLimit: 1)
-            
-            await self?.loadConversations(with: query)
+
+        self.loadConversationsTask = Task { @MainActor [weak self] in
+            guard let self,
+                  let currentUserID = User.current()?.objectId else { return }
+
+            let controller = self.makeConversationListController()
+            do {
+                try await controller.synchronize(pageSize: Self.conversationPageSize)
+                try await self.loadEnoughVisibleConversations(
+                    with: controller,
+                    currentUserID: currentUserID
+                )
+            } catch {
+                logError(error)
+            }
+
+            guard !Task.isCancelled else { return }
+            await self.applyConversationSnapshot(
+                currentUserID: currentUserID,
+                endsRefreshing: true
+            )
         }.add(to: self.autocancelTaskPool)
     }
-    
+
     @MainActor
-    private func loadConversations(with query: ChannelListQuery) async {
-        self.conversationListController = ConversationController.controller(query: query)
-        
-        try? await self.conversationListController?.synchronize()
-        
-        guard !Task.isCancelled else { return }
-        
-        let conversations: [Conversation] = self.conversationListController?.conversations ?? []
-        
-        let items = conversations.filter({ conversation in
-            let messages = conversation.messages.filter { message in
-                return !message.isDeleted
-            }
-            return messages.count > 0
-        }).map { convo in
-            return ConversationsDataSource.ItemType.conversation(convo.cid.description)
-        }
+    private func applyConversationSnapshot(
+        currentUserID: String,
+        endsRefreshing: Bool = false
+    ) async {
+        let items = self.items(
+            from: self.conversationListController?.conversations ?? [],
+            currentUserID: currentUserID
+        )
         var snapshot = self.dataSource.snapshot()
         snapshot.setItems(items, in: .conversations)
-        
+
         await self.dataSource.apply(snapshot)
-        
-        if self.refreshControl.isRefreshing {
+
+        if endsRefreshing, self.refreshControl.isRefreshing {
             self.refreshControl.endRefreshing()
         }
+    }
+
+    private func makeConversationListController() -> ParseConversationListController {
+        if let controller = self.conversationListController {
+            return controller
+        }
+
+        let controller = ParseConversationListController(automaticallySynchronize: false)
+        self.conversationListController = controller
+        self.conversationListChangesCancellable = controller.conversationsChangesPublisher
+            .sink { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    guard let self,
+                          self.isInitialConversationSnapshotApplied,
+                          let currentUserID = User.current()?.objectId else { return }
+                    await self.applyConversationSnapshot(currentUserID: currentUserID)
+                }
+            }
+        return controller
+    }
+
+    private func items(
+        from conversations: [ParseConversation],
+        currentUserID: String
+    ) -> [ConversationsDataSource.ItemType] {
+        conversations
+            .filter { conversation in
+                conversation.kind != .moment
+                    && conversation.activeMembers.contains { $0.userID == currentUserID }
+                    && conversation.latestMessages.contains { !$0.isDeleted }
+            }
+            .map { .conversation($0.id) }
+    }
+
+    private func loadEnoughVisibleConversations(
+        with controller: ParseConversationListController,
+        currentUserID: String
+    ) async throws {
+        while self.items(
+            from: controller.conversations,
+            currentUserID: currentUserID
+        ).count < Self.conversationPageSize,
+              !controller.hasLoadedAllConversations,
+              !Task.isCancelled {
+            try await controller.loadNextConversations(limit: Self.conversationPageSize)
+        }
+    }
+
+    override func collectionView(
+        _ collectionView: UICollectionView,
+        willDisplay cell: UICollectionViewCell,
+        forItemAt indexPath: IndexPath
+    ) {
+        super.collectionView(collectionView, willDisplay: cell, forItemAt: indexPath)
+
+        guard indexPath.item >= collectionView.numberOfItems(inSection: indexPath.section) - 2,
+              self.loadNextConversationsTask == nil,
+              let controller = self.conversationListController,
+              !controller.hasLoadedAllConversations,
+              let currentUserID = User.current()?.objectId else { return }
+
+        self.loadNextConversationsTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { self.loadNextConversationsTask = nil }
+
+            let previousCount = self.items(
+                from: controller.conversations,
+                currentUserID: currentUserID
+            ).count
+            do {
+                repeat {
+                    try await controller.loadNextConversations(limit: Self.conversationPageSize)
+                } while self.items(
+                    from: controller.conversations,
+                    currentUserID: currentUserID
+                ).count == previousCount && !controller.hasLoadedAllConversations
+            } catch {
+                logError(error)
+            }
+
+            guard !Task.isCancelled else { return }
+            await self.applyConversationSnapshot(currentUserID: currentUserID)
+        }.add(to: self.autocancelTaskPool)
     }
 }

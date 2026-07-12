@@ -1,6 +1,0 @@
-framework module ScrollCounter {
-  umbrella header "ScrollCounter-umbrella.h"
-
-  export *
-  module * { export * }
-}

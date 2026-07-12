@@ -47,24 +47,39 @@ extension CommentsViewController {
     
     func subscribeToConversationUpdates() {
         guard let controller = self.conversationController else { return }
-            controller
-            .channelChangePublisher
+        self.conversationUpdateCancellable = controller
+            .conversationChangePublisher
             .mainSink { [unowned self] _ in
                 Task {
                     await self.dataSource.update(with: controller)
                 }.add(to: self.autocancelTaskPool)
-            }.store(in: &self.cancellables)
-
-        self.messageInputController.swipeInputView.textView.$inputText.mainSink { [unowned self] text in
-            guard let conversationController = self.getCurrentConversationController() else { return }
-
-            guard conversationController.areTypingEventsEnabled else { return }
-
-            if text.isEmpty {
-                conversationController.sendStopTypingEvent()
-            } else {
-                conversationController.sendKeystrokeEvent()
             }
-        }.store(in: &self.cancellables)
+
+        self.typingInputCancellable = self.messageInputController.swipeInputView.textView.$inputText
+            .map { !$0.isEmpty }
+            .removeDuplicates()
+            .mainSink { [weak self] isTyping in
+                self?.updateTypingState(isTyping)
+            }
+    }
+
+    private func updateTypingState(_ isTyping: Bool) {
+        self.typingHeartbeatTask?.cancel()
+        guard let conversationController = self.getCurrentConversationController(),
+              conversationController.areTypingEventsEnabled else { return }
+
+        try? conversationController.setTyping(isTyping)
+        guard isTyping else { return }
+
+        self.typingHeartbeatTask = Task { @MainActor [weak self, weak conversationController] in
+            while !Task.isCancelled {
+                await Task.sleep(seconds: 8)
+                guard !Task.isCancelled,
+                      let self,
+                      let conversationController,
+                      self.getCurrentConversationController() === conversationController else { return }
+                try? conversationController.setTyping(true)
+            }
+        }
     }
 }

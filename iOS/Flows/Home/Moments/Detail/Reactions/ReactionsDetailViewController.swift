@@ -15,7 +15,7 @@ class ReactionsDetailViewController: ExpressionDetailViewController {
     let blurView = DarkBlurView()
     private let moment: Moment
     
-    private(set) var controller: ConversationController?
+    private(set) var controller: ParseConversationController?
     private var subscriptions = Set<AnyCancellable>()
     
     init(with moment: Moment, delegate: ExpressionDetailViewControllerDelegate) {
@@ -54,7 +54,11 @@ class ReactionsDetailViewController: ExpressionDetailViewController {
     
     override func retrieveDataForSnapshot() async -> [EmotionDetailCollectionViewDataSource.SectionType : [EmotionDetailCollectionViewDataSource.ItemType]] {
         
-        self.controller = ConversationController.controller(for: self.moment.commentsId)
+        self.controller = ParseConversationController(
+            conversationID: self.moment.commentsId,
+            automaticallySynchronize: false
+        )
+        try? await self.controller?.synchronize()
         self.expressions = self.controller?.conversation?.expressions ?? []
         
         return await super.retrieveDataForSnapshot()
@@ -67,7 +71,7 @@ class ReactionsDetailViewController: ExpressionDetailViewController {
     }
     
     private func subscribeToUpdates() {
-        self.controller?.channelChangePublisher.mainSink(receiveValue: { [unowned self] _ in
+        self.controller?.conversationChangePublisher.mainSink(receiveValue: { [unowned self] _ in
             
             Task {
                 let expressions = self.controller?.conversation?.expressions ?? []

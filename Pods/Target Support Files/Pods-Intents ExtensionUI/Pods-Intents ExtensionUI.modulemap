@@ -1,6 +1,0 @@
-framework module Pods_Intents_ExtensionUI {
-  umbrella header "Pods-Intents ExtensionUI-umbrella.h"
-
-  export *
-  module * { export * }
-}

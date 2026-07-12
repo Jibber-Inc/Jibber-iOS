@@ -7,7 +7,7 @@
 //
 
 import Foundation
-import Parse
+import ParseCore
 
 protocol ImageDisplayable {
     var image: UIImage? { get }

@@ -7,7 +7,6 @@
 //
 
 import Foundation
-import StreamChat
 import Combine
 import ParseLiveQuery
 
@@ -26,12 +25,12 @@ class ConversationDetailViewController: DiffableCollectionViewController<Convers
                      startPoint: .bottomCenter,
                      endPoint: .topCenter)
         
-    let conversationController: ConversationController
+    let conversationController: ParseConversationController
     
     let darkBlurView = DarkBlurView()
     
     init(with conversationId: String) {
-        self.conversationController = JibberChatClient.shared.conversationController(for: conversationId)!
+        self.conversationController = ParseConversationController.controller(for: conversationId)
         let cv = CollectionView(layout: ConversationDetailCollectionViewLayout())
         cv.showsHorizontalScrollIndicator = false
         cv.contentInset = UIEdgeInsets(top: 30,
@@ -67,7 +66,7 @@ class ConversationDetailViewController: DiffableCollectionViewController<Convers
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        self.startLoadDataTask(with: self.conversationController.conversation)
+        self.startLoadDataTask()
     }
     
     override func viewDidLayoutSubviews() {
@@ -87,7 +86,7 @@ class ConversationDetailViewController: DiffableCollectionViewController<Convers
     /// A task for loading data and subscribing to conversation updates.
     private var loadDataTask: Task<Void, Never>?
     
-    private func startLoadDataTask(with conversation: Conversation?) {
+    private func startLoadDataTask() {
         self.loadDataTask?.cancel()
         
         self.loadDataTask = Task { [weak self] in
@@ -96,40 +95,36 @@ class ConversationDetailViewController: DiffableCollectionViewController<Convers
                 await self?.dataSource.deleteAllItems()
                 return
             }
-                        
-            await self?.loadData()
-            
-            guard !Task.isCancelled else { return }
-            
+
             self?.subscribeToUpdates(for: conversationController)
+
+            guard !Task.isCancelled else { return }
+
+            await self?.loadData()
         }
     }
     
     /// The subscriptions for the current conversation.
     private var conversationCancellables = Set<AnyCancellable>()
     
-    private func subscribeToUpdates(for conversationController: ConversationController) {
+    private func subscribeToUpdates(for conversationController: ParseConversationController) {
         // Clear out previous subscriptions.
         self.conversationCancellables.removeAll()
-                
+
         conversationController
-            .memberEventPublisher
-            .mainSink(receiveValue: { [unowned self] event in
-                switch event as MemberEvent {
-                case _ as MemberAddedEvent:
-                    Task {
-                        await self.reloadPeople()
-                    }
-                case let event as MemberRemovedEvent:
-                    let member = Member(personId: event.user.personId,
-                                        conversationController: self.conversationController)
-                    self.dataSource.deleteItems([.member(member)])
-                case let event as MemberUpdatedEvent:
-                    let member = Member(personId: event.member.personId,
-                                        conversationController: self.conversationController)
-                    self.dataSource.reconfigureItems([.member(member)])
-                default:
-                    break
+            .membersChangesPublisher
+            .mainSink(receiveValue: { [weak self] changes in
+                guard !changes.isEmpty else { return }
+                Task { [weak self] in
+                    await self?.reloadPeople()
+                }
+            }).store(in: &self.conversationCancellables)
+
+        conversationController
+            .conversationChangePublisher
+            .mainSink(receiveValue: { [weak self] _ in
+                Task { [weak self] in
+                    await self?.loadData()
                 }
             }).store(in: &self.conversationCancellables)
         
@@ -145,11 +140,11 @@ class ConversationDetailViewController: DiffableCollectionViewController<Convers
                 
                 guard let reservation = object as? Reservation,
                       let cid = reservation.conversationCid else { return }
-                
-                let conversation = conversationController.conversation
-                
-                guard cid == self.conversationController.cid?.description else { return }
-                self.startLoadDataTask(with: conversation)
+
+                guard cid == conversationController.conversationID.rawValue else { return }
+                Task {
+                    await self.reloadPeople()
+                }
             }
         }
     }
@@ -157,15 +152,15 @@ class ConversationDetailViewController: DiffableCollectionViewController<Convers
     func reloadPeople() async {
         guard let conversation = self.conversationController.conversation else { return }
                 
-        let members = await JibberChatClient.shared.getPeople(for: conversation)
+        let members = await self.getPeople(for: conversation)
         
         var items: [ConversationDetailCollectionViewDataSource.ItemType] = members.compactMap({ value in
             let item = Member(personId: value.personId,
-                                conversationController: self.conversationController)
+                              conversationController: nil)
             return .member(item)
         })
         
-        if conversation.isOwnedByMe {
+        if self.isOwnedByCurrentUser(conversation) {
             items.append(.detail(.add))
         }
                 
@@ -184,27 +179,27 @@ class ConversationDetailViewController: DiffableCollectionViewController<Convers
         
         guard let conversation = self.conversationController.conversation else { return data }
         
-        data[.info] = [.info(conversation.cid.description), .editTopic(conversation.cid.description)]
+        data[.info] = [.info(conversation.id), .editTopic(conversation.id)]
         
-        let members = await JibberChatClient.shared.getPeople(for: conversation)
+        let members = await self.getPeople(for: conversation)
         
         data[.people] = members.compactMap({ member in
             let member = Member(personId: member.personId,
-                                conversationController: self.conversationController)
+                                conversationController: nil)
             return .member(member)
         })
         
         var pinnedItems: [ConversationDetailItemType] = conversation.pinnedMessages.compactMap({ message in
-            return .pinnedMessage(PinModel(conversationId: message.conversationId, messageId: message.id))
+            return .pinnedMessage(PinModel(message: message))
         })
         
         if pinnedItems.isEmpty {
-            pinnedItems = [.pinnedMessage(PinModel(conversationId: nil, messageId: nil))]
+            pinnedItems = [.pinnedMessage(PinModel(message: nil))]
         }
         
         data[.pins] = pinnedItems
         
-        if conversation.isOwnedByMe {
+        if self.isOwnedByCurrentUser(conversation) {
             data[.people]?.append(.detail(.add))
             data[.options] = [.detail(.hide), .detail(.leave), .detail(.delete)]
         } else {
@@ -212,5 +207,33 @@ class ConversationDetailViewController: DiffableCollectionViewController<Convers
         }
         
         return data
+    }
+
+    private func getPeople(for conversation: ParseConversation) async -> [PersonType] {
+        var peopleByID: [String: PersonType] = [:]
+
+        for member in conversation.activeMembers where !member.isCurrentUser {
+            guard let person = await PeopleStore.shared.getPerson(withPersonId: member.userID) else {
+                continue
+            }
+            peopleByID[person.personId] = person
+        }
+
+        for (_, reservation) in PeopleStore.shared.unclaimedReservations {
+            guard reservation.conversationCid == conversation.id,
+                  let contactID = reservation.contactId,
+                  let person = await PeopleStore.shared.getPerson(withPersonId: contactID) else {
+                continue
+            }
+            peopleByID[person.personId] = person
+        }
+
+        return Array(peopleByID.values)
+            .sorted { $0.givenName.localizedCaseInsensitiveCompare($1.givenName) == .orderedAscending }
+    }
+
+    private func isOwnedByCurrentUser(_ conversation: ParseConversation) -> Bool {
+        conversation.currentMember?.role == .owner ||
+            conversation.authorId == User.current()?.objectId
     }
 }

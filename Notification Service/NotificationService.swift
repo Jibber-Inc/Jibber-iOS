@@ -8,190 +8,204 @@
 
 import UserNotifications
 import Intents
-import StreamChat
-import Parse
+import ParseCore
 
 class NotificationService: UNNotificationServiceExtension {
 
-    /// The current notification request that we're processing.
+    private let completionLock = NSLock()
     private var request: UNNotificationRequest?
-    /// The content handler we received for the notification request we're processing.
     private var contentHandler: ((UNNotificationContent) -> Void)?
+    private var requestID = UUID()
+    private var didFinishRequest = false
 
     private var author: INPerson?
-    private var conversation: ChatChannel?
-    private var message: ChatMessage?
-    private var messageDeliveryType: MessageDeliveryType? {
-        guard let value = self.message?.extraData["context"],
-              case RawJSON.string(let string) = value else { return nil }
-        return MessageDeliveryType(rawValue: string)
-    }
     private var recipients: [INPerson] = []
-
-    // MARK: - UNNotificationServiceExtension
+    private var conversationID: String?
+    private var conversationTitle: String?
+    private var messageID: String?
+    private var firstPhotoURL: URL?
+    private var messageDeliveryType: MessageDeliveryType?
 
     override func didReceive(_ request: UNNotificationRequest,
                              withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void) {
-        
-        logDebug("NOTE RECEIVED")
-        
-        // Save the request and content handler in case we need to finish early.
+        let requestID = UUID()
+        self.completionLock.lock()
         self.request = request
         self.contentHandler = contentHandler
-
-        // Reset the member vars so new notifications don't get polluted with old data.
-        self.author = nil
-        self.conversation = nil
-        self.message = nil
-        self.recipients = []
+        self.requestID = requestID
+        self.didFinishRequest = false
+        self.completionLock.unlock()
+        self.resetContext()
 
         Task {
-            await self.initializeParse()
+            Config.shared.initializeParseIfNeeded()
 
-            guard let chatClient = await self.getConfiguredChatClient(),
-                  let mutableContent = request.content.mutableCopy() as? UNMutableNotificationContent else {
+            guard let mutableContent = request.content.mutableCopy() as? UNMutableNotificationContent else {
+                self.finish(request.content, requestID: requestID)
+                return
+            }
 
-                      contentHandler(request.content)
-                      return
-                  }
-
-            await self.initializeNotificationService(with: mutableContent, client: chatClient)
+            self.readIdentifiers(from: mutableContent)
+            await self.loadParseMessageContext()
             await self.updateInterruptionLevel(of: mutableContent)
             await self.updateBadgeCount(of: mutableContent)
-
-            let finalContent = await self.finalizeContent(mutableContent)
-            contentHandler(finalContent)
+            self.finish(await self.finalizeContent(mutableContent), requestID: requestID)
         }
     }
 
     override func serviceExtensionTimeWillExpire() {
-        guard let content = self.request?.content.mutableCopy() as? UNMutableNotificationContent,
-                let contentHandler = self.contentHandler else { return }
+        self.completionLock.lock()
+        let requestID = self.requestID
+        let content = self.request?.content.mutableCopy() as? UNMutableNotificationContent
+        self.completionLock.unlock()
+        guard let content = content else { return }
 
         Task {
-            let content = await self.finalizeContent(content)
-            contentHandler(content)
+            self.finish(await self.finalizeContent(content), requestID: requestID)
         }
     }
 
-    // MARK: - Parse/Chat Initialization
-
-    private func initializeParse() async {
-        return await withCheckedContinuation { continuation in
-            // Initialize Parse if necessary
-            Config.shared.initializeParseIfNeeded()
-            continuation.resume(returning: ())
+    private func finish(_ content: UNNotificationContent, requestID: UUID) {
+        self.completionLock.lock()
+        guard self.requestID == requestID, !self.didFinishRequest else {
+            self.completionLock.unlock()
+            return
         }
+        self.didFinishRequest = true
+        let handler = self.contentHandler
+        self.contentHandler = nil
+        self.completionLock.unlock()
+        handler?(content)
     }
 
-    private func getConfiguredChatClient() async -> ChatClient? {
-        guard let user = User.current(), user.isAuthenticated  else { return nil }
+    private func resetContext() {
+        self.author = nil
+        self.recipients = []
+        self.conversationID = nil
+        self.conversationTitle = nil
+        self.messageID = nil
+        self.firstPhotoURL = nil
+        self.messageDeliveryType = nil
+    }
 
-        var config = ChatClientConfig(apiKey: .init(Config.shared.environment.chatAPIKey))
-        config.isLocalStorageEnabled = true
-        config.applicationGroupIdentifier = Config.shared.environment.groupId
-        let client = ChatClient(config: config)
+    private func readIdentifiers(from content: UNNotificationContent) {
+        let messaging = content.userInfo["messaging"] as? [String: Any]
+        let data = content.userInfo["data"] as? [String: Any]
 
-        do {
-            // Get the app token and then apply it to the chat client.
-            let result: String = try await withCheckedThrowingContinuation { continuation in
-                PFCloud.callFunction(inBackground: "getChatToken",
-                                     withParameters: [:]) { (object, error) in
+        self.conversationID = messaging?["conversationId"] as? String
+            ?? data?["conversationId"] as? String
+            ?? content.conversationId
+        self.messageID = messaging?["id"] as? String
+            ?? data?["messageId"] as? String
+            ?? content.messageId
 
-                    if let error = error {
-                        continuation.resume(throwing: error)
-                    } else if let value = object as? String {
-                        continuation.resume(returning: value)
-                    } else {
-                        continuation.resume(throwing: ClientError.apiError(detail: "Request failed"))
-                    }
+        let deliveryType = messaging?["deliveryType"] as? String
+            ?? data?["deliveryType"] as? String
+        self.messageDeliveryType = deliveryType.flatMap(MessageDeliveryType.init(rawValue:))
+    }
+
+    private func loadParseMessageContext() async {
+        guard let messageID = self.messageID,
+              let message = try? await self.fetchMessage(id: messageID) else { return }
+
+        if let deliveryType = message["deliveryType"] as? String {
+            self.messageDeliveryType = MessageDeliveryType(rawValue: deliveryType)
+        }
+
+        if let conversation = message["conversation"] as? PFObject {
+            self.conversationID = conversation.objectId ?? self.conversationID
+            self.conversationTitle = conversation["title"] as? String
+        }
+
+        if let author = message["author"] as? PFUser,
+           let authorID = author.objectId,
+           let resolvedAuthor = try? await User.getObject(with: authorID) {
+            self.author = resolvedAuthor.iNPerson
+        }
+
+        self.firstPhotoURL = self.photoURL(from: message)
+        await self.loadRecipients()
+    }
+
+    private func fetchMessage(id: String) async throws -> PFObject {
+        let query = PFQuery(className: "Message")
+        query.includeKey("author")
+        query.includeKey("conversation")
+
+        return try await withCheckedThrowingContinuation { continuation in
+            query.getObjectInBackground(withId: id) { object, error in
+                if let object = object {
+                    continuation.resume(returning: object)
+                } else {
+                    continuation.resume(throwing: error ?? ClientError.apiError(detail: "Message not found"))
                 }
             }
-
-            let token = try Token(rawValue: result)
-            client.setToken(token: token)
-
-            return client
-        } catch {
-            logError(error)
-            return nil
         }
     }
 
-    // MARK: - Notification Content Updates
+    private func loadRecipients() async {
+        guard let conversationID = self.conversationID else { return }
 
-    /// Initializes all of the member variables on the notification service that are needed to update the notification content.
-    private func initializeNotificationService(with content: UNNotificationContent,
-                                               client: ChatClient) async {
-        
-        // Creat a notification handler so we can retrieve the relevant message data.
-        // (This is needed because the ChatClient can't be put in the connected state from an extension).
-        // See: https://getstream.io/chat/docs/sdk/ios/guides/push-notifications/
-        let chatHandler = ChatRemoteNotificationHandler(client: client, content: content)
+        let conversation = PFObject(withoutDataWithClassName: "Conversation", objectId: conversationID)
+        let query = PFQuery(className: "ConversationMember")
+        query.whereKey("conversation", equalTo: conversation)
+        query.whereKey("active", equalTo: true)
+        query.includeKey("user")
 
-        let notificationContent = await chatHandler.handleNotification()
-
-        switch notificationContent {
-        case .message(let msg):
-            guard let conversation = msg.channel else { break }
-
-            self.conversation = conversation
-            self.message = msg.message
-        case .reaction(let reaction):
-            guard let conversation = reaction.channel else { break }
-
-            self.conversation = conversation
-            self.message = reaction.message
-        case .unknown(_):
-            logDebug("unknown notification content received")
-            break
-        }
-        
-        // Fetch the author
-        if let authorId = self.message?.author.id,
-              let author = try? await User.getObject(with: authorId).iNPerson {
-            self.author = author
+        guard let members = try? await self.find(query: query) else { return }
+        let userIDs = members.compactMap { member in
+            (member["user"] as? PFUser)?.objectId
         }
 
-        let memberIds = self.conversation?.lastActiveMembers.compactMap { member in
-            return member.id
-        } ?? []
-
-        // Map members to recipients
-        if let recipients = try? await User.fetchAndUpdateLocalContainer(where: memberIds,
-                                                                              container: .users)
-            .compactMap({ user in
-                return user.iNPerson
-            }) {
-            self.recipients = recipients
+        guard let users = try? await User.fetchAndUpdateLocalContainer(where: userIDs, container: .users) else {
+            return
         }
+        self.recipients = users.compactMap(\.iNPerson)
+    }
+
+    private func find(query: PFQuery<PFObject>) async throws -> [PFObject] {
+        try await withCheckedThrowingContinuation { continuation in
+            query.findObjectsInBackground { objects, error in
+                if let objects = objects {
+                    continuation.resume(returning: objects)
+                } else {
+                    continuation.resume(throwing: error ?? ClientError.apiError(detail: "Query failed"))
+                }
+            }
+        }
+    }
+
+    private func photoURL(from message: PFObject) -> URL? {
+        guard let attachments = message["attachments"] as? [[String: Any]] else { return nil }
+
+        for attachment in attachments {
+            guard attachment["kind"] as? String == "image" else { continue }
+            if attachment["isExpression"] as? Bool == true { continue }
+            if attachment["isPreview"] as? Bool == true { continue }
+            if let file = attachment["file"] as? PFFileObject,
+               let url = file.url {
+                return URL(string: url)
+            }
+        }
+        return nil
     }
 
     private func updateInterruptionLevel(of content: UNMutableNotificationContent) async {
-        // Update the interruption level
         guard let messageDeliveryType = self.messageDeliveryType else { return }
 
         switch messageDeliveryType {
         case .timeSensitive:
-            // Time-sensitive messages are always delivered with a time-sensitive interruption level
-            // regardless of the user's current focus state
             content.interruptionLevel = .timeSensitive
         case .conversational:
-            // Conversational messages will show on the lock screen if a users focus status allows
             content.interruptionLevel = .active
         case .respectful:
-            // Respectful messages are delivered passively for focused users, and actively for
-            // for non-focused users.
-            if INFocusStatusCenter.default.focusStatus.isFocused == true {
-                content.interruptionLevel = .passive
-            } else {
-                content.interruptionLevel = .active
-            }
+            content.interruptionLevel = INFocusStatusCenter.default.focusStatus.isFocused == true
+                ? .passive
+                : .active
         }
     }
 
     private func updateBadgeCount(of content: UNMutableNotificationContent) async {
-        // Only increment the badge count for time sensitive messages.
         guard self.messageDeliveryType == .timeSensitive else { return }
 
         let badgeNumber = self.getUserDefaultsBadgeNumber() + 1
@@ -200,121 +214,57 @@ class NotificationService: UNNotificationServiceExtension {
     }
 
     private func finalizeContent(_ content: UNMutableNotificationContent) async -> UNNotificationContent {
-        
-        if let conversation = self.conversation {
-            content.threadIdentifier = conversation.cid.description
-            content.setData(value: conversation.cid.description, for: .conversationId)
+        if let conversationID = self.conversationID {
+            content.threadIdentifier = conversationID
+            content.setData(value: conversationID, for: .conversationId)
         }
-        if let messageId = self.message?.id {
-            content.setData(value: messageId, for: .messageId)
+        if let messageID = self.messageID {
+            content.setData(value: messageID, for: .messageId)
         }
-        
         content.setData(value: DeepLinkTarget.conversation.rawValue, for: .target)
-         
-        if let payload = self.message?.photoAttachments.first,
-           let attachment = await UNNotificationAttachment.getAttachment(url: payload.imageURL) {
+
+        if let firstPhotoURL = self.firstPhotoURL,
+           let attachment = await UNNotificationAttachment.getAttachment(url: firstPhotoURL) {
             content.attachments = [attachment]
         }
-        
-        // Create the intent
-        let incomingMessageIntent
-        = INSendMessageIntent(recipients: self.recipients,
-                              outgoingMessageType: .outgoingMessageText,
-                              content: content.body,
-                              speakableGroupName: self.conversation?.speakableGroupName,
-                              conversationIdentifier: self.conversation?.cid.description,
-                              serviceName: "Jibber",
-                              sender: self.author,
-                              attachments: [])
+
+        let groupName = self.conversationTitle.flatMap { title in
+            title.isEmpty ? nil : INSpeakableString(spokenPhrase: title)
+        }
+        let incomingMessageIntent = INSendMessageIntent(
+            recipients: self.recipients,
+            outgoingMessageType: .outgoingMessageText,
+            content: content.body,
+            speakableGroupName: groupName,
+            conversationIdentifier: self.conversationID,
+            serviceName: "Jibber",
+            sender: self.author,
+            attachments: []
+        )
 
         let interaction = INInteraction(intent: incomingMessageIntent, response: nil)
         interaction.direction = .incoming
 
         do {
             try await interaction.donate()
-            // Update the content with the intent
-            let messageContent = try content.updating(from: incomingMessageIntent)
-            return messageContent
+            return try content.updating(from: incomingMessageIntent)
         } catch {
             logError(error)
             return content
         }
     }
 
-    // MARK: - Helper Functions
-
-    /// Gets the app badge number stored in user defaults.
     private func getUserDefaultsBadgeNumber() -> Int {
         guard let defaults = UserDefaults(suiteName: Config.shared.environment.groupId),
               let count = defaults.value(forKey: "badgeNumber") as? Int else { return 0 }
-
         return count
     }
 
-    /// Sets the badge number stored in user defaults.
     private func setUserDefaultsBadgeNumber(to number: Int) {
         guard let defaults = UserDefaults(suiteName: Config.shared.environment.groupId) else {
             logDebug("Failed to update badge number")
             return
         }
-
         defaults.set(number as NSNumber, forKey: "badgeNumber")
-    }
-}
-
-extension ChatRemoteNotificationHandler {
-
-    func handleNotification() async -> ChatPushNotificationContent {
-        let content: ChatPushNotificationContent = await withCheckedContinuation { continuation in
-            _ = self.handleNotification { content in
-                continuation.resume(returning: content)
-            }
-        }
-
-        return content
-    }
-}
-
-extension ChatMessage {
-    var photoAttachments: [ChatMessageImageAttachment] {
-        let imageAttachments = self.imageAttachments
-
-        return imageAttachments.filter { imageAttachment in
-            return !imageAttachment.isExpression && !imageAttachment.isPreview
-        }
-    }
-}
-
-extension ChatMessageAttachment where Payload: AttachmentPayload {
-
-    var isExpression: Bool {
-        return self.asAnyAttachment.isExpression
-    }
-    
-    var isPreview: Bool {
-        return self.asAnyAttachment.isPreview
-    }
-}
-
-extension AnyChatMessageAttachment {
-
-    var isExpression: Bool {
-        guard let imageAttachment = self.attachment(payloadType: ImageAttachmentPayload.self) else {
-            return false
-        }
-
-        guard let isExpressionData = imageAttachment.extraData?["isExpression"],
-              case RawJSON.bool(let isExpression) = isExpressionData else { return false }
-
-        return isExpression
-    }
-    
-    var isPreview: Bool {
-        guard let imageAttachment = self.attachment(payloadType: ImageAttachmentPayload.self),
-              let _ = imageAttachment.extraData?["previewID"] else {
-            return false
-        }
-
-        return true
     }
 }

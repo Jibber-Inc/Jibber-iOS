@@ -10,7 +10,7 @@ import UIKit
 import UserNotifications
 import UserNotificationsUI
 import Combine
-import Parse
+import ParseCore
 
 class NotificationViewController: UIViewController, UNNotificationContentExtension {
 

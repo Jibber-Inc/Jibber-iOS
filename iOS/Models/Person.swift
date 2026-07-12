@@ -9,7 +9,7 @@
 import Foundation
 import Contacts
 import PhoneNumberKit
-import Parse
+import ParseCore
 
 struct Person: PersonType, Hashable, Comparable {
 

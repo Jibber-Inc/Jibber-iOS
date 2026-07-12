@@ -6,6 +6,7 @@
 //  Copyright © 2022 Benjamin Dodgson. All rights reserved.
 //
 
+import Combine
 import Foundation
 
 class ConversationSelectionCell: CollectionViewManagerCell, ManageableCell {
@@ -16,7 +17,8 @@ class ConversationSelectionCell: CollectionViewManagerCell, ManageableCell {
 
     let stackedPersonView = StackedPersonView()
     let titleLabel = ThemeLabel(font: .regular)
-    private(set) var conversationController: ConversationController?
+    private(set) var conversationController: ParseConversationController?
+    private var subscriptions = Set<AnyCancellable>()
     
     override func initializeSubviews() {
         super.initializeSubviews()
@@ -30,27 +32,68 @@ class ConversationSelectionCell: CollectionViewManagerCell, ManageableCell {
     }
     
     func configure(with item: String) {
-        
-        Task.onMainActorAsync {
-            let controller = JibberChatClient.shared.conversationController(for: item)
-            
-            if self.conversationController?.cid?.description != item,
-               let conversation = controller?.conversation {
+        self.taskPool.cancelAndRemoveAll()
+        self.subscriptions.removeAll()
+
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+
+            let controller: ParseConversationController
+            if let current = self.conversationController,
+               current.conversationID.rawValue == item {
+                controller = current
+            } else {
+                controller = ParseConversationController(
+                    conversationID: item,
+                    automaticallySynchronize: false
+                )
                 self.conversationController = controller
-                
-                if conversation.latestMessages.isEmpty  {
-                    try? await self.conversationController?.synchronize()
-                }
-                
-                let members = conversation.lastActiveMembers.filter { member in
-                    return member.personId != User.current()?.objectId
-                }
-                
-                self.titleLabel.setText(conversation.title)
-                self.stackedPersonView.configure(with: members)
-                self.layoutNow()
             }
+
+            do {
+                try await controller.synchronize(pageSize: 1)
+            } catch {
+                logError(error)
+            }
+
+            guard !Task.isCancelled,
+                  self.conversationController === controller else { return }
+            self.subscribeToUpdates()
+            self.refreshVisibleState()
+        }.add(to: self.taskPool)
+    }
+
+    private func subscribeToUpdates() {
+        self.conversationController?
+            .conversationChangePublisher
+            .mainSink { [weak self] _ in
+                self?.refreshVisibleState()
+            }.store(in: &self.subscriptions)
+
+        self.conversationController?
+            .membersChangesPublisher
+            .mainSink { [weak self] _ in
+                self?.refreshVisibleState()
+            }.store(in: &self.subscriptions)
+    }
+
+    @MainActor
+    private func refreshVisibleState() {
+        guard let conversation = self.conversationController?.conversation else { return }
+
+        let members = conversation.lastActiveMembers.filter {
+            $0.personId != User.current()?.objectId
         }
+        self.titleLabel.setText(conversation.title)
+        self.stackedPersonView.configure(with: members)
+        self.layoutNow()
+    }
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        self.taskPool.cancelAndRemoveAll()
+        self.subscriptions.removeAll()
+        self.conversationController = nil
     }
     
     override func layoutSubviews() {

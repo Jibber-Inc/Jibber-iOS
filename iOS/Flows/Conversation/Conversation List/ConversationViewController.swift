@@ -45,7 +45,10 @@ class ConversationViewController: InputHandlerViewContoller,
     let headerVC = ConversationHeaderViewController()
     private let darkBlur = DarkBlurView()
 
-    private(set) var conversationController: ConversationController?
+    private(set) var conversationController: ParseConversationController?
+    var conversationUpdateCancellable: AnyCancellable?
+    var typingInputCancellable: AnyCancellable?
+    var typingHeartbeatTask: Task<Void, Never>?
 
     var swipeableVC: SwipeableInputAccessoryViewController {
         return self.messageInputController
@@ -164,7 +167,8 @@ class ConversationViewController: InputHandlerViewContoller,
                         Task {
                             // Initialize the datasource before listening for updates to ensure that the sections
                             // are set up.
-                            guard let controller = JibberChatClient.shared.conversationController(for: conversationId)  else {
+                            guard !conversationId.isEmpty,
+                                  let controller = JibberMessagingClient.shared.conversationController(for: conversationId) else {
                                 return
                             }
 
@@ -192,6 +196,8 @@ class ConversationViewController: InputHandlerViewContoller,
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
 
+        self.typingHeartbeatTask?.cancel()
+        try? self.conversationController?.setTyping(false)
         self.resignFirstResponder()
     }
     
@@ -267,9 +273,12 @@ class ConversationViewController: InputHandlerViewContoller,
             return
         }
 
-        let messageController = JibberChatClient.shared.messageController(for: conversationId, id: messageId)
-        try? await messageController?.synchronize()
-        guard let message = messageController?.message else { return }
+        guard let conversationController = JibberMessagingClient.shared.conversationController(for: conversationId) else {
+            return
+        }
+        let messageController = conversationController.messageController(for: messageId)
+        try? await messageController.synchronize()
+        guard let message = messageController.message else { return }
 
         // Determine if this is a reply message or regular message.
         if let parentMessageId = message.parentMessageId {
@@ -299,7 +308,7 @@ class ConversationViewController: InputHandlerViewContoller,
         }
     }
 
-    func getCurrentConversationController() -> ConversationController? {
+    func getCurrentConversationController() -> ParseConversationController? {
         guard let centeredCell
                 = self.collectionView.getCentermostVisibleCell() as? ConversationMessagesCell else {
             return nil
@@ -340,14 +349,16 @@ class ConversationViewController: InputHandlerViewContoller,
         // Reset the input accessory view.
         self.messageInputController.updateSwipeHint(shouldPlay: false)
 
-        if let conversationId = conversationId, let controller = JibberChatClient.shared.conversationController(for: conversationId) {
+        if let conversationId,
+           let controller = JibberMessagingClient.shared.conversationController(for: conversationId) {
             
             // Sets the active conversation
             ConversationsManager.shared.activeConversation = controller.conversation
             ConversationsManager.shared.activeController = controller
 
             self.messageInputTask = Task { [weak self] in
-                let people = await JibberChatClient.shared.getPeople(for: controller.conversation!)
+                guard let conversation = controller.conversation else { return }
+                let people = await JibberMessagingClient.shared.getPeople(for: conversation)
 
                 guard !Task.isCancelled else { return }
 
@@ -390,7 +401,7 @@ class ConversationViewController: InputHandlerViewContoller,
 extension ConversationViewController: MessageSendingViewControllerType {
 
     func getCurrentMessageSequence() -> MessageSequence? {
-        return self.getCurrentConversationController()?.conversation
+        return self.getCurrentConversationController()?.messageSequence
     }
 
     func set(messageSequencePreparingToSend: MessageSequence?) {
@@ -398,11 +409,8 @@ extension ConversationViewController: MessageSendingViewControllerType {
     }
 
     func sendMessage(_ message: Sendable) async throws {
-        guard let conversationId = self.getCurrentMessageSequence()?.id else { return }
-
-        let conversationController = JibberChatClient.shared.conversationController(for: conversationId)
-
-        try await conversationController?.createNewMessage(with: message)
+        guard let conversationController = self.getCurrentConversationController() else { return }
+        _ = try await conversationController.createNewMessage(with: message)
     }
 }
 

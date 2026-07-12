@@ -8,7 +8,7 @@
 
 import Foundation
 import ParseLiveQuery
-import Parse
+import ParseCore
 
 class AchievementsManager {
     

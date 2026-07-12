@@ -1,7 +1,0 @@
-${PODS_ROOT}/Target Support Files/Pods-AppClip/Pods-AppClip-frameworks.sh
-${BUILT_PRODUCTS_DIR}/Bolts-Swift/BoltsSwift.framework
-${BUILT_PRODUCTS_DIR}/Bolts/Bolts.framework
-${BUILT_PRODUCTS_DIR}/Parse/Parse.framework
-${BUILT_PRODUCTS_DIR}/ParseLiveQuery/ParseLiveQuery.framework
-${BUILT_PRODUCTS_DIR}/ScrollCounter/ScrollCounter.framework
-${BUILT_PRODUCTS_DIR}/Starscream/Starscream.framework

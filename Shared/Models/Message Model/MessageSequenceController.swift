@@ -8,7 +8,6 @@
 
 import Foundation
 import Combine
-import StreamChat
 
 protocol MessageSequenceController {
 
@@ -18,10 +17,10 @@ protocol MessageSequenceController {
     var messageArray: [Messageable] { get }
 
     /// A publisher emitting a new value every time the channel changes.
-    var messageSequenceChangePublisher: AnyPublisher<EntityChange<MessageSequence>, Never> { get }
+    var messageSequenceChangePublisher: AnyPublisher<ParseEntityChange<MessageSequence>, Never> { get }
 
     /// A publisher emitting a new value every time the list of the messages matching the query changes.
-    var messagesChangesPublisher: AnyPublisher<[ListChange<Message>], Never> { get }
+    var messagesChangesPublisher: AnyPublisher<[ParseListChange<Message>], Never> { get }
 }
 
 extension MessageSequenceController {
@@ -44,10 +43,13 @@ struct EmptyMessageSequenceController: MessageSequenceController {
     var messageSequence: MessageSequence? = nil
     var messageArray: [Messageable] = []
 
-    var messageSequenceChangePublisher: AnyPublisher<EntityChange<MessageSequence>, Never>
-    = PassthroughSubject<EntityChange<MessageSequence>, Never>().eraseToAnyPublisher()
+    var messageSequenceChangePublisher: AnyPublisher<ParseEntityChange<MessageSequence>, Never>
+    = PassthroughSubject<ParseEntityChange<MessageSequence>, Never>().eraseToAnyPublisher()
 
-    var messagesChangesPublisher: AnyPublisher<[ListChange<Message>], Never>
-    = PassthroughSubject<[ListChange<Message>], Never>().eraseToAnyPublisher()
+    var messagesChangesPublisher: AnyPublisher<[ParseListChange<Message>], Never>
+    = PassthroughSubject<[ParseListChange<Message>], Never>().eraseToAnyPublisher()
 
 }
+
+extension ParseConversationController: @MainActor MessageSequenceController {}
+extension ParseMessageController: @MainActor MessageSequenceController {}

@@ -9,7 +9,7 @@
 import Foundation
 import Combine
 import ParseLiveQuery
-import Parse
+import ParseCore
 import Localization
 
 class NoticeStore {

@@ -7,7 +7,7 @@
 //
 
 import Foundation
-import Parse
+import ParseCore
 
 enum Environment: String {
 
@@ -16,15 +16,22 @@ enum Environment: String {
 
     var url: String {
         switch self {
-        case .staging: return "https://jibber-development-backend.herokuapp.com/parse"
-        case .production: return "https://jibber-backend.herokuapp.com/parse"
+        case .staging: return "https://parseapi.back4app.com"
+        case .production: return "https://parseapi.back4app.com"
         }
     }
 
     var appId: String {
         switch self {
-        case .staging: return "jibber-development"
-        case .production: return "bd263ac3-c8d9-4145-be8a-7d8eedbd5fcf"
+        case .staging: return "4qvd8tYEda8zwXGWXSXcRzyQ4EShmqvdJLDJznsD"
+        case .production: return "4qvd8tYEda8zwXGWXSXcRzyQ4EShmqvdJLDJznsD"
+        }
+    }
+
+    var clientKey: String {
+        switch self {
+        case .staging: return "lcT9US7v82eAQXHGXpu6mgpu7pOtVu7fQjJAUDJA"
+        case .production: return "lcT9US7v82eAQXHGXpu6mgpu7pOtVu7fQjJAUDJA"
         }
     }
 
@@ -53,12 +60,6 @@ enum Environment: String {
         }
     }
 
-    var chatAPIKey: String {
-        switch self {
-        case .staging: return "hvmd2mhxcres"
-        case .production: return "ybdsdqhd2nhg"
-        }
-    }
 }
 
 enum BuildType: String, CaseIterable {
@@ -113,11 +114,18 @@ class Config: NSObject {
     func initializeParseIfNeeded(includeBundleId: Bool = true) {
         if Parse.currentConfiguration.isNil  {
             Parse.initialize(with: ParseClientConfiguration(block: { (configuration: ParseMutableClientConfiguration) in
+                let sessionConfiguration = URLSessionConfiguration.default
+                sessionConfiguration.httpAdditionalHeaders = [
+                    "X-Jibber-App-Version": self.appVersion,
+                    "X-Jibber-Messaging-Schema": "1"
+                ]
+
                 configuration.applicationGroupIdentifier = self.environment.groupId
-               // configuration.clientKey = self.environment.clientKey
+                configuration.clientKey = self.environment.clientKey
                 configuration.server = self.environment.url
                 configuration.applicationId = self.environment.appId
                 configuration.isLocalDatastoreEnabled = true
+                configuration.urlSessionConfiguration = sessionConfiguration
                 if includeBundleId {
                     configuration.containingApplicationBundleIdentifier = self.environment.bundleId
                 }

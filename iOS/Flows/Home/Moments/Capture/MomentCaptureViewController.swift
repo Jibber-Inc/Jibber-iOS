@@ -8,7 +8,7 @@
 
 import Foundation
 import Combine
-import Parse
+import ParseCore
 import Localization
 import Speech
 import KeyboardManager

@@ -8,12 +8,13 @@
 
 import Foundation
 import UIKit
-import Parse
+import ParseCore
 import Coordinator
 
 class MainCoordinator: BaseCoordinator<Void> {
     
-    var launchActivity: LaunchActivity? 
+    var launchActivity: LaunchActivity?
+    var messagingLaunchAlert: UIAlertController?
 
     override func start() {
         super.start()

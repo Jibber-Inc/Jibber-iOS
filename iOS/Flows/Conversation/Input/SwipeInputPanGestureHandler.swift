@@ -10,6 +10,7 @@ import Foundation
 import Lottie
 
 /// Handles pan gesture input on behalf of the swipeable input accessory.
+@MainActor
 class SwipeInputPanGestureHandler {
 
     let viewController: SwipeableInputAccessoryViewController

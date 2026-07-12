@@ -50,7 +50,10 @@ class ReactionsDetailCoordinator: PresentableCoordinator<Void> {
                                                    properties: ["value": emotion.rawValue])
             }
             
-            let controller = ConversationController.controller(for: self.moment.commentsId)
+            let controller = ParseConversationController(
+                conversationID: self.moment.commentsId,
+                automaticallySynchronize: false
+            )
             
             Task {
                 try await controller.add(expression: expression)

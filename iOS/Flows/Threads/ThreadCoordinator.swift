@@ -42,9 +42,9 @@ class ThreadCoordinator: InputHandlerCoordinator<ThreadResult>, DeepLinkHandler 
         self.threadVC.$selectedItems.mainSink { [unowned self] items in
             guard let first = items.first,
                   case MessageSequenceItem.message(let messageID, _) = first,
-                  let cid = self.threadVC.conversationController?.cid else { return }
+                  let conversationID = self.threadVC.conversationController?.conversationID.rawValue else { return }
             
-            self.presentMessageDetail(for: cid.description, messageId: messageID)
+            self.presentMessageDetail(for: conversationID, messageId: messageID)
         }.store(in: &self.cancellables)
     }
     
@@ -83,7 +83,8 @@ class ThreadCoordinator: InputHandlerCoordinator<ThreadResult>, DeepLinkHandler 
     }
     
     func presentMessageDetail(for conversationId: String, messageId: String) {
-        guard let message = JibberChatClient.shared.message(conversationId: conversationId, id: messageId) else { return }
+        guard let message = self.threadVC.messageController.getMessage(withId: messageId),
+              message.conversationId == conversationId else { return }
         let coordinator = MessageDetailCoordinator(with: message,
                                                    router: self.router,
                                                    deepLink: self.deepLink)

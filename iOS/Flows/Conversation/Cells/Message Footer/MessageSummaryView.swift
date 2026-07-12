@@ -7,13 +7,11 @@
 //
 
 import Foundation
-import Combine
-import Localization
 import UIKit
 
 class MessageSummaryView: BaseView {
-    
-    private var controller: MessageController?
+
+    private var messageID: String?
     let replyView = MessagePreview()
     let badgeView = RepliesBadgeView()
         
@@ -27,54 +25,31 @@ class MessageSummaryView: BaseView {
         self.addSubview(self.badgeView)
     }
     
-    /// The currently running task that is loading.
-    private var loadTask: Task<Void, Never>?
-    
     func configure(for message: Messageable) {
-        guard let controller = JibberChatClient.shared.messageController(for: message) else { return }
+        guard let parseMessage = message as? ParseMessage else { return }
 
-        if let existing = self.controller,
-            existing.messageId == controller.messageId,
-            self.replyCount == controller.message?.replyCount,
-            self.totalUnreadReplyCount == controller.message?.totalUnreadReplyCount {
+        if self.messageID == parseMessage.id,
+            self.replyCount == parseMessage.replyCount,
+            self.totalUnreadReplyCount == parseMessage.totalUnreadReplyCount {
             return
         }
-                
-        self.loadTask?.cancel()
-                
-        self.loadTask = Task { [weak self] in
-            guard let `self` = self else { return }
-            
-            guard !Task.isCancelled else { return }
-            
-            self.controller = controller
-            
-            if let controller = self.controller,
-               controller.message!.replyCount > 0,
-                !controller.hasLoadedAllPreviousReplies  {
-                try? await controller.loadPreviousReplies()
-            }
-            
-            self.replyCount = controller.message?.replyCount ?? 0
-            self.totalUnreadReplyCount = message.totalUnreadReplyCount
-            
-            if let reply = self.controller?.message?.recentReplies.first {
-                self.replyView.isVisible = true 
-                self.replyView.configure(with: reply)
-            } else {
-                self.replyView.isVisible = false
-            }
-            
-            self.badgeView.configure(with: message)
-                        
-            await UIView.awaitAnimation(with: .fast, animations: {
-                if let _ = self.controller?.message?.recentReplies.first {
-                    self.alpha = 1.0
-                } else {
-                    self.alpha = 0.0
-                }
-                self.layoutNow()
-            })
+
+        self.messageID = parseMessage.id
+        self.replyCount = parseMessage.replyCount
+        self.totalUnreadReplyCount = parseMessage.totalUnreadReplyCount
+
+        if let reply = parseMessage.recentReplies.first {
+            self.replyView.isVisible = true
+            self.replyView.configure(with: reply)
+        } else {
+            self.replyView.isVisible = false
+        }
+
+        self.badgeView.configure(with: parseMessage)
+
+        UIView.animate(withDuration: Theme.animationDurationFast) {
+            self.alpha = parseMessage.recentReplies.isEmpty ? 0.0 : 1.0
+            self.layoutNow()
         }
     }
     

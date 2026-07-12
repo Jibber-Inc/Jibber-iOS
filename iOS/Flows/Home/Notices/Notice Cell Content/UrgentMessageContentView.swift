@@ -31,15 +31,20 @@ class UrgentMessageContentView: NoticeContentView {
     override func configure(for notice: SystemNotice) async {
         await super.configure(for: notice)
         
-        guard let cidValue = notice.attributes?["cid"] as? String,
+        guard let cidValue = (notice.attributes?["conversationId"] as? String)
+                ?? (notice.attributes?["cid"] as? String),
               let messageId = notice.attributes?["messageId"] as? String else {
             self.showError()
             return }
 
-        let controller = JibberChatClient.shared.messageController(for: cidValue, id: messageId)
-        try? await controller?.synchronize()
+        let controller = ParseMessageController(
+            conversationID: cidValue,
+            messageID: messageId,
+            automaticallySynchronize: false
+        )
+        try? await controller.synchronize()
 
-        guard let message = controller?.message else {
+        guard let message = controller.message else {
             self.showError()
             return
         }

@@ -9,7 +9,6 @@
 import Foundation
 import ScrollCounter
 import Combine
-import StreamChat
 
 class ConversationContentView: BaseView {
     
@@ -35,8 +34,9 @@ class ConversationContentView: BaseView {
     // Context menu
     private lazy var contextMenuDelegate = MessageContentContextMenuDelegate(content: self.messageContent)
     
-    private(set) var conversationController: ConversationController?
+    private(set) var conversationController: ParseConversationController?
     var subscriptions = Set<AnyCancellable>()
+    private var configureTask: Task<Void, Never>?
     
     override func initializeSubviews() {
         super.initializeSubviews()
@@ -70,37 +70,32 @@ class ConversationContentView: BaseView {
     }
     
     func configure(with item: String) {
-        
-        Task.onMainActorAsync {
-            let controller = JibberChatClient.shared.conversationController(for: item)
-            
-            if self.conversationController?.cid?.description != item,
-               let conversation = controller?.conversation {
-                self.conversationController = controller
-                
-                if conversation.latestMessages.isEmpty  {
-                    try? await self.conversationController?.synchronize()
-                }
-                
-                let members = conversation.lastActiveMembers.filter { member in
-                    return member.personId != User.current()?.objectId
-                }
-                
-                self.stackedAvatarView.configure(with: members)
-                
-                self.setNumberOfUnread(value: conversation.totalUnread)
-                self.subscribeToUpdates()
-            }
-            
-            guard !Task.isCancelled else { return }
-            
-            if let latest = self.conversationController?.channel?.latestMessages.first(where: { message in
-                return !message.isDeleted
-            }) {
-                self.update(for: latest)
+        self.configureTask?.cancel()
+        self.configureTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+
+            let controller: ParseConversationController
+            if let current = self.conversationController,
+               current.conversationID.rawValue == item {
+                controller = current
             } else {
-                logDebug("No messages in coversation")
+                controller = ParseConversationController(
+                    conversationID: item,
+                    automaticallySynchronize: false
+                )
+                self.conversationController = controller
             }
+
+            do {
+                try await controller.synchronize(pageSize: 1)
+            } catch {
+                logError(error)
+            }
+
+            guard !Task.isCancelled,
+                  self.conversationController === controller else { return }
+            self.subscribeToUpdates()
+            self.refreshVisibleState()
         }
     }
     
@@ -111,7 +106,7 @@ class ConversationContentView: BaseView {
     }
     
     @MainActor
-    private func update(for message: Message) {
+    private func update(for message: ParseMessage) {
         self.messageContent.configure(with: message)
         
         let title = self.conversationController?.conversation?.title ?? "Untitled"
@@ -127,45 +122,39 @@ class ConversationContentView: BaseView {
         }
         
         self.conversationController?
-            .memberEventPublisher
-            .mainSink(receiveValue: { [unowned self] event in
-                guard let conversationController = self.conversationController else { return }
-                switch event {
-                case _ as MemberAddedEvent, _ as MemberRemovedEvent:
-                    let members = conversationController.conversation?.lastActiveMembers.filter { member in
-                        return member.personId != User.current()?.objectId
-                    } ?? []
-                    
-                    self.stackedAvatarView.configure(with: members)
-                default:
-                    break
-                }
-                
+            .membersChangesPublisher
+            .mainSink(receiveValue: { [weak self] _ in
+                self?.refreshVisibleState()
             }).store(in: &self.subscriptions)
-        
+
         self.conversationController?
-            .channelChangePublisher
-            .mainSink(receiveValue: { [unowned self] _ in
-                guard let conversation = self.conversationController?.conversation else { return }
-                if let latest = conversation.latestMessages.first(where: { message in
-                    return !message.isDeleted
-                }) {
-                    self.update(for: latest)
-                }
-                self.setNumberOfUnread(value: conversation.totalUnread)
+            .conversationChangePublisher
+            .mainSink(receiveValue: { [weak self] _ in
+                self?.refreshVisibleState()
             }).store(in: &self.subscriptions)
-        
+
         self.conversationController?
             .messagesChangesPublisher
-            .mainSink { [unowned self] _ in
-                guard let conversation = self.conversationController?.conversation else { return }
-                if let latest = conversation.latestMessages.first(where: { message in
-                    return !message.isDeleted
-                }) {
-                    self.update(for: latest)
-                }
-                self.setNumberOfUnread(value: conversation.totalUnread)
+            .mainSink { [weak self] _ in
+                self?.refreshVisibleState()
             }.store(in: &self.subscriptions)
+    }
+
+    @MainActor
+    private func refreshVisibleState() {
+        guard let conversation = self.conversationController?.conversation else { return }
+
+        let members = conversation.lastActiveMembers.filter {
+            $0.personId != User.current()?.objectId
+        }
+        self.stackedAvatarView.configure(with: members)
+        self.setNumberOfUnread(value: conversation.totalUnread)
+
+        if let latest = conversation.latestMessages.first(where: { !$0.isDeleted }) {
+            self.update(for: latest)
+        } else {
+            logDebug("No messages in conversation")
+        }
     }
     
     override func layoutSubviews() {

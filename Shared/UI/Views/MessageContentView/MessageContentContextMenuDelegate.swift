@@ -35,10 +35,15 @@ class MessageContentContextMenuDelegate: NSObject, UIContextMenuInteractionDeleg
         let confirmDelete = UIAction(title: "Confirm",
                                      image: ImageSymbol.trash.image,
                                      attributes: .destructive) { action in
-            Task {
-                guard let controller = JibberChatClient.shared.messageController(for: message) else { return }
+            Task { @MainActor in
+                let controller = ParseMessageController(
+                    conversationID: message.conversationId,
+                    messageID: message.id,
+                    automaticallySynchronize: false
+                )
                 do {
-                    try await controller.deleteMessage()
+                    try await controller.synchronize()
+                    try controller.deleteMessage()
                 } catch {
                     await ToastScheduler.shared.schedule(toastType: .error(error))
                 }
@@ -171,16 +176,27 @@ class MessageContentContextMenuDelegate: NSObject, UIContextMenuInteractionDeleg
     }
     
     private func addReply(with text: String) {
-        guard let msg = self.content.message,
-                let controller = JibberChatClient.shared.messageController(for: msg) else { return }
+        guard let msg = self.content.message else { return }
         
-        Task {
-            let object = SendableObject(kind: .text(text),
-                                        deliveryType: msg.deliveryType,
-                                        expression: nil)
-            try await controller.createNewReply(with: object)
-            
-            AnalyticsManager.shared.trackEvent(type: .suggestionSelected, properties: ["value": text])
+        Task { @MainActor in
+            do {
+                let controller = ParseMessageController(
+                    conversationID: msg.conversationId,
+                    messageID: msg.id,
+                    automaticallySynchronize: false
+                )
+                try await controller.synchronize()
+                let object = SendableObject(kind: .text(text),
+                                            deliveryType: msg.deliveryType,
+                                            expression: nil)
+                try await controller.createNewReply(with: object)
+                AnalyticsManager.shared.trackEvent(
+                    type: .suggestionSelected,
+                    properties: ["value": text]
+                )
+            } catch {
+                await ToastScheduler.shared.schedule(toastType: .error(error))
+            }
         }
     }
 }

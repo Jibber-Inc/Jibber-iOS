@@ -44,7 +44,7 @@ class ConversationDetailCoordinator: PresentableCoordinator<DetailCoordinatorRes
             case .pinnedMessage(let model):
                 guard let conversationId = model.conversationId,
                         let messageId = model.messageId,
-                        let message = JibberChatClient.shared.message(conversationId: conversationId, id: messageId) else { return }
+                        let message = JibberMessagingClient.shared.message(conversationId: conversationId, id: messageId) else { return }
                 self.finishFlow(with: .message(message))
             case .member(let member):
                 guard let person = PeopleStore.shared.people.first(where: { person in
@@ -86,7 +86,7 @@ class ConversationDetailCoordinator: PresentableCoordinator<DetailCoordinatorRes
     }
     
     func presentConversationTitleAlert(for conversationId: String) {
-        let controller = JibberChatClient.shared.conversationController(for: conversationId)
+        let controller = JibberMessagingClient.shared.conversationController(for: conversationId)
         
         let alertController = UIAlertController(title: "Update Name", message: "", preferredStyle: .alert)
         alertController.addTextField { (textField : UITextField!) -> Void in
@@ -117,7 +117,7 @@ class ConversationDetailCoordinator: PresentableCoordinator<DetailCoordinatorRes
     }
     
     func presentDetail(option: ConversationDetailCollectionViewDataSource.OptionType) {
-        guard let controller = JibberChatClient.shared.conversationController(for: self.conversationId) else { return }
+        guard let controller = JibberMessagingClient.shared.conversationController(for: self.conversationId) else { return }
         
         var title: String = ""
         var message: String = ""
@@ -175,7 +175,7 @@ class ConversationDetailCoordinator: PresentableCoordinator<DetailCoordinatorRes
     }
     
     func presentPeoplePicker() {
-        guard let conversation = JibberChatClient.shared.conversation(for: self.conversationId) else { return }
+        guard let conversation = JibberMessagingClient.shared.conversation(for: self.conversationId) else { return }
         
         self.removeChild()
         
@@ -200,7 +200,7 @@ class ConversationDetailCoordinator: PresentableCoordinator<DetailCoordinatorRes
         
         if !invitedPeople.isEmpty {
             Task {
-                guard let controller = JibberChatClient.shared.conversationController(for: activeConversation.id) else { return }
+                guard let controller = JibberMessagingClient.shared.conversationController(for: activeConversation.id) else { return }
                 await self.add(people: invitedPeople, to: controller)
                 try? await controller.synchronize()
                 await self.detailVC.reloadPeople()

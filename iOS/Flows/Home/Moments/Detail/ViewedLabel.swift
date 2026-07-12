@@ -9,7 +9,6 @@
 import Foundation
 import Combine
 import ScrollCounter
-import StreamChat
 
 class ViewedLabel: BaseView {
     
