@@ -12,7 +12,7 @@ import Lottie
 
 class MomentVideoView: VideoView {
     
-    let animationView = AnimationView.with(animation: .loading)
+    let animationView = LottieAnimationView.with(animation: .loading)
     
     override func initializeSubviews() {
         super.initializeSubviews()

@@ -9,11 +9,13 @@
 import Foundation
 import UIKit
 
+@MainActor
 class DiffableDataSource<SectionType: Hashable, ItemType: Hashable>: UICollectionViewDiffableDataSource<SectionType, ItemType> {}
 
 /// A base class for types that can act as a data source for a UICollectionview.
 /// Subclasses should override functions related to dequeuing cells and supplementary views.
 /// This class works the same as UICollectionViewDiffableDataSource but it allows you to subclass it more easily and hold additional state.
+@MainActor
 class CollectionViewDataSource<SectionType: Hashable, ItemType: Hashable> {
     
     typealias SnapshotType = NSDiffableDataSourceSnapshot<SectionType, ItemType>
@@ -73,7 +75,7 @@ extension CollectionViewDataSource {
     func apply(_ snapshot: SnapshotType, animatingDifferences: Bool = true) {
         self.diffableDataSource.apply(snapshot, animatingDifferences: animatingDifferences, completion: nil)
     }
-    
+
     func apply(_ snapshot: SnapshotType, animatingDifferences: Bool = true) async {
         await self.diffableDataSource.apply(snapshot, animatingDifferences: animatingDifferences)
     }
@@ -118,6 +120,18 @@ extension CollectionViewDataSource {
     func applyChanges(_ changes: (inout SnapshotType) -> Void) {
         var snapshot = self.snapshot()
         changes(&snapshot)
+        self.apply(snapshot)
+    }
+
+    /// Replaces one section and optionally clears another in a single snapshot update.
+    func setItemsImmediately(_ identifiers: [ItemType],
+                             in section: SectionType,
+                             clearing clearedSection: SectionType? = nil) {
+        var snapshot = self.snapshot()
+        if let clearedSection {
+            snapshot.setItems([], in: clearedSection)
+        }
+        snapshot.setItems(identifiers, in: section)
         self.apply(snapshot)
     }
     

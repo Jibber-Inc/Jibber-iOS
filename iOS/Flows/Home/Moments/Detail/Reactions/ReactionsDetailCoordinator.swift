@@ -56,7 +56,11 @@ class ReactionsDetailCoordinator: PresentableCoordinator<Void> {
             )
             
             Task {
-                try await controller.add(expression: expression)
+                do {
+                    try await controller.add(expression: expression)
+                } catch {
+                    logError(error)
+                }
             }
         }
     }
@@ -66,9 +70,7 @@ class ReactionsDetailCoordinator: PresentableCoordinator<Void> {
                               cancelHandler: (() -> Void)? = nil) {
         self.removeChild()
 
-        coordinator.toPresentable().dismissHandlers.append { [unowned self] in
-
-        }
+        coordinator.toPresentable().dismissHandlers.append { }
         
         self.addChildAndStart(coordinator) { [unowned self] result in
             self.detailVC.dismiss(animated: true) {

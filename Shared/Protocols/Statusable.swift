@@ -49,7 +49,7 @@ enum EventStatus: Equatable {
     case complete // A permenantent state showing an object is valid and has been saved
     case custom(String)
 
-    var animation: Animation? {
+    var animation: LottieAnimation? {
         let value = String()
 
         switch self {
@@ -77,10 +77,10 @@ enum EventStatus: Equatable {
             return nil
         }
 
-        return Animation.named(value,
-                               bundle: Bundle.main,
-                               subdirectory: nil,
-                               animationCache: LRUAnimationCache.sharedCache)
+        return LottieAnimation.named(value,
+                                     bundle: Bundle.main,
+                                     subdirectory: nil,
+                                     animationCache: DefaultAnimationCache.sharedCache)
     }
 
     var randomSavedText: Localized {

@@ -47,6 +47,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     
     var window: UIWindow?
     var mainCoordinator: MainCoordinator?
+
+#if IOS
+    private var badgeSynchronizationTask: Task<Void, Never>?
+#endif
     
     func scene(_ scene: UIScene,
                willConnectTo session: UISceneSession,
@@ -93,8 +97,12 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         self.mainCoordinator?.start()
     }
 
-    func sceneWillResignActive(_ scene: UIScene) {
-        let badgeNumber = UIApplication.shared.applicationIconBadgeNumber
-        UserDefaults(suiteName: Config.shared.environment.groupId)?.set(badgeNumber, forKey: "badgeNumber")
+    func sceneDidBecomeActive(_ scene: UIScene) {
+#if IOS
+        self.badgeSynchronizationTask?.cancel()
+        self.badgeSynchronizationTask = Task { @MainActor in
+            await UserNotificationManager.shared.synchronizeBadgeCount()
+        }
+#endif
     }
 }

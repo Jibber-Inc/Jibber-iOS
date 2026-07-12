@@ -8,8 +8,8 @@
 
 import Foundation
 import Combine
-import ParseLiveQuery
 import ParseCore
+import JibberParseLiveQuery
 import Localization
 
 class MomentsStore {
@@ -216,8 +216,14 @@ class MomentsStore {
         NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification).mainSink { [weak self] _ in
             guard let self else { return }
             
-            Task {
-                self.__moments = try await self.fetchAllOfTodaysMoments()
+            Task { [weak self] in
+                guard let self else { return }
+
+                do {
+                    self.__moments = try await self.fetchAllOfTodaysMoments()
+                } catch {
+                    logError(error)
+                }
             }
         }.store(in: &self.cancellables)
         

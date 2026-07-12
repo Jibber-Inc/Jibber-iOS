@@ -65,7 +65,11 @@ extension MomentCoordinator {
             let controller = ConversationController.controller(for: self.moment.commentsId)
             
             Task {
-                try await controller.add(expression: expression)
+                do {
+                    try await controller.add(expression: expression)
+                } catch {
+                    logError(error)
+                }
             }
         }
     }

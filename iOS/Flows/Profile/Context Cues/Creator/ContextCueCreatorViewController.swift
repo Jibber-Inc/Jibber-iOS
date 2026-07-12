@@ -24,8 +24,12 @@ class ContextCueCreatorViewController: EmojiPickerViewController {
         self.view.addSubview(self.button)
         self.button.didSelect { [unowned self] in
             Task {
-                try await self.createContextCue()
-                self.didCreateContextCue?()
+                do {
+                    try await self.createContextCue()
+                    self.didCreateContextCue?()
+                } catch {
+                    logError(error)
+                }
             }
         }
         

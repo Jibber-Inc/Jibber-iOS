@@ -57,11 +57,15 @@ extension HomeCoordinator {
         switch notice.type {
         case .connectionRequest:
             Task {
-                guard let connectionId = notice.attributes?["connectionId"] as? String else { return }
-                _ = try await UpdateConnection(connectionId: connectionId, status: .declined)
-                    .makeRequest(andUpdate:[], viewsToIgnore: [])
-                NoticeStore.shared.delete(notice: notice)
-                self.homeVC.noticesVC.reloadNotices()
+                do {
+                    guard let connectionId = notice.attributes?["connectionId"] as? String else { return }
+                    _ = try await UpdateConnection(connectionId: connectionId, status: .declined)
+                        .makeRequest(andUpdate:[], viewsToIgnore: [])
+                    NoticeStore.shared.delete(notice: notice)
+                    self.homeVC.noticesVC.reloadNotices()
+                } catch {
+                    logError(error)
+                }
             }
         default:
             break

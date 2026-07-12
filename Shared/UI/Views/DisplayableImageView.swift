@@ -46,7 +46,7 @@ class DisplayableImageView: BaseView {
 
     private(set) var imageView = UIImageView()
     let blurView = BlurView()
-    private let animationView = AnimationView()
+    private let animationView = LottieAnimationView()
 
     /// The current task that is asynchronously setting the displayable.
     private var displayableTask: Task<Void, Never>?

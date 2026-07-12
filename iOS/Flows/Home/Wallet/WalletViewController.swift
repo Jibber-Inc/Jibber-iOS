@@ -167,20 +167,20 @@ class WalletViewController: DiffableCollectionViewController<WalletCollectionVie
     }
     
     private func loadAchievements() {
-        Task { [weak self] in
+        Task { @MainActor [weak self] in
             await self?.loadAchievements()
         }.add(to: self.autocancelTaskPool)
     }
     
     private func loadCurrentTransactions() {
-        Task { [weak self] in
+        Task { @MainActor [weak self] in
             guard let transactions = try? await Transaction.fetchAllCurrentTransactions() else { return }
             await self?.load(transactions: transactions)
         }.add(to: self.autocancelTaskPool)
     }
     
     private func loadConnectionsTransactions() {
-        Task { [weak self] in
+        Task { @MainActor [weak self] in
             guard let transactions = try? await Transaction.fetchAllConnectionsTransactions() else {
                 await self?.dataSource.deleteAllItems()
                 return
@@ -190,6 +190,7 @@ class WalletViewController: DiffableCollectionViewController<WalletCollectionVie
         }.add(to: self.autocancelTaskPool)
     }
     
+    @MainActor
     private func loadAchievements() async {
         
         let achievements = AchievementsManager.shared.achievements
@@ -208,19 +209,14 @@ class WalletViewController: DiffableCollectionViewController<WalletCollectionVie
             return .achievement(model)
         }
         
-        var snapshot = self.dataSource.snapshot()
-        snapshot.setItems(items, in: .achievements)
-        snapshot.setItems([], in: .transactions)
-        await self.dataSource.apply(snapshot)
+        self.dataSource.setItemsImmediately(items, in: .achievements, clearing: .transactions)
     }
     
+    @MainActor
     private func load(transactions: [Transaction]) async {
         let items = transactions.map { transaction in
             return WalletCollectionViewDataSource.ItemType.transaction(transaction)
         }
-        var snapshot = self.dataSource.snapshot()
-        snapshot.setItems([], in: .achievements)
-        snapshot.setItems(items, in: .transactions)
-        await self.dataSource.apply(snapshot)
+        self.dataSource.setItemsImmediately(items, in: .transactions, clearing: .achievements)
     }
 }

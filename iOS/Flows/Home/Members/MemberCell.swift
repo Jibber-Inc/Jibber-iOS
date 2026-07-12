@@ -37,7 +37,7 @@ class MemberCell: CollectionViewManagerCell, ManageableCell {
     }
 
     func configure(with item: String) {
-        Task.onMainActorAsync {
+        Task.onMainActorAsync { [self] in
             guard let person = await PeopleStore.shared.getPerson(withPersonId: item) else { return }
             let expression = await MomentsStore.shared.getTodaysMoment(withPersonId: item)?.expression
             self.personView.set(expression: expression, person: person)

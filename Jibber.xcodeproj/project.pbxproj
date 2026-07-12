@@ -116,19 +116,19 @@
 		80FD049F26FA4C4400E69088 /* NSDiffableDataSourceSnapshot+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80FD049E26FA4C4400E69088 /* NSDiffableDataSourceSnapshot+Extensions.swift */; };
 		80FD04A126FA4C4400E69088 /* NSDiffableDataSourceSnapshot+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80FD049E26FA4C4400E69088 /* NSDiffableDataSourceSnapshot+Extensions.swift */; };
 		A30000000000000000000001 /* ParseObjC in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000001 /* ParseObjC */; };
-		A30000000000000000000002 /* ParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000002 /* ParseLiveQuery */; };
+		A30000000000000000000002 /* JibberParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000002 /* JibberParseLiveQuery */; };
 		A30000000000000000000003 /* ScrollCounter in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000003 /* ScrollCounter */; };
 		A30000000000000000000004 /* Lightbox in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000004 /* Lightbox */; };
 		A30000000000000000000005 /* ParseObjC in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000005 /* ParseObjC */; };
-		A30000000000000000000006 /* ParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000006 /* ParseLiveQuery */; };
+		A30000000000000000000006 /* JibberParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000006 /* JibberParseLiveQuery */; };
 		A30000000000000000000007 /* ParseObjC in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000007 /* ParseObjC */; };
-		A30000000000000000000008 /* ParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000008 /* ParseLiveQuery */; };
+		A30000000000000000000008 /* JibberParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000008 /* JibberParseLiveQuery */; };
 		A30000000000000000000009 /* ParseObjC in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000009 /* ParseObjC */; };
-		A3000000000000000000000A /* ParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000A /* ParseLiveQuery */; };
+		A3000000000000000000000A /* JibberParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000A /* JibberParseLiveQuery */; };
 		A3000000000000000000000B /* ParseObjC in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000B /* ParseObjC */; };
-		A3000000000000000000000C /* ParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000C /* ParseLiveQuery */; };
+		A3000000000000000000000C /* JibberParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000C /* JibberParseLiveQuery */; };
 		A3000000000000000000000D /* ParseObjC in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000D /* ParseObjC */; };
-		A3000000000000000000000E /* ParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000E /* ParseLiveQuery */; };
+		A3000000000000000000000E /* JibberParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000E /* JibberParseLiveQuery */; };
 		A3000000000000000000000F /* PhoneNumberKit in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000F /* PhoneNumberKit */; };
 		A30000000000000000000010 /* PhoneNumberKit in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000010 /* PhoneNumberKit */; };
 		B30000000000000000000001 /* MessagingContracts in Frameworks */ = {isa = PBXBuildFile; productRef = B20000000000000000000001 /* MessagingContracts */; };
@@ -414,6 +414,7 @@
 		D61C1D1B2840053600F58F84 /* ImageSymbol.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6B2B6482839570B007D507B /* ImageSymbol.swift */; };
 		D61C1D212840324000F58F84 /* Coordinator in Frameworks */ = {isa = PBXBuildFile; productRef = D61C1D202840324000F58F84 /* Coordinator */; };
 		D61C1D23284035ED00F58F84 /* Coordinator in Frameworks */ = {isa = PBXBuildFile; productRef = D61C1D22284035ED00F58F84 /* Coordinator */; };
+		E10000000000000000000001 /* Coordinator in Frameworks */ = {isa = PBXBuildFile; productRef = E10000000000000000000002 /* Coordinator */; };
 		D61C1D252840409900F58F84 /* BaseCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D61C1D242840409900F58F84 /* BaseCoordinator.swift */; };
 		D61C1D262840409900F58F84 /* BaseCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D61C1D242840409900F58F84 /* BaseCoordinator.swift */; };
 		D61C1D28284041DE00F58F84 /* PresentableCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D61C1D27284041DE00F58F84 /* PresentableCoordinator.swift */; };
@@ -1205,6 +1206,7 @@
 		80FD049E26FA4C4400E69088 /* NSDiffableDataSourceSnapshot+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSDiffableDataSourceSnapshot+Extensions.swift"; sourceTree = "<group>"; };
 		A40000000000000000000001 /* Lightbox */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = Lightbox; sourceTree = "<group>"; };
 		B10000000000000000000001 /* Messaging */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = Messaging; sourceTree = "<group>"; };
+		C10000000000000000000001 /* JibberParseLiveQuery */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = JibberParseLiveQuery; sourceTree = "<group>"; };
 		B40000000000000000000002 /* ParseMessagingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseMessagingManager.swift; sourceTree = "<group>"; };
 		C50000000000000000000101 /* ParseMessagingChanges.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseMessagingChanges.swift; sourceTree = "<group>"; };
 		C50000000000000000000102 /* ParseMessagingModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseMessagingModels.swift; sourceTree = "<group>"; };
@@ -1679,7 +1681,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A30000000000000000000005 /* ParseObjC in Frameworks */,
-				A30000000000000000000006 /* ParseLiveQuery in Frameworks */,
+				A30000000000000000000006 /* JibberParseLiveQuery in Frameworks */,
 				D6DBC0E92851296F007312FC /* Transitions in Frameworks */,
 				D611280B2804D8A400574B96 /* PhoneNumberKit in Frameworks */,
 				D61C1D23284035ED00F58F84 /* Coordinator in Frameworks */,
@@ -1698,7 +1700,7 @@
 				B30000000000000000000001 /* MessagingContracts in Frameworks */,
 				B30000000000000000000002 /* MessagingPersistence in Frameworks */,
 				A30000000000000000000001 /* ParseObjC in Frameworks */,
-				A30000000000000000000002 /* ParseLiveQuery in Frameworks */,
+				A30000000000000000000002 /* JibberParseLiveQuery in Frameworks */,
 				A30000000000000000000003 /* ScrollCounter in Frameworks */,
 				A30000000000000000000004 /* Lightbox in Frameworks */,
 				D6DBC0EB28512978007312FC /* Transitions in Frameworks */,
@@ -1715,8 +1717,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E10000000000000000000001 /* Coordinator in Frameworks */,
 				A30000000000000000000007 /* ParseObjC in Frameworks */,
-				A30000000000000000000008 /* ParseLiveQuery in Frameworks */,
+				A30000000000000000000008 /* JibberParseLiveQuery in Frameworks */,
 				D6AE0F61267CF82C00C6B048 /* Lottie in Frameworks */,
 				D63DB1FB25E968C300F6B323 /* UserNotificationsUI.framework in Frameworks */,
 				D6AE0F68267CF8D900C6B048 /* PhoneNumberKit in Frameworks */,
@@ -1732,7 +1735,7 @@
 			files = (
 				A3000000000000000000000F /* PhoneNumberKit in Frameworks */,
 				A30000000000000000000009 /* ParseObjC in Frameworks */,
-				A3000000000000000000000A /* ParseLiveQuery in Frameworks */,
+				A3000000000000000000000A /* JibberParseLiveQuery in Frameworks */,
 				D656EF4A2765A13100FF6E2C /* Localization in Frameworks */,
 				D6DD0C352822F3C3004999F2 /* Sentry in Frameworks */,
 			);
@@ -1744,7 +1747,7 @@
 			files = (
 				A30000000000000000000010 /* PhoneNumberKit in Frameworks */,
 				A3000000000000000000000B /* ParseObjC in Frameworks */,
-				A3000000000000000000000C /* ParseLiveQuery in Frameworks */,
+				A3000000000000000000000C /* JibberParseLiveQuery in Frameworks */,
 				D6DD0C372822F3CD004999F2 /* Sentry in Frameworks */,
 				D6AE0F7E267CFA6C00C6B048 /* Intents.framework in Frameworks */,
 				D656EF4C2765A13600FF6E2C /* Localization in Frameworks */,
@@ -1756,7 +1759,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A3000000000000000000000D /* ParseObjC in Frameworks */,
-				A3000000000000000000000E /* ParseLiveQuery in Frameworks */,
+				A3000000000000000000000E /* JibberParseLiveQuery in Frameworks */,
 				D6AE0F89267CFA6D00C6B048 /* IntentsUI.framework in Frameworks */,
 				D656EF4E2765A13B00FF6E2C /* Localization in Frameworks */,
 				D6DD0C392822F3D5004999F2 /* Sentry in Frameworks */,
@@ -3146,6 +3149,7 @@
 			isa = PBXGroup;
 			children = (
 				B10000000000000000000001 /* Messaging */,
+				C10000000000000000000001 /* JibberParseLiveQuery */,
 				A40000000000000000000001 /* Lightbox */,
 				D6DBC0E52851295E007312FC /* Transitions */,
 				D669FA7B28452EDF00F4A9B5 /* KeyboardManager */,
@@ -3173,7 +3177,7 @@
 			name = AppClip;
 			packageProductDependencies = (
 				A20000000000000000000005 /* ParseObjC */,
-				A20000000000000000000006 /* ParseLiveQuery */,
+				A20000000000000000000006 /* JibberParseLiveQuery */,
 				D61128062804D88600574B96 /* Localization */,
 				D61128082804D89100574B96 /* Lottie */,
 				D611280A2804D8A400574B96 /* PhoneNumberKit */,
@@ -3210,7 +3214,7 @@
 				B20000000000000000000001 /* MessagingContracts */,
 				B20000000000000000000002 /* MessagingPersistence */,
 				A20000000000000000000001 /* ParseObjC */,
-				A20000000000000000000002 /* ParseLiveQuery */,
+				A20000000000000000000002 /* JibberParseLiveQuery */,
 				A20000000000000000000003 /* ScrollCounter */,
 				A20000000000000000000004 /* Lightbox */,
 				D6AE0F5C267CF80C00C6B048 /* Lottie */,
@@ -3240,7 +3244,8 @@
 			name = "Notification Content";
 			packageProductDependencies = (
 				A20000000000000000000007 /* ParseObjC */,
-				A20000000000000000000008 /* ParseLiveQuery */,
+				A20000000000000000000008 /* JibberParseLiveQuery */,
+				E10000000000000000000002 /* Coordinator */,
 				D6AE0F60267CF82C00C6B048 /* Lottie */,
 				D6AE0F67267CF8D900C6B048 /* PhoneNumberKit */,
 				D656EF472765A12A00FF6E2C /* Localization */,
@@ -3266,7 +3271,7 @@
 			packageProductDependencies = (
 				A2000000000000000000000F /* PhoneNumberKit */,
 				A20000000000000000000009 /* ParseObjC */,
-				A2000000000000000000000A /* ParseLiveQuery */,
+				A2000000000000000000000A /* JibberParseLiveQuery */,
 				D656EF492765A13100FF6E2C /* Localization */,
 				D6DD0C342822F3C3004999F2 /* Sentry */,
 			);
@@ -3290,7 +3295,7 @@
 			packageProductDependencies = (
 				A20000000000000000000010 /* PhoneNumberKit */,
 				A2000000000000000000000B /* ParseObjC */,
-				A2000000000000000000000C /* ParseLiveQuery */,
+				A2000000000000000000000C /* JibberParseLiveQuery */,
 				D656EF4B2765A13600FF6E2C /* Localization */,
 				D6DD0C362822F3CD004999F2 /* Sentry */,
 			);
@@ -3313,7 +3318,7 @@
 			name = "Intents ExtensionUI";
 			packageProductDependencies = (
 				A2000000000000000000000D /* ParseObjC */,
-				A2000000000000000000000E /* ParseLiveQuery */,
+				A2000000000000000000000E /* JibberParseLiveQuery */,
 				D656EF4D2765A13B00FF6E2C /* Localization */,
 				D6DD0C382822F3D5004999F2 /* Sentry */,
 			);
@@ -4550,7 +4555,6 @@
 			buildSettings = {
 				API_TARGET = STAGING;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
 				CODE_SIGN_ENTITLEMENTS = AppClip/AppClipStaging.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
@@ -4577,6 +4581,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				RELEASE_TYPE = DEBUG;
+				OTHER_SWIFT_FLAGS = "$(inherited) -Xcc -Wno-deprecated-declarations";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = APPCLIP;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -4589,7 +4594,6 @@
 			buildSettings = {
 				API_TARGET = PRODUCTION;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
 				CODE_SIGN_ENTITLEMENTS = AppClip/AppClip.entitlements;
 				CODE_SIGN_STYLE = Automatic;
@@ -4614,6 +4618,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "com.Jibber-Inc.iOS.Clip";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				RELEASE_TYPE = RELEASE;
+				OTHER_SWIFT_FLAGS = "$(inherited) -Xcc -Wno-deprecated-declarations";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = APPCLIP;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -4769,6 +4774,7 @@
 				RELEASE_TYPE = DEBUG;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG IOS";
 				SWIFT_OBJC_BRIDGING_HEADER = "./Shared/App/Bridging-Header.h";
+				OTHER_SWIFT_FLAGS = "$(inherited) -Xcc -Wno-deprecated-declarations";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
@@ -4796,6 +4802,7 @@
 				RELEASE_TYPE = RELEASE;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = IOS;
 				SWIFT_OBJC_BRIDGING_HEADER = "./Shared/App/Bridging-Header.h";
+				OTHER_SWIFT_FLAGS = "$(inherited) -Xcc -Wno-deprecated-declarations";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -4823,6 +4830,7 @@
 				SKIP_INSTALL = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG NOTIFICATION";
 				SWIFT_OBJC_BRIDGING_HEADER = "./Shared/App/Bridging-Header.h";
+				OTHER_SWIFT_FLAGS = "$(inherited) -Xcc -Wno-deprecated-declarations";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
@@ -4849,6 +4857,7 @@
 				SKIP_INSTALL = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = NOTIFICATION;
 				SWIFT_OBJC_BRIDGING_HEADER = "./Shared/App/Bridging-Header.h";
+				OTHER_SWIFT_FLAGS = "$(inherited) -Xcc -Wno-deprecated-declarations";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
@@ -4879,6 +4888,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				RELEASE_TYPE = DEBUG;
 				SKIP_INSTALL = YES;
+				OTHER_SWIFT_FLAGS = "$(inherited) -Xcc -Wno-deprecated-declarations";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -4911,6 +4921,7 @@
 				RELEASE_TYPE = RELEASE;
 				SKIP_INSTALL = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = NOTIFICATION_SERVICE;
+				OTHER_SWIFT_FLAGS = "$(inherited) -Xcc -Wno-deprecated-declarations";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -4942,6 +4953,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				RELEASE_TYPE = DEBUG;
 				SKIP_INSTALL = YES;
+				OTHER_SWIFT_FLAGS = "$(inherited) -Xcc -Wno-deprecated-declarations";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -4974,6 +4986,7 @@
 				RELEASE_TYPE = RELEASE;
 				SKIP_INSTALL = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = INTENTS_UI;
+				OTHER_SWIFT_FLAGS = "$(inherited) -Xcc -Wno-deprecated-declarations";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -5006,6 +5019,7 @@
 				RELEASE_TYPE = DEBUG;
 				SKIP_INSTALL = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = INTENTS_DEBUG;
+				OTHER_SWIFT_FLAGS = "$(inherited) -Xcc -Wno-deprecated-declarations";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -5038,6 +5052,7 @@
 				RELEASE_TYPE = RELEASE;
 				SKIP_INSTALL = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = INTENTS;
+				OTHER_SWIFT_FLAGS = "$(inherited) -Xcc -Wno-deprecated-declarations";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -5134,7 +5149,7 @@
 			repositoryURL = "https://github.com/airbnb/lottie-ios.git";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 3.0.0;
+				minimumVersion = 4.6.1;
 			};
 		};
 		D6AE0F62267CF8A400C6B048 /* XCRemoteSwiftPackageReference "PhoneNumberKit" */ = {
@@ -5150,7 +5165,7 @@
 			repositoryURL = "https://github.com/getsentry/sentry-cocoa.git";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 8.58.4;
+				minimumVersion = 9.21.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -5161,10 +5176,9 @@
 			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */;
 			productName = ParseObjC;
 		};
-		A20000000000000000000002 /* ParseLiveQuery */ = {
+		A20000000000000000000002 /* JibberParseLiveQuery */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */;
-			productName = ParseLiveQuery;
+			productName = JibberParseLiveQuery;
 		};
 		A20000000000000000000003 /* ScrollCounter */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -5180,50 +5194,45 @@
 			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */;
 			productName = ParseObjC;
 		};
-		A20000000000000000000006 /* ParseLiveQuery */ = {
+		A20000000000000000000006 /* JibberParseLiveQuery */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */;
-			productName = ParseLiveQuery;
+			productName = JibberParseLiveQuery;
 		};
 		A20000000000000000000007 /* ParseObjC */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */;
 			productName = ParseObjC;
 		};
-		A20000000000000000000008 /* ParseLiveQuery */ = {
+		A20000000000000000000008 /* JibberParseLiveQuery */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */;
-			productName = ParseLiveQuery;
+			productName = JibberParseLiveQuery;
 		};
 		A20000000000000000000009 /* ParseObjC */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */;
 			productName = ParseObjC;
 		};
-		A2000000000000000000000A /* ParseLiveQuery */ = {
+		A2000000000000000000000A /* JibberParseLiveQuery */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */;
-			productName = ParseLiveQuery;
+			productName = JibberParseLiveQuery;
 		};
 		A2000000000000000000000B /* ParseObjC */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */;
 			productName = ParseObjC;
 		};
-		A2000000000000000000000C /* ParseLiveQuery */ = {
+		A2000000000000000000000C /* JibberParseLiveQuery */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */;
-			productName = ParseLiveQuery;
+			productName = JibberParseLiveQuery;
 		};
 		A2000000000000000000000D /* ParseObjC */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */;
 			productName = ParseObjC;
 		};
-		A2000000000000000000000E /* ParseLiveQuery */ = {
+		A2000000000000000000000E /* JibberParseLiveQuery */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */;
-			productName = ParseLiveQuery;
+			productName = JibberParseLiveQuery;
 		};
 		A2000000000000000000000F /* PhoneNumberKit */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -5262,6 +5271,10 @@
 			productName = Coordinator;
 		};
 		D61C1D22284035ED00F58F84 /* Coordinator */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Coordinator;
+		};
+		E10000000000000000000002 /* Coordinator */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = Coordinator;
 		};

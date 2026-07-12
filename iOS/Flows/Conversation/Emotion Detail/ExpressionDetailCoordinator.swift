@@ -62,7 +62,11 @@ class ExpressionDetailCoordinator: PresentableCoordinator<Void> {
             let controller = MessageController.controller(for: self.message)
 
             Task {
-                try await controller?.add(expression: expression)
+                do {
+                    try await controller?.add(expression: expression)
+                } catch {
+                    logError(error)
+                }
             }
         }
     }
@@ -72,9 +76,7 @@ class ExpressionDetailCoordinator: PresentableCoordinator<Void> {
                               cancelHandler: (() -> Void)? = nil) {
         self.removeChild()
 
-        coordinator.toPresentable().dismissHandlers.append { [unowned self] in
-
-        }
+        coordinator.toPresentable().dismissHandlers.append { }
         
         self.addChildAndStart(coordinator) { [unowned self] result in
             self.emotionDetailVC.dismiss(animated: true) {

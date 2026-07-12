@@ -11,7 +11,7 @@ import Lottie
 
 private var microAnimationHandlerKey: UInt = 0
 
-extension AnimationView {
+extension LottieAnimationView {
 
     private(set) var microAnimation: MicroAnimation? {
         get {
@@ -22,15 +22,15 @@ extension AnimationView {
         }
     }
 
-    static func with(animation: MicroAnimation) -> AnimationView {
-        let view = AnimationView(name: animation.rawValue)
+    static func with(animation: MicroAnimation) -> LottieAnimationView {
+        let view = LottieAnimationView(name: animation.rawValue)
         view.microAnimation = animation
         return view
     }
 
     func load(animation: MicroAnimation) {
         self.microAnimation = animation
-        self.animation = Animation.named(animation.rawValue)
+        self.animation = LottieAnimation.named(animation.rawValue)
     }
 
     func reset() {

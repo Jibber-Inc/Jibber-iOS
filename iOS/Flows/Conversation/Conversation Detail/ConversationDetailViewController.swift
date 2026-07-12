@@ -8,7 +8,7 @@
 
 import Foundation
 import Combine
-import ParseLiveQuery
+import JibberParseLiveQuery
 
 class ConversationDetailViewController: DiffableCollectionViewController<ConversationDetailCollectionViewDataSource.SectionType,
                                         ConversationDetailCollectionViewDataSource.ItemType,

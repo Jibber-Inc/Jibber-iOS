@@ -35,7 +35,7 @@ class ThemeButton: UIButton, Statusable {
     /// Used to store the initial color of the button to return to from error state
     var defaultColor: ThemeColor?
 
-    let animationView = AnimationView.with(animation: .loading)
+    let animationView = LottieAnimationView.with(animation: .loading)
 
     var style: ButtonStyle?
     lazy var errorLabel = ThemeLabel(font: .regular)

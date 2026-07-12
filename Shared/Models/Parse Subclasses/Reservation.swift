@@ -111,20 +111,12 @@ extension Reservation: UIActivityItemSource {
     }
 
     func prepareMetadata() async {
-        return await withCheckedContinuation { continuation in
-            let metadataProvider = LPMetadataProvider()
-
-            if let objectId = self.objectId {
-                self.link = Config.domain + "/reservation?reservationId=\(objectId)"
-            }
-
-            if let link = self.link, let url = URL(string: link) {
-                metadataProvider.startFetchingMetadata(for: url) { [unowned self] (metadata, error) in
-                    self.metadata = metadata
-                    continuation.resume(returning: ())
-                }
-            }
+        if let objectId = self.objectId {
+            self.link = Config.domain + "/reservation?reservationId=\(objectId)"
         }
+
+        guard let link = self.link, let url = URL(string: link) else { return }
+        self.metadata = try? await LPMetadataProvider().startFetchingMetadata(for: url)
     }
 
     func activityViewControllerPlaceholderItem(_ activityViewController: UIActivityViewController) -> Any {

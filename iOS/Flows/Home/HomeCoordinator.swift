@@ -108,7 +108,7 @@ class HomeCoordinator: PresentableCoordinator<Void>, DeepLinkHandler {
                     }
                     self.presentProfile(for: person)
                 }
-            case .add(let reservationId):
+            case .add:
                 self.presentPeoplePicker()
             }
         }.store(in: &self.cancellables)
@@ -198,4 +198,3 @@ extension HomeCoordinator: MessageContentDelegate {
         }
     }
 }
-

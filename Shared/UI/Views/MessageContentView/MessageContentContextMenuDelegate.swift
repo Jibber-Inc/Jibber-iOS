@@ -171,7 +171,11 @@ class MessageContentContextMenuDelegate: NSObject, UIContextMenuInteractionDeleg
     func setToUnread() {
         guard let msg = self.content.message, msg.isConsumedByMe else { return }
         Task {
-            try await msg.setToUnconsumed()
+            do {
+                try await msg.setToUnconsumed()
+            } catch {
+                logError(error)
+            }
         }
     }
     

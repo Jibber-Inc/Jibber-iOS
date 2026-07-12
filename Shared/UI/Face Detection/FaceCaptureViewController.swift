@@ -62,7 +62,7 @@ class FaceCaptureViewController: ViewController {
     private var segmentationRequest = VNGeneratePersonSegmentationRequest()
     private var sequenceHandler = VNSequenceRequestHandler()
     
-    let animationView = AnimationView.with(animation: .faceScan)
+    let animationView = LottieAnimationView.with(animation: .faceScan)
     let label = ThemeLabel(font: .medium, textColor: .white)
     
     deinit {

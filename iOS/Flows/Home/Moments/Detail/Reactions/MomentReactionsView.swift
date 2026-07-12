@@ -58,7 +58,7 @@ class MomentReactionsView: BaseView {
     
     func configure(with moment: Moment) {
         #if IOS
-        Task {
+        Task { [self] in
         
             self.subscriptions.forEach { subscription in
                 subscription.cancel()

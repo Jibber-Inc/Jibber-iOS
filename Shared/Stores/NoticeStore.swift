@@ -8,8 +8,8 @@
 
 import Foundation
 import Combine
-import ParseLiveQuery
 import ParseCore
+import JibberParseLiveQuery
 import Localization
 
 class NoticeStore {

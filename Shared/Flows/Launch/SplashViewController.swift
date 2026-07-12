@@ -36,7 +36,7 @@ class SplashViewController: ViewController, TransitionableViewController {
     let blurView = DarkBlurView()
     private lazy var emotionCollectionView = EmotionCircleCollectionView(cellDiameter: 100)
 
-    let loadingView = AnimationView.with(animation: .loading)
+    let loadingView = LottieAnimationView.with(animation: .loading)
 
     override func initializeViews() {
         super.initializeViews()

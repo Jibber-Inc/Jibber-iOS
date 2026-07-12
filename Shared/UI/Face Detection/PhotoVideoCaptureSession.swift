@@ -89,11 +89,12 @@ class PhotoVideoCaptureSession {
         
         self.session.addOutput(videoOutput)
 
-        videoOutput.connection(with: .video)?.videoOrientation = .portrait
+        if let videoConnection = videoOutput.connection(with: .video) {
+            self.configurePortraitRotation(for: videoConnection)
+        }
 
         // Get an instance of ACCapturePhotoOutput class
         self.capturePhotoOutput = AVCapturePhotoOutput()
-        self.capturePhotoOutput?.isHighResolutionCaptureEnabled = true
         // Set the output on the capture session
         guard let photoOutput = self.capturePhotoOutput,
               self.session.canAddOutput(photoOutput),
@@ -101,7 +102,17 @@ class PhotoVideoCaptureSession {
                   return output is AVCapturePhotoOutput
               }) else { return }
         
-        self.session.addOutput(self.capturePhotoOutput)
+        self.session.addOutput(photoOutput)
+
+        if #available(iOS 16.0, *) {
+            if let maxPhotoDimensions = camera.activeFormat.supportedMaxPhotoDimensions.max(by: {
+                $0.width * $0.height < $1.width * $1.height
+            }) {
+                photoOutput.maxPhotoDimensions = maxPhotoDimensions
+            }
+        } else {
+            photoOutput.isHighResolutionCaptureEnabled = true
+        }
     }
 
     // MARK: - Photo Capture
@@ -113,10 +124,24 @@ class PhotoVideoCaptureSession {
         // Get an instance of AVCapturePhotoSettings class
         let photoSettings = AVCapturePhotoSettings()
         // Set photo settings for our need
-        photoSettings.isHighResolutionPhotoEnabled = true
+        if #available(iOS 16.0, *) {
+            photoSettings.maxPhotoDimensions = capturePhotoOutput.maxPhotoDimensions
+        } else {
+            photoSettings.isHighResolutionPhotoEnabled = true
+        }
         photoSettings.flashMode = self.flashMode
         // Call capturePhoto method by passing our photo settings and a
         // delegate implementing AVCapturePhotoCaptureDelegate
         capturePhotoOutput.capturePhoto(with: photoSettings, delegate: self.avCaptureDelegate!)
+    }
+
+    private func configurePortraitRotation(for connection: AVCaptureConnection) {
+        if #available(iOS 17.0, *) {
+            let portraitRotationAngle: CGFloat = 90
+            guard connection.isVideoRotationAngleSupported(portraitRotationAngle) else { return }
+            connection.videoRotationAngle = portraitRotationAngle
+        } else {
+            connection.videoOrientation = .portrait
+        }
     }
 }
