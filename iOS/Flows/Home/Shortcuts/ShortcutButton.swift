@@ -52,7 +52,7 @@ class ShortcutButton: BaseView, HomeStateHandler {
         self.stateTask?.cancel()
         
         self.stateTask = Task { [weak self] in
-            guard let `self` = self else { return }
+            guard let self else { return }
             
             await UIView.awaitSpringAnimation(with: .custom(1.0), animations: {
                 switch state {

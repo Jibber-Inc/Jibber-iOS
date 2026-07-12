@@ -146,7 +146,7 @@ class ProfilePhotoCaptureViewController: ViewController, Sizeable, Completable {
 
         self.$currentState
             .mainSink { [weak self] (state) in
-                guard let `self` = self else { return }
+                guard let self else { return }
                 self.handle(state: state)
             }.store(in: &self.cancellables)
 

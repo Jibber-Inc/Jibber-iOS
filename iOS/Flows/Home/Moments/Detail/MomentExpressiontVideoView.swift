@@ -53,7 +53,7 @@ class MomentExpressiontVideoView: VideoView {
         }
 
         self.loadTask = Task { [weak self] in
-            guard let `self` = self else { return }
+            guard let self else { return }
             guard let updated = try? await expression.retrieveDataIfNeeded(),
                 let videoURL = try? await updated.file?.retrieveCachedPathURL(),
                   !self.allURLs.contains(videoURL) else { return }

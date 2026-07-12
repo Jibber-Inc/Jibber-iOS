@@ -407,7 +407,7 @@ final class ParseMessageController: Hashable {
         self.conversationController.$parseMessages
             .receive(on: DispatchQueue.main)
             .sink { [weak self] messages in
-                guard let self = self else { return }
+                guard let self else { return }
                 if let root = messages.first(where: {
                     $0.id == self.messageID || $0.serverID == self.messageID
                 }) {
@@ -426,7 +426,8 @@ final class ParseMessageController: Hashable {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 Task { @MainActor [weak self] in
-                    guard let self = self, self.rootServerID != nil else { return }
+                    guard let self else { return }
+                    guard self.rootServerID != nil else { return }
                     do {
                         try self.applyCachedReplies(
                             pageSize: max(50, self.replySnapshots.count + 10)

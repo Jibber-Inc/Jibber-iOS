@@ -75,7 +75,7 @@ class TextInputViewController<ResultType>: ViewController, Sizeable, Completable
         self.textEntry.textField.delegate = self
 
         KeyboardManager.shared.$cachedKeyboardEndFrame.mainSink { [weak self] _ in
-            guard let `self` = self else { return }
+            guard let self else { return }
             UIView.animate(withDuration: 0.01) {
                 self.view.setNeedsLayout()
             }

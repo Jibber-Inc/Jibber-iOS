@@ -61,7 +61,7 @@ class MessageDeliveryTypeSelectionView: BaseView {
         self.animationTask?.cancel()
         
         self.animationTask = Task { [weak self] in
-            guard let `self` = self else { return }
+            guard let self else { return }
             
             switch self.state {
             case .hidden:

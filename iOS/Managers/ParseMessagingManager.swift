@@ -56,7 +56,8 @@ final class ParseMessagingManager {
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
-                guard let self = self, self.isInitialized else { return }
+                guard let self else { return }
+                guard self.isInitialized else { return }
                 self.scheduleConversationRefresh()
                 self.scheduleImmediateOutboxDrain()
             }
@@ -489,7 +490,7 @@ final class ParseMessagingManager {
     private func scheduleConversationRefresh() {
         guard self.refreshTask == nil else { return }
         self.refreshTask = Task { @MainActor [weak self] in
-            guard let self = self else { return }
+            guard let self else { return }
             defer { self.refreshTask = nil }
             do {
                 try await self.refreshConversations()
