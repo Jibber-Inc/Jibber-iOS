@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import MessagingContracts
 import Transitions
 
 class MessageDetailViewController: DiffableCollectionViewController<MessageDetailDataSource.SectionType,
@@ -18,7 +19,7 @@ class MessageDetailViewController: DiffableCollectionViewController<MessageDetai
     lazy var dismissInteractionController: PanDismissInteractionController? = PanDismissInteractionController(viewController: self)
 
     private(set) var message: Messageable
-    var messageController: MessageController?
+    var messageController: ParseMessageController?
     
     var messageContent: MessageContentView? {
         return self.messageContentView
@@ -114,8 +115,13 @@ class MessageDetailViewController: DiffableCollectionViewController<MessageDetai
     override func retrieveDataForSnapshot() async -> [MessageDetailDataSource.SectionType : [MessageDetailDataSource.ItemType]] {
         var data: [MessageDetailDataSource.SectionType : [MessageDetailDataSource.ItemType]] = [:]
     
-        guard let controller = JibberChatClient.shared.messageController(for: self.message),
-                let msg = controller.message else { return data }
+        let controller = ParseMessageController(
+            conversationID: self.message.conversationId,
+            messageID: self.message.id,
+            automaticallySynchronize: false
+        )
+        try? await controller.synchronize()
+        guard let msg = controller.message else { return data }
         
         self.messageController = controller
         
@@ -129,10 +135,10 @@ class MessageDetailViewController: DiffableCollectionViewController<MessageDetai
             data[.options] = [.option(.viewThread), .option(.pin), .option(.quote), .more(moreOption)].reversed()
         }
             
-        let reads:[MessageDetailDataSource.ItemType] = msg.readReactions.filter({ reaction in
-            return !reaction.author.isCurrentUser
-        }).compactMap({ read in
-            let model = ReadViewModel(authorId: read.author.id, createdAt: read.createdAt)
+        let reads: [MessageDetailDataSource.ItemType] = msg.snapshot.receipts.filter({ receipt in
+            receipt.state == .read && receipt.userID != User.current()?.objectId
+        }).map({ receipt in
+            let model = ReadViewModel(authorId: receipt.userID, createdAt: receipt.occurredAt)
             return .read(model)
         })
         
@@ -186,9 +192,9 @@ class MessageDetailViewController: DiffableCollectionViewController<MessageDetai
         self.loadTask = Task { [weak self] in
             guard let `self` = self else { return }
             
-            guard let controller = self.messageController, let msg = controller.message else { return }
-            
+            guard let controller = self.messageController else { return }
             try? await controller.synchronize()
+            guard let msg = controller.message else { return }
                         
             var snapshot = self.dataSource.snapshot()
             
@@ -211,10 +217,10 @@ class MessageDetailViewController: DiffableCollectionViewController<MessageDetai
             
             snapshot.setItems(optionItems, in: .options)
 
-            let reads: [MessageDetailDataSource.ItemType] = msg.readReactions.filter({ reaction in
-                return !reaction.author.isCurrentUser
-            }).compactMap({ read in
-                let model = ReadViewModel(authorId: read.author.id, createdAt: read.createdAt)
+            let reads: [MessageDetailDataSource.ItemType] = msg.snapshot.receipts.filter({ receipt in
+                receipt.state == .read && receipt.userID != User.current()?.objectId
+            }).map({ receipt in
+                let model = ReadViewModel(authorId: receipt.userID, createdAt: receipt.occurredAt)
                 return .read(model)
             })
             

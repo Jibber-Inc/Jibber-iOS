@@ -15,7 +15,7 @@ class TypingIndicatorView: BaseView {
     
     var subscriptions = Set<AnyCancellable>()
     
-    var controller: ConversationController?
+    var controller: ParseConversationController?
     
     override func initializeSubviews() {
         super.initializeSubviews()
@@ -28,24 +28,24 @@ class TypingIndicatorView: BaseView {
             if let cid = conversation?.id {
                 self.subscribeToUpdates(for: cid)
             } else {
+                self.subscriptions.removeAll()
+                self.controller = nil
                 self.hideText()
             }
         }.store(in: &self.cancellables)
     }
     
     private func subscribeToUpdates(for conversationId: String) {
-        guard self.controller?.conversation?.id != conversationId else { return }
+        guard self.controller?.conversationID.rawValue != conversationId else { return }
         
-        self.subscriptions.forEach { cancellable in
-            cancellable.cancel()
-        }
+        self.subscriptions.removeAll()
         
-        self.controller = ConversationController.controller(for: conversationId)
+        self.controller = ParseConversationController.controller(for: conversationId)
         
-        self.controller?.typingUsersPublisher
+        self.controller?.typingPeoplePublisher
             .mainSink(receiveValue: { [unowned self] typingUsers in
                 self.showTyping(for: Array(typingUsers))
-            }).store(in: &self.cancellables)
+            }).store(in: &self.subscriptions)
     }
     
     override func layoutSubviews() {

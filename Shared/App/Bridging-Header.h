@@ -10,5 +10,4 @@
 #define Bridging_Header_h
 
 #import <UIKit/UIKit.h>
-#import <BoltsSwift-Swift.h>
 #endif /* Bridging_Header_h */

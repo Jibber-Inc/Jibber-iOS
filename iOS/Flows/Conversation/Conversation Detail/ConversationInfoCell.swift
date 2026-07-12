@@ -16,7 +16,7 @@ class ConversationInfoCell: CollectionViewManagerCell, ManageableCell {
     private let topicLabel = ThemeLabel(font: .mediumBold)
     private let dateLabel = ThemeLabel(font: .small)
     
-    private var controller: ConversationController?
+    private var controller: ParseConversationController?
 
     override func initializeSubviews() {
         super.initializeSubviews()
@@ -39,28 +39,31 @@ class ConversationInfoCell: CollectionViewManagerCell, ManageableCell {
     }
     
     func configure(with item: String) {
-        self.controller = JibberChatClient.shared.conversationController(for: item)
-        
-        guard let conversation = self.controller?.conversation else { return }
-        Task {
-            await self.update(with: conversation)
-        }
+        self.cancellables.removeAll()
+        self.controller = ParseConversationController.controller(for: item)
         self.subscribeToUpdates()
+
+        if let conversation = self.controller?.conversation {
+            Task {
+                await self.update(with: conversation)
+            }
+        }
     }
     
     @MainActor
-    private func update(with conversation: Conversation) async {
+    private func update(with conversation: ParseConversation) async {
         let dateString = Date.monthDayYear.string(from: conversation.createdAt)
-        
-        guard let person = await PeopleStore.shared.getPerson(withPersonId: conversation.authorId) else { return }
-        
-        self.dateLabel.setText("Created by \(person.givenName) on \(dateString)")
+
+        let creator = await PeopleStore.shared.getPerson(withPersonId: conversation.authorId)
+        let creatorName = creator?.givenName ?? "Unknown"
+
+        self.dateLabel.setText("Created by \(creatorName) on \(dateString)")
         self.setTopic(for: conversation)
         
         self.layoutNow()
     }
     
-    private func setTopic(for conversation: Conversation) {
+    private func setTopic(for conversation: ParseConversation) {
         if let title = conversation.title {
             self.topicLabel.setText(title)
         } else {
@@ -88,17 +91,16 @@ class ConversationInfoCell: CollectionViewManagerCell, ManageableCell {
     
     private func subscribeToUpdates() {
         self.controller?
-            .channelChangePublisher
-            .mainSink { [unowned self] event in
+            .conversationChangePublisher
+            .mainSink { [weak self] event in
                 switch event {
-                case .create(_):
-                    break
-                case .update(let conversation):
-                    Task {
-                        await self.update(with: conversation)
+                case .create(let conversation), .update(let conversation):
+                    Task { [weak self] in
+                        await self?.update(with: conversation)
                     }
                 case .remove(_):
-                    break
+                    self?.topicLabel.setText(nil)
+                    self?.dateLabel.setText(nil)
                 }
             }.store(in: &self.cancellables)
     }

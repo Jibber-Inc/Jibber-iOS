@@ -65,7 +65,7 @@ extension ConversationCoordinator {
             // If the user didn't invite anyone to the conversation and the conversation doesn't have
             // any existing members, ask them if they'd like to delete it.
             Task {
-                let peopleInConversation = await JibberChatClient.shared.getPeople(for: activeConversation)
+                let peopleInConversation = await JibberMessagingClient.shared.getPeople(for: activeConversation)
                 guard peopleInConversation.isEmpty else { return }
                 
                 self.presentDeleteConversationAlert(conversationId: activeConversation.id)
@@ -77,7 +77,7 @@ extension ConversationCoordinator {
     }
     
     func add(people: [Person], to conversation: Conversation) {
-        let controller = ConversationController.controller(for: conversation)
+        let controller = ParseConversationController.controller(for: conversation)
         
         let acceptedConnections = people.compactMap { person in
             return person.connection
@@ -90,13 +90,14 @@ extension ConversationCoordinator {
         let members = acceptedConnections.compactMap { connection in
             return connection.nonMeUser?.objectId
         }
-        controller.addMembers(userIds: Set(members)) { error in
-            guard error.isNil else { return }
-            
+        do {
+            try controller.addMembers(userIDs: Set(members))
             self.showPeopleAddedToast(for: acceptedConnections)
             Task {
-                try await controller.synchronize()
+                try? await controller.synchronize()
             }
+        } catch {
+            logError(error)
         }
     }
     
@@ -116,15 +117,20 @@ extension ConversationCoordinator {
         guard let conversationId = conversationId else {
             return
         }
-        let controller = ConversationController.controller(for: conversationId)
-        guard let conversation = controller.conversation, conversation.memberCount <= 1 else { return }
+        let controller = ParseConversationController.controller(for: conversationId)
+        let memberCount = self.activeConversation?.id == conversationId
+            ? self.activeConversation?.memberCount
+            : controller.conversation?.memberCount
+        guard let memberCount, memberCount <= 1 else { return }
         
         let alertController = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
         
         let deleteAction = UIAlertAction(title: "Delete Conversation", style: .destructive, handler: {
             (action : UIAlertAction!) -> Void in
-            Task {
-                try await controller.deleteChannel()
+            do {
+                try controller.deleteConversation()
+            } catch {
+                logError(error)
             }
             self.conversationVC.becomeFirstResponder()
         })

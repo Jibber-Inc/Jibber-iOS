@@ -9,8 +9,15 @@
 import Foundation
 
 struct PinModel: Hashable {
-    var conversationId: String?
-    var messageId: String?
+    let conversationId: String?
+    let messageId: String?
+    let message: ParseMessage?
+
+    init(message: ParseMessage?) {
+        self.message = message
+        self.conversationId = message?.conversationId
+        self.messageId = message?.id
+    }
 }
 
 class PinnedMessageCell: CollectionViewManagerCell, ManageableCell {
@@ -40,9 +47,8 @@ class PinnedMessageCell: CollectionViewManagerCell, ManageableCell {
     
     func configure(with item: PinModel) {
         
-        if let conversationId = item.conversationId, let messageId = item.messageId,
-           let msg = JibberChatClient.shared.message(conversationId: conversationId, id: messageId) {
-            self.content.configure(with: msg)
+        if let message = item.message {
+            self.content.configure(with: message)
             self.content.isVisible = true
         } else {
             self.content.isVisible = false

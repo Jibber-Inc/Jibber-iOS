@@ -8,8 +8,13 @@
 
 import Foundation
 import UserNotifications
-import Parse
+import ParseCore
 import Combine
+
+#if IOS
+import MessagingContracts
+import MessagingPersistence
+#endif
 
 protocol UserNotificationManagerDelegate: AnyObject {
     func userNotificationManager(willHandle: DeepLinkable)
@@ -114,9 +119,6 @@ class UserNotificationManager: NSObject {
         }
         
         self.registerTask = Task {
-            #if IOS
-            //try? await JibberChatClient.shared.registerPush(for: deviceToken)
-            #endif
             do {
                 let installation = try await PFInstallation.getCurrent()
                 installation.badge = 0
@@ -171,16 +173,40 @@ class UserNotificationManager: NSObject {
     
 #if IOS
     func handleRead(message: Messageable) {
+        self.handleRead(
+            messageIDs: [message.id],
+            clientMessageID: message.id
+        )
+    }
+
+    func handleRead(message: MessagingMessageSnapshot) {
+        self.handleRead(
+            messageIDs: [message.stableID, message.canonicalMessageID],
+            clientMessageID: message.clientMessageID
+        )
+    }
+
+    private func handleRead(
+        messageIDs: Set<MessagingMessageID>,
+        clientMessageID: MessagingMessageID?
+    ) {
         AchievementsManager.shared.createIfNeeded(with: .firstUnreadMessage)
         
         self.center.getDeliveredNotifications { [unowned self] delivered in
-            Task.onMainActor {
-                var identifiers: [String] = []
-                
-                delivered.forEach { note in
-                    if note.request.content.messageId == message.id {
-                        identifiers.append(note.request.identifier)
-                    }
+            Task { @MainActor in
+                var resolvedMessageIDs = messageIDs
+                if let clientMessageID = clientMessageID,
+                   let cached = try? ParseMessagingManager.shared.store?.cachedMessage(
+                       clientMessageID: clientMessageID
+                   ),
+                   let objectID = cached.objectID {
+                    resolvedMessageIDs.insert(objectID)
+                }
+
+                let identifiers: [String] = delivered.compactMap { note in
+                    guard let messageID = note.request.content.messageId,
+                          resolvedMessageIDs.contains(messageID) else { return nil }
+                    return note.request.identifier
                 }
             
                 self.removeNotifications(with: identifiers)
@@ -193,6 +219,10 @@ class UserNotificationManager: NSObject {
                     
                     logDebug(count)
                     self.application?.applicationIconBadgeNumber = count
+                    UserDefaults(suiteName: Config.shared.environment.groupId)?.set(
+                        count,
+                        forKey: "badgeNumber"
+                    )
                 }
             }
         }
@@ -217,7 +247,7 @@ extension UserNotificationManager: UNUserNotificationCenterDelegate {
         // If the app is in the foreground, and is a new message, then check the interruption level to determine whether or not to show a banner. Don't show banners for non time-sensitive messages.
         if let app = self.application,
            await app.applicationState == .active,
-           notification.request.content.categoryIdentifier == "stream.chat" {
+           notification.request.content.categoryIdentifier == UserNotificationCategory.newMessage.rawValue {
             
             if notification.request.content.interruptionLevel == .timeSensitive {
                 return [.banner, .list, .sound, .badge]
@@ -287,26 +317,48 @@ extension UserNotificationManager: UNUserNotificationCenterDelegate {
                 return
             }
             
-            Task {
-                guard let controller = JibberChatClient.shared.messageController(for: conversationId, id: messageId) else { return }
-                
-                if controller.message.isNil {
-                    try await controller.synchronize()
-                }
-                
-                let object = SendableObject(kind: .text(suggestion.text),
-                                            deliveryType: controller.message!.deliveryType,
-                                            expression: nil)
-                
+            Task { @MainActor in
+                defer { completion() }
+
                 do {
-                    try await controller.createNewReply(with: object)
-                    
+                    let manager = try await self.messagingManagerForNotificationAction()
+                    let deliveryKind = self.deliveryKind(
+                        from: response.notification,
+                        manager: manager,
+                        messageID: messageId
+                    )
+                    guard let userID = manager.authenticatedUserID else {
+                        throw ParseMessagingManagerError.notInitialized
+                    }
+                    let clientMessageID = MessagingIdempotencyKey.notificationReply(
+                        userID: userID,
+                        conversationID: conversationId,
+                        messageID: messageId,
+                        actionID: suggestion.rawValue
+                    )
+                    let wasAlreadyQueued = try manager.store?.cachedMessage(
+                        clientMessageID: clientMessageID
+                    ) != nil
+                    let draft = MessagingMessageDraft(
+                        conversationID: conversationId,
+                        clientMessageID: clientMessageID,
+                        content: MessagingMessageContent(
+                            kind: .text,
+                            text: suggestion.text
+                        ),
+                        replyToMessageID: messageId,
+                        deliveryKind: deliveryKind
+                    )
+                    try manager.send(draft)
+
+                    guard !wasAlreadyQueued else { return }
+
                     let content = UNMutableNotificationContent()
                     content.title = "You replied:"
                     content.body = suggestion.text
                     content.interruptionLevel = .active
-                    content.setData(value: response.notification.conversationId ?? "", for: .conversationId)
-                    content.setData(value: response.notification.conversationId ?? "", for: .messageId)
+                    content.setData(value: conversationId, for: .conversationId)
+                    content.setData(value: messageId, for: .messageId)
                     content.setData(value: DeepLinkTarget.thread.rawValue, for: .target)
                     content.categoryIdentifier = UserNotificationCategory.newMessage.rawValue
                     
@@ -315,10 +367,40 @@ extension UserNotificationManager: UNUserNotificationCenterDelegate {
                 } catch {
                     await ToastScheduler.shared.schedule(toastType: .error(error))
                 }
-                
-                completion()
             }
         }
     }
+
+    @MainActor
+    private func messagingManagerForNotificationAction() async throws -> ParseMessagingManager {
+        let manager = ParseMessagingManager.shared
+        if !manager.isInitialized {
+            guard let user = User.current() else {
+                throw ParseMessagingManagerError.notInitialized
+            }
+            try await manager.initialize(for: user)
+        }
+        return manager
+    }
+
+    @MainActor
+    private func deliveryKind(
+        from notification: UNNotification,
+        manager: ParseMessagingManager,
+        messageID: MessagingMessageID
+    ) -> MessagingDeliveryKind {
+        let messaging = notification.request.content.userInfo["messaging"] as? [String: Any]
+        let data = notification.request.content.userInfo["data"] as? [String: Any]
+        if let rawValue = messaging?["deliveryType"] as? String
+            ?? data?["deliveryType"] as? String,
+           let kind = MessagingDeliveryKind(rawValue: rawValue) {
+            return kind
+        }
+        if let cached = try? manager.store?.cachedMessage(objectID: messageID) {
+            return cached.deliveryKind
+        }
+        return .respectful
+    }
+
 #endif
 }

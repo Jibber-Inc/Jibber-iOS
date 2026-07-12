@@ -7,7 +7,7 @@
 //
 
 import Foundation
-import Parse
+import ParseCore
 
 enum NoticeKey: String {
     case type

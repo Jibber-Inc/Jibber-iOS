@@ -6,12 +6,15 @@
 //  Copyright © 2022 Benjamin Dodgson. All rights reserved.
 //
 
+import Combine
 import Foundation
-import StreamChat
+import MessagingContracts
 
 class ProfileViewController: DiffableCollectionViewController<ProfileDataSource.SectionType,
                              ProfileDataSource.ItemType,
                              ProfileDataSource> {
+
+    private static let conversationPageSize = 20
     
     private var person: PersonType
     
@@ -28,7 +31,9 @@ class ProfileViewController: DiffableCollectionViewController<ProfileDataSource.
     private let backgroundView = BaseView()
     lazy var segmentControl = ProfileSegmentControl()
     
-    private(set) var conversationListController: ConversationListController?
+    private(set) var conversationListController: ParseConversationListController?
+    private var conversationListChangesCancellable: AnyCancellable?
+    private var loadNextConversationsTask: Task<Void, Never>?
     
     private let bottomGradientView = GradientPassThroughView(with: [ThemeColor.B0.color.cgColor, ThemeColor.B0.color.withAlphaComponent(0.0).cgColor],
                                                   startPoint: .bottomCenter,
@@ -288,50 +293,140 @@ class ProfileViewController: DiffableCollectionViewController<ProfileDataSource.
     private func startLoadAllTask() {
         self.loadConversationsTask?.cancel()
 
-        self.loadConversationsTask = Task { [weak self] in
-            guard let user = self?.person as? User else { return }
-            
-            self?.collectionView.collectionViewLayout = ProfileCollectionViewLayout()
+        self.loadConversationsTask = Task { @MainActor [weak self] in
+            guard let self,
+                  let requiredMemberIDs = self.requiredConversationMemberIDs else { return }
 
-            var userIds: [String] = []
-            if user.isCurrentUser {
-                userIds.append(user.objectId!)
-            } else {
-                userIds = [User.current()!.objectId!, user.objectId!]
+            self.collectionView.collectionViewLayout = ProfileCollectionViewLayout()
+
+            let controller = self.makeConversationListController()
+            do {
+                try await controller.synchronize(pageSize: Self.conversationPageSize)
+                try await self.loadEnoughVisibleConversations(
+                    with: controller,
+                    requiredMemberIDs: requiredMemberIDs
+                )
+            } catch {
+                logError(error)
             }
-            
-            let filter = Filter<ChannelListFilterScope>.containsAtLeastThese(userIds: userIds)
-            let query = ChannelListQuery(filter: filter,
-                                         sort: [Sorting(key: .createdAt, isAscending: false)],
-                                         pageSize: .channelsPageSize,
-                                         messagesLimit: 1)
-            
-            await self?.loadConversations(with: query)
+
+            guard !Task.isCancelled,
+                  self.segmentControl.selectedSegmentIndex
+                    == ProfileSegmentControl.SegmentType.conversations.rawValue else { return }
+            await self.applyConversationSnapshot(requiredMemberIDs: requiredMemberIDs)
         }.add(to: self.autocancelTaskPool)
     }
-    
+
     @MainActor
-    private func loadConversations(with query: ChannelListQuery) async {
-        self.conversationListController = ConversationController.controller(query: query)
-
-        try? await self.conversationListController?.synchronize()
-
-        guard !Task.isCancelled else { return }
-
-        let conversations: [Conversation] = self.conversationListController?.conversations ?? []
-                
-        let items = conversations.filter({ conversation in
-            let messages = conversation.messages.filter { message in
-                return !message.isDeleted
-            }
-            return messages.count > 0
-        }).map { convo in
-            return ProfileDataSource.ItemType.conversation(convo.cid.description)
-        }
+    private func applyConversationSnapshot(requiredMemberIDs: Set<String>) async {
+        let items = self.items(
+            from: self.conversationListController?.conversations ?? [],
+            requiredMemberIDs: requiredMemberIDs
+        )
         var snapshot = self.dataSource.snapshot()
         snapshot.setItems([], in: .moments)
         snapshot.setItems(items, in: .conversations)
-        
+
         await self.dataSource.apply(snapshot)
+    }
+
+    private var requiredConversationMemberIDs: Set<String>? {
+        guard let user = self.person as? User,
+              let userID = user.objectId,
+              let currentUserID = User.current()?.objectId else { return nil }
+        return user.isCurrentUser ? [userID] : [currentUserID, userID]
+    }
+
+    private func makeConversationListController() -> ParseConversationListController {
+        if let controller = self.conversationListController {
+            return controller
+        }
+
+        let controller = ParseConversationListController(automaticallySynchronize: false)
+        self.conversationListController = controller
+        self.conversationListChangesCancellable = controller.conversationsChangesPublisher
+            .sink { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    guard let self,
+                          self.segmentControl.selectedSegmentIndex
+                            == ProfileSegmentControl.SegmentType.conversations.rawValue,
+                          let requiredMemberIDs = self.requiredConversationMemberIDs else { return }
+                    await self.applyConversationSnapshot(requiredMemberIDs: requiredMemberIDs)
+                }
+            }
+        return controller
+    }
+
+    private func items(
+        from conversations: [ParseConversation],
+        requiredMemberIDs: Set<String>
+    ) -> [ProfileDataSource.ItemType] {
+        conversations
+            .filter { conversation in
+                let activeMemberIDs = Set(conversation.activeMembers.map(\.userID))
+                return conversation.kind != .moment
+                    && activeMemberIDs.isSuperset(of: requiredMemberIDs)
+                    && conversation.latestMessages.contains { !$0.isDeleted }
+            }
+            .sorted { lhs, rhs in
+                if lhs.createdAt == rhs.createdAt { return lhs.id > rhs.id }
+                return lhs.createdAt > rhs.createdAt
+            }
+            .map { .conversation($0.id) }
+    }
+
+    private func loadEnoughVisibleConversations(
+        with controller: ParseConversationListController,
+        requiredMemberIDs: Set<String>
+    ) async throws {
+        while self.items(
+            from: controller.conversations,
+            requiredMemberIDs: requiredMemberIDs
+        ).count < Self.conversationPageSize,
+              !controller.hasLoadedAllConversations,
+              !Task.isCancelled {
+            try await controller.loadNextConversations(limit: Self.conversationPageSize)
+        }
+    }
+
+    override func collectionView(
+        _ collectionView: UICollectionView,
+        willDisplay cell: UICollectionViewCell,
+        forItemAt indexPath: IndexPath
+    ) {
+        super.collectionView(collectionView, willDisplay: cell, forItemAt: indexPath)
+
+        guard self.segmentControl.selectedSegmentIndex
+                == ProfileSegmentControl.SegmentType.conversations.rawValue,
+              indexPath.item >= collectionView.numberOfItems(inSection: indexPath.section) - 2,
+              self.loadNextConversationsTask == nil,
+              let controller = self.conversationListController,
+              !controller.hasLoadedAllConversations,
+              let requiredMemberIDs = self.requiredConversationMemberIDs else { return }
+
+        self.loadNextConversationsTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer { self.loadNextConversationsTask = nil }
+
+            let previousCount = self.items(
+                from: controller.conversations,
+                requiredMemberIDs: requiredMemberIDs
+            ).count
+            do {
+                repeat {
+                    try await controller.loadNextConversations(limit: Self.conversationPageSize)
+                } while self.items(
+                    from: controller.conversations,
+                    requiredMemberIDs: requiredMemberIDs
+                ).count == previousCount && !controller.hasLoadedAllConversations
+            } catch {
+                logError(error)
+            }
+
+            guard !Task.isCancelled,
+                  self.segmentControl.selectedSegmentIndex
+                    == ProfileSegmentControl.SegmentType.conversations.rawValue else { return }
+            await self.applyConversationSnapshot(requiredMemberIDs: requiredMemberIDs)
+        }.add(to: self.autocancelTaskPool)
     }
 }

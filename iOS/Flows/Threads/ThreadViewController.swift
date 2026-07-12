@@ -7,7 +7,7 @@
 //
 
 import Foundation
-import Parse
+import ParseCore
 import Combine
 import KeyboardManager
 import Transitions
@@ -48,14 +48,14 @@ class ThreadViewController: DiffableCollectionViewController<MessageSequenceSect
     private let threadCollectionView = ThreadCollectionView()
 
     /// A controller for the message that all the replies in this thread are responding to.
-    let messageController: MessageController
-    var parentMessage: Message? {
+    let messageController: ParseMessageController
+    var parentMessage: ParseMessage? {
         return self.messageController.message
     }
     /// The reply to show when this view controller initially loads its data.
     private let startingReplyId: String?
 
-    private(set) var conversationController: ConversationController?
+    private(set) var conversationController: ParseConversationController?
     let pullView = PullView()
 
     var indexPathForEditing: IndexPath?
@@ -88,11 +88,13 @@ class ThreadViewController: DiffableCollectionViewController<MessageSequenceSect
 
     init(message: Messageable, startingReplyId: String?) {
        
-        let controller = JibberChatClient.shared.messageController(for: message)!
+        guard let controller = ParseMessageController.controller(for: message) else {
+            preconditionFailure("A thread requires a valid Parse conversation and message ID.")
+        }
         ConversationsManager.shared.activeController = controller
         self.messageController = controller
         
-        self.conversationController = ConversationController.controller(for: message.conversationId)
+        self.conversationController = ParseConversationController.controller(for: message.conversationId)
 
         self.startingReplyId = startingReplyId
         
@@ -100,7 +102,6 @@ class ThreadViewController: DiffableCollectionViewController<MessageSequenceSect
 
         self.dataSource.messageSequenceController = self.messageController
         self.threadCollectionView.threadLayout.messageDataSource = self.dataSource
-        self.messageController.listOrdering = .bottomToTop
     }
     
     required init?(coder aDecoder: NSCoder) {
@@ -413,12 +414,18 @@ extension ThreadViewController {
             }
         }
 
-        self.messageInputController.swipeInputView.textView.$inputText.mainSink { [unowned self] _ in
-            guard let enabled = self.conversationController?.areTypingEventsEnabled, enabled else { return }
-            self.conversationController?.sendKeystrokeEvent(completion: nil)
-        }.store(in: &self.cancellables)
+        self.messageInputController.swipeInputView.textView.$inputText
+            .map { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            .throttle(for: .seconds(3), scheduler: DispatchQueue.main, latest: true)
+            .mainSink { [unowned self] isTyping in
+                do {
+                    try self.conversationController?.setTyping(isTyping)
+                } catch {
+                    logError(error)
+                }
+            }.store(in: &self.cancellables)
 
-        self.messageController.messageChangePublisher.mainSink { [unowned self] changes in
+        self.messageController.messageChangePublisher.mainSink { [unowned self] _ in
             guard let msg = self.messageController.message else { return }
             self.parentMessageView.configure(with: msg)
         }.store(in: &self.cancellables)

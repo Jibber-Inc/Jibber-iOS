@@ -8,7 +8,7 @@
 
 import Foundation
 import UIKit
-import Parse
+import ParseCore
 import Coordinator
 
 class MainCoordinator: BaseCoordinator<Void> {

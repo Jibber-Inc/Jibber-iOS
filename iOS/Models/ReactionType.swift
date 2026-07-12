@@ -7,7 +7,6 @@
 //
 
 import Foundation
-import StreamChat
 
 enum ReactionType {
 
@@ -20,9 +19,7 @@ enum ReactionType {
         }
     }
 
-    var reaction: MessageReactionType {
-        return MessageReactionType.init(stringLiteral: self.rawValue)
-    }
+    var reaction: String { self.rawValue }
     
     init?(rawValue: String) {
         if rawValue == "read" {

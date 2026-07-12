@@ -8,7 +8,7 @@
 
 import Foundation
 import Lottie
-import Parse
+import ParseCore
 import AVKit
 import KeyboardManager
 

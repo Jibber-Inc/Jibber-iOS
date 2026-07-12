@@ -9,7 +9,7 @@
 import Foundation
 import UIKit
 import Localization
-import Parse
+import ParseCore
 
 enum OnboardingContent: Switchable {
 

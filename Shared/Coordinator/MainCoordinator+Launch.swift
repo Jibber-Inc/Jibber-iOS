@@ -12,9 +12,12 @@ extension MainCoordinator {
 
     @MainActor
     func runHomeFlow(with deepLink: DeepLinkable?) async {
-        // Ensure that the chat client is initialized for the logged in user.
-        if !JibberChatClient.shared.isConnected || JibberChatClient.shared.isConnectedToCurrentUser {
-            try? await JibberChatClient.shared.initialize(for: User.current()!)
+        // Launch normally initializes messaging. Re-establish it here only
+        // when a restored coordinator reaches Home without the matching user.
+        if let user = User.current(),
+           !ParseMessagingManager.shared.isInitialized
+            || ParseMessagingManager.shared.authenticatedUserID != user.objectId {
+            try? await ParseMessagingManager.shared.initialize(for: user)
         }
         
         if let coordinator = self.furthestChild as? LaunchActivityHandler,
@@ -36,6 +39,9 @@ extension MainCoordinator {
     }
 
     func logOutChat() {
-        JibberChatClient.shared.disconnect()
+        Task { @MainActor in
+            JibberMessagingClient.shared.disconnect()
+            await ParseMessagingManager.shared.disconnect()
+        }
     }
 }

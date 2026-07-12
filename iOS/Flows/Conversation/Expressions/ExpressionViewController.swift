@@ -8,7 +8,7 @@
 
 import Foundation
 import Combine
-import Parse
+import ParseCore
 
 class ExpressionViewController: ViewController {
     

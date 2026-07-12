@@ -7,7 +7,7 @@
 //
 
 import Foundation
-import Parse
+import ParseCore
 import Lottie
 import UIKit
 import Combine

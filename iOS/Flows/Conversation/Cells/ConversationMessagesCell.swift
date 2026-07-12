@@ -19,6 +19,8 @@ protocol ConversationUIStateSettable {
 /// with the most recent messages at the front.
 class ConversationMessagesCell: UICollectionViewCell, ConversationUIStateSettable, UICollectionViewDelegate {
 
+    private static let messagesPageSize = 25
+
     // Interaction handling
 
     var messageContentDelegate: MessageContentDelegate? {
@@ -40,11 +42,11 @@ class ConversationMessagesCell: UICollectionViewCell, ConversationUIStateSettabl
     var conversation: Conversation? {
         return self.conversationController?.conversation
     }
-    private(set) var conversationController: ConversationController?
+    private(set) var conversationController: ParseConversationController?
     private var shouldShowLoadMore: Bool {
         guard let conversationController = self.conversationController else { return false }
 
-        if conversationController.messages.count < .messagesPageSize {
+        if conversationController.messages.count < Self.messagesPageSize {
             return false
         }
         return !conversationController.hasLoadedAllPreviousMessages
@@ -71,8 +73,11 @@ class ConversationMessagesCell: UICollectionViewCell, ConversationUIStateSettabl
             self.handleCollectionViewTapped?()
         }
 
-        self.dataSource.handleLoadMoreMessages = { [unowned self] cid in
-            self.conversationController?.loadPreviousMessages()
+        self.dataSource.handleLoadMoreMessages = { [unowned self] _ in
+            guard let conversationController = self.conversationController else { return }
+            Task {
+                try? await conversationController.loadPreviousMessages(limit: Self.messagesPageSize)
+            }
         }
 
         self.dataSource.handleAddMembers = { [unowned self] in
@@ -106,12 +111,16 @@ class ConversationMessagesCell: UICollectionViewCell, ConversationUIStateSettabl
         var updatedController = false
         if conversation.cid != self.conversation?.cid {
             updatedController = true
-            let conversationController = ConversationController.controller(for: conversation)
+            let conversationController = JibberMessagingClient.shared.conversationController(
+                for: conversation.id
+            ) ?? ParseConversationController.controller(for: conversation)
             self.conversationController = conversationController
             self.subscribeToUpdates()
 
             if conversationController.messages.isEmpty {
-                conversationController.synchronize()
+                Task {
+                    try? await conversationController.synchronize(pageSize: Self.messagesPageSize)
+                }
             }
         }
 
@@ -225,15 +234,22 @@ class ConversationMessagesCell: UICollectionViewCell, ConversationUIStateSettabl
             guard let conversationController = self.conversationController else { return }
 
             // Load the message if necessary
-            if !conversationController.messages.contains(where: { message in
-                message.id == messageId
+            if !conversationController.messages.contains(where: {
+                $0.id == messageId || $0.serverID == messageId
             }) {
-                try? await conversationController.loadNextMessages(including: messageId)
+                try? await conversationController.loadPreviousMessages(
+                    including: messageId,
+                    limit: Self.messagesPageSize
+                )
             }
 
             guard !Task.isCancelled else { return }
 
-            let messageItem: MessageSequenceItem = .message(messageId: messageId)
+            guard let stableMessageID = conversationController.messages.first(where: {
+                $0.id == messageId || $0.serverID == messageId
+            })?.id else { return }
+
+            let messageItem: MessageSequenceItem = .message(messageId: stableMessageID)
 
             guard let messageIndexPath = self.dataSource.indexPath(for: messageItem) else { return }
 
@@ -282,7 +298,7 @@ class ConversationMessagesCell: UICollectionViewCell, ConversationUIStateSettabl
         switch item {
         case .message(messageId: let messageID, _):
             guard let cid = self.conversation?.cid,
-                  let message = JibberChatClient.shared.message(conversationId: cid.description, id: messageID) else { break }
+                  let message = JibberMessagingClient.shared.message(conversationId: cid.description, id: messageID) else { break }
             
             self.messageContentDelegate?.messageContent(cell.content, didTapMessage: message)
         case .loadMore, .placeholder, .initial:

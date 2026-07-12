@@ -120,7 +120,7 @@ class ConversationCoordinator: InputHandlerCoordinator<Void>, DeepLinkHandler {
     override func messageContent(_ content: MessageContentView, didTapMessage message: Messageable) {
                 
         if let parentId = message.parentMessageId,
-            let parentMessage = JibberChatClient.shared.message(conversationId: message.conversationId, id: parentId) {
+            let parentMessage = JibberMessagingClient.shared.message(conversationId: message.conversationId, id: parentId) {
             self.presentThread(for: parentMessage, startingReplyId: message.id)
         } else {
             self.presentMessageDetail(for: message)

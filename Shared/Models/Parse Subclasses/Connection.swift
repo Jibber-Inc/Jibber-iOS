@@ -7,7 +7,7 @@
 //
 
 import Foundation
-import Parse
+import ParseCore
 
 enum ConnectionKey: String {
     case status

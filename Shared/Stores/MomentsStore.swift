@@ -9,7 +9,7 @@
 import Foundation
 import Combine
 import ParseLiveQuery
-import Parse
+import ParseCore
 import Localization
 
 class MomentsStore {
@@ -148,12 +148,29 @@ class MomentsStore {
         moment.location = PFGeoPoint(location: location)
 
         let savedMoment = try await moment.saveToServer()
-        
-        self.__moments.append(savedMoment)
-        
-        try await JibberChatClient.shared.createNewConversation(for: savedMoment)
+        guard let momentID = savedMoment.objectId else {
+            throw ClientError.message(detail: "Saved moment is missing its object ID.")
+        }
+        guard let authorID = savedMoment.author?.objectId else {
+            throw ClientError.message(detail: "Saved moment is missing its author ID.")
+        }
 
-        return savedMoment
+        // A Moment only receives its canonical identity after Parse saves it.
+        // Reusing that identity for both keys makes retries recover the same
+        // conversation even if the final Moment-link save was interrupted.
+        let conversationKey = "moment:\(momentID)"
+        let conversation = try await ParseMessagingManager.shared.createConversation(
+            memberIDs: [authorID],
+            type: .moment,
+            clientConversationID: conversationKey,
+            contextKey: conversationKey
+        )
+
+        savedMoment.messagingConversationId = conversation.id
+        let linkedMoment = try await savedMoment.saveToServer()
+        self.__moments.append(linkedMoment)
+
+        return linkedMoment
     }
     #endif 
     
@@ -246,4 +263,3 @@ class MomentsStore {
         }
     }
 }
-

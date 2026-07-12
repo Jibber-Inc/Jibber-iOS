@@ -1,0 +1,115 @@
+{
+  "object": {
+    "pins": [
+      {
+        "package": "Bolts",
+        "repositoryURL": "https://github.com/parse-community/Bolts-ObjC.git",
+        "state": {
+          "branch": null,
+          "revision": "1eee96ad3bcfc8964c0a5815ce94f491eb6ac8c2",
+          "version": "1.10.0"
+        }
+      },
+      {
+        "package": "BoltsSwift",
+        "repositoryURL": "https://github.com/BoltsFramework/Bolts-Swift.git",
+        "state": {
+          "branch": null,
+          "revision": "d8c07eee2045a13f34330c0a4664053b5176e3f0",
+          "version": "1.5.0"
+        }
+      },
+      {
+        "package": "Cache",
+        "repositoryURL": "https://github.com/hyperoslo/Cache",
+        "state": {
+          "branch": null,
+          "revision": "c7f4d633049c3bd649a353bad36f6c17e9df085f",
+          "version": "6.0.0"
+        }
+      },
+      {
+        "package": "GRDB",
+        "repositoryURL": "https://github.com/groue/GRDB.swift.git",
+        "state": {
+          "branch": null,
+          "revision": "36e30a6f1ef10e4194f6af0cff90888526f0c115",
+          "version": "7.10.0"
+        }
+      },
+      {
+        "package": "Imaginary",
+        "repositoryURL": "https://github.com/hyperoslo/Imaginary.git",
+        "state": {
+          "branch": "master",
+          "revision": "2f30de8b84d9f85d3c66386e2461df6db70c645b",
+          "version": null
+        }
+      },
+      {
+        "package": "Lottie",
+        "repositoryURL": "https://github.com/airbnb/lottie-ios.git",
+        "state": {
+          "branch": null,
+          "revision": "b4bd0604ded9574807f41b4004b57dd1226a30a4",
+          "version": "3.5.0"
+        }
+      },
+      {
+        "package": "ParseObjC",
+        "repositoryURL": "https://github.com/parse-community/Parse-SDK-iOS-OSX.git",
+        "state": {
+          "branch": null,
+          "revision": "d4a1b351ed291a013f37894116115b90bbd97f39",
+          "version": "4.2.0"
+        }
+      },
+      {
+        "package": "ParseSwift",
+        "repositoryURL": "https://github.com/parse-community/Parse-Swift.git",
+        "state": {
+          "branch": null,
+          "revision": "dc7666f774755be333f48f25c4d8bead0a1a6877",
+          "version": "4.14.2"
+        }
+      },
+      {
+        "package": "PhoneNumberKit",
+        "repositoryURL": "https://github.com/marmelroy/PhoneNumberKit.git",
+        "state": {
+          "branch": null,
+          "revision": "c107075aa8d394be7aced273a46e944afe8b321b",
+          "version": "3.8.0"
+        }
+      },
+      {
+        "package": "ScrollCounter",
+        "repositoryURL": "https://github.com/stokatyan/ScrollCounter.git",
+        "state": {
+          "branch": "master",
+          "revision": "0e70a50088a6cff70ddda386bc99b70c53b341ee",
+          "version": null
+        }
+      },
+      {
+        "package": "Sentry",
+        "repositoryURL": "https://github.com/getsentry/sentry-cocoa.git",
+        "state": {
+          "branch": null,
+          "revision": "f196cbb98e0388381d57908f2f5a9bdc385cde68",
+          "version": "8.58.4"
+        }
+      },
+      {
+        "package": "Starscream",
+        "repositoryURL": "https://github.com/daltoniam/Starscream.git",
+        "state": {
+          "branch": null,
+          "revision": "c6bfd1af48efcc9a9ad203665db12375ba6b145a",
+          "version": "4.0.8"
+        }
+      }
+    ]
+  },
+  "version": 1
+}

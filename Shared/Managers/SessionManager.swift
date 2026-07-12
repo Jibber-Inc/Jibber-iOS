@@ -7,7 +7,7 @@
 //
 
 import Foundation
-import Parse
+import ParseCore
 
 class SessionManager {
     

@@ -7,7 +7,6 @@
 //
 
 import Foundation
-import StreamChat
 import Combine
 import Lottie
 import UIKit
@@ -51,6 +50,7 @@ class ConversationHeaderViewController: ViewController, ActiveConversationable {
             .removeDuplicates()
             .mainSink { [unowned self] conversation in
                 guard let convo = conversation else {
+                    self.startLoadDataTask(with: nil)
                     self.topicLabel.text = nil
                     self.topicLabel.isVisible = false
                     self.stackedView.isVisible = false
@@ -60,7 +60,6 @@ class ConversationHeaderViewController: ViewController, ActiveConversationable {
                 
                 self.startLoadDataTask(with: convo)
                 self.closeButton.isVisible = true 
-                self.setTopic(for: convo)
                 self.stackedView.isVisible = true
                 self.topicLabel.isVisible = true
                 self.view.layoutNow()
@@ -90,10 +89,6 @@ class ConversationHeaderViewController: ViewController, ActiveConversationable {
         self.button.centerOnXAndY()
     }
     
-    private func setTopic(for conversation: Conversation) {
-        self.topicLabel.setText(conversation.title)
-    }
-    
     func update(for state: ConversationUIState) {
         self.state = state
         
@@ -106,16 +101,18 @@ class ConversationHeaderViewController: ViewController, ActiveConversationable {
     
     // Mark: Members
     
-    var conversationController: ConversationController?
+    var conversationController: ParseConversationController?
     
     /// A task for loading data and subscribing to conversation updates.
     private var loadDataTask: Task<Void, Never>?
     
-    private func startLoadDataTask(with conversation: Conversation?) {
+    private func startLoadDataTask(with conversation: ParseConversation?) {
         self.loadDataTask?.cancel()
+        self.loadPeopleTask?.cancel()
+        self.conversationCancellables.removeAll()
 
-        if let cid = conversation?.id {
-            self.conversationController = ConversationController.controller(for: cid)
+        if let conversation {
+            self.conversationController = ParseConversationController.controller(for: conversation)
         } else {
             self.conversationController = nil
         }
@@ -123,29 +120,41 @@ class ConversationHeaderViewController: ViewController, ActiveConversationable {
         self.loadDataTask = Task { [weak self] in
             guard let conversationController = self?.conversationController else {
                 // If there's no current conversation, then there's nothing to show.
+                self?.setConversation(nil)
                 return
             }
 
-            self?.setMembers(for: conversationController.conversation)
+            self?.subscribeToUpdates(for: conversationController)
+
+            self?.setConversation(conversationController.conversation ?? conversation)
 
             guard !Task.isCancelled else { return }
-
-            self?.subscribeToUpdates(for: conversationController)
         }
     }
     
     /// A task for loading data and subscribing to conversation updates.
     private var loadPeopleTask: Task<Void, Never>?
     
-    private func setMembers(for conversation: Conversation?) {
+    private func setConversation(_ conversation: ParseConversation?) {
+        self.setTopic(for: conversation)
+        self.setMembers(for: conversation)
+    }
+
+    private func setTopic(for conversation: ParseConversation?) {
+        self.topicLabel.setText(conversation?.title)
+    }
+
+    private func setMembers(for conversation: ParseConversation?) {
         guard let conversation = conversation else {
+            self.addImageView.isVisible = true
+            self.stackedView.configure(with: [])
             return
         }
         self.loadPeopleTask?.cancel()
         
         self.loadPeopleTask = Task { [weak self] in
             guard let `self` = self else { return }
-            let members = await JibberChatClient.shared.getPeople(for: conversation)
+            let members = await self.getPeople(for: conversation)
             self.addImageView.isVisible = members.count == 0
             self.stackedView.configure(with: members)
             self.view.setNeedsLayout()
@@ -155,31 +164,49 @@ class ConversationHeaderViewController: ViewController, ActiveConversationable {
     /// The subscriptions for the current conversation.
     private var conversationCancellables = Set<AnyCancellable>()
 
-    private func subscribeToUpdates(for conversationController: ConversationController) {
+    private func subscribeToUpdates(for conversationController: ParseConversationController) {
         // Clear out previous subscriptions.
         self.conversationCancellables.removeAll()
         
         conversationController
-            .channelChangePublisher
-            .mainSink { [unowned self] _ in
-                guard let conversation = self.conversationController?.conversation else { return }
-                self.setTopic(for: conversation)
-            }.store(in: &self.cancellables)
+            .conversationChangePublisher
+            .mainSink { [weak self] change in
+                switch change {
+                case .create(let conversation), .update(let conversation):
+                    self?.setConversation(conversation)
+                case .remove:
+                    self?.setConversation(nil)
+                }
+            }.store(in: &self.conversationCancellables)
 
         conversationController
-            .memberEventPublisher
-            .mainSink(receiveValue: { [unowned self] event in
-                switch event as MemberEvent {
-                case _ as MemberAddedEvent:
-                    self.setMembers(for: conversationController.conversation)
-                case _ as MemberRemovedEvent:
-                    guard let conversationController = self.conversationController else { return }
-                    self.setMembers(for: conversationController.conversation)
-                case _ as MemberUpdatedEvent:
-                    break
-                default:
-                    break
-                }
+            .membersChangesPublisher
+            .mainSink(receiveValue: { [weak self] changes in
+                guard !changes.isEmpty else { return }
+                self?.setMembers(for: conversationController.conversation)
             }).store(in: &self.conversationCancellables)
+    }
+
+    private func getPeople(for conversation: ParseConversation) async -> [PersonType] {
+        var peopleByID: [String: PersonType] = [:]
+
+        for member in conversation.activeMembers where !member.isCurrentUser {
+            guard let person = await PeopleStore.shared.getPerson(withPersonId: member.userID) else {
+                continue
+            }
+            peopleByID[person.personId] = person
+        }
+
+        for (_, reservation) in PeopleStore.shared.unclaimedReservations {
+            guard reservation.conversationCid == conversation.id,
+                  let contactID = reservation.contactId,
+                  let person = await PeopleStore.shared.getPerson(withPersonId: contactID) else {
+                continue
+            }
+            peopleByID[person.personId] = person
+        }
+
+        return Array(peopleByID.values)
+            .sorted { $0.givenName.localizedCaseInsensitiveCompare($1.givenName) == .orderedAscending }
     }
 }

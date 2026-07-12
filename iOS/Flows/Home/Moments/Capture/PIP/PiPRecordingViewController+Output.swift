@@ -38,9 +38,12 @@ extension PiPRecordingViewController {
             }
         }
         
-        self.recorder.startRecording(with: sampleBuffer,
-                                     isVideoOutput: isVideoOutput,
-                                     isFrontVideoOutput: isFrontVideoOutput,
-                                     ciImage: self.frontCameraView.currentCIImage)
+        let currentImage = self.frontCameraView.currentCIImage
+        Task {
+            await self.recorder.startRecording(with: sampleBuffer,
+                                               isVideoOutput: isVideoOutput,
+                                               isFrontVideoOutput: isFrontVideoOutput,
+                                               ciImage: currentImage)
+        }
     }
 }

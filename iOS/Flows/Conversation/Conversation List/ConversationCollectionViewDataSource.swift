@@ -11,6 +11,7 @@ import Foundation
 typealias ConversationSection = ConversationCollectionViewDataSource.SectionType
 typealias ConversationItem = ConversationCollectionViewDataSource.ItemType
 
+@MainActor
 class ConversationCollectionViewDataSource: CollectionViewDataSource<ConversationSection,
                                             ConversationItem> {
 
@@ -35,37 +36,37 @@ class ConversationCollectionViewDataSource: CollectionViewDataSource<Conversatio
     
     var uiState: ConversationUIState = .read
 
-    override func dequeueCell(with collectionView: UICollectionView,
-                              indexPath: IndexPath,
-                              section: SectionType,
-                              item: ItemType) -> UICollectionViewCell? {
+    nonisolated override func dequeueCell(with collectionView: UICollectionView,
+                                           indexPath: IndexPath,
+                                           section: SectionType,
+                                           item: ItemType) -> UICollectionViewCell? {
+        MainActor.assumeIsolated {
+            switch item {
+            case .conversation(let cid):
+                let conversationCell
+                = collectionView.dequeueConfiguredReusableCell(using: self.conversationCellRegistration,
+                                                               for: indexPath,
+                                                               item: (cid, self.uiState, self))
+                conversationCell.messageContentDelegate = self.messageContentDelegate
+                conversationCell.handleCollectionViewTapped = { [unowned self] in
+                    self.handleCollectionViewTapped?()
+                }
+                conversationCell.handleAddMembersTapped = { [unowned self] in
+                    self.handleAddPeopleSelected?()
+                }
 
-        switch item {
-        case .conversation(let cid):
-            let conversationCell
-            = collectionView.dequeueConfiguredReusableCell(using: self.conversationCellRegistration,
-                                                           for: indexPath,
-                                                           item: (cid, self.uiState, self))
-            conversationCell.messageContentDelegate = self.messageContentDelegate
-            conversationCell.handleCollectionViewTapped = { [unowned self] in
-                self.handleCollectionViewTapped?()
+                return conversationCell
             }
-            conversationCell.handleAddMembersTapped = { [unowned self] in
-                self.handleAddPeopleSelected?()
-            }
-
-            return conversationCell
-
         }
     }
 
     /// Updates the datasource with to reflect the conversation controller.
-    func update(with conversationController: ConversationController) async {
+    func update(with conversationController: ParseConversationController) async {
         let updatedSnapshot = self.updatedSnapshot(with: conversationController)
         await self.apply(updatedSnapshot)
     }
 
-    func updatedSnapshot(with conversationController: ConversationController)
+    func updatedSnapshot(with conversationController: ParseConversationController)
     -> NSDiffableDataSourceSnapshot<ConversationSection, ConversationItem> {
 
         var snapshot = self.snapshot()
@@ -101,7 +102,7 @@ extension ConversationCollectionViewDataSource {
 
     static func createConversationCellRegistration() -> ConversationCellRegistration {
         return ConversationCellRegistration { cell, indexPath, item in
-            let conversationController = JibberChatClient.shared.conversationController(for: item.conversationId)
+            let conversationController = JibberMessagingClient.shared.conversationController(for: item.conversationId)
 
             let isPreparedToSend = conversationController?.conversation?.id == item.dataSource.conversationPreparingToSend
             if let conversation = conversationController?.conversation {

@@ -36,7 +36,7 @@ class PiPRecordingViewController: ViewController, AVCaptureVideoDataOutputSample
     // Communicate with the session and other session objects on this queue.
     private let sessionQueue = DispatchQueue(label: "session queue")
     
-    let dataOutputQue = DispatchQueue(label: "data output queue", attributes: .concurrent)
+    let dataOutputQue = DispatchQueue(label: "data output queue")
 
     let backCameraView = VideoPreviewView()
     let frontCameraView = FrontPreviewVideoView()
@@ -80,24 +80,12 @@ class PiPRecordingViewController: ViewController, AVCaptureVideoDataOutputSample
             self.configureSession()
         }
         
-        self.recorder.didCapturePIPRecording = { [unowned self] recording in
-            self.recording = recording
-            self.state = .playback
-        }
-        
         self.$state
             .removeDuplicates()
             .mainSink { [unowned self] state in
                 self.handle(state: state)
         }.store(in: &self.cancellables)
         
-        self.recorder.$isReadyToRecord
-            .removeDuplicates()
-            .mainSink { [unowned self] isReady in
-                if isReady, !self.frontCameraView.isAnimating {
-                    self.frontCameraView.startRecordingAnimation()
-                }
-            }.store(in: &self.cancellables)
     }
     
     override func viewWillDisappear(_ animated: Bool) {
@@ -150,9 +138,17 @@ class PiPRecordingViewController: ViewController, AVCaptureVideoDataOutputSample
         backVideoSettings?[AVVideoCompressionPropertiesKey] = compressionSettings
 
         let audioSettings = self.micDataOutput.recommendedAudioSettingsForAssetWriter(writingTo: .mov)
-        self.recorder.initialize(backVideoSettings: backVideoSettings, audioSettings: audioSettings)
-        self.state = .recording
-        self.selectionImpact.impactOccurred(intensity: 1.0)
+        Task {
+            await self.recorder.initialize(backVideoSettings: backVideoSettings,
+                                           audioSettings: audioSettings)
+            await MainActor.run {
+                self.state = .recording
+                self.selectionImpact.impactOccurred(intensity: 1.0)
+                if !self.frontCameraView.isAnimating {
+                    self.frontCameraView.startRecordingAnimation()
+                }
+            }
+        }
     }
     
     func pausePlayback() {
@@ -169,15 +165,20 @@ class PiPRecordingViewController: ViewController, AVCaptureVideoDataOutputSample
         self.frontCameraView.stopRecordingAnimation()
         self.selectionImpact.impactOccurred(intensity: 1.0)
 
-        let _ = self.dataOutputQue.sync {
-            Task {
-                do {
-                    try await self.recorder.stopRecording()
-                } catch {
+        Task {
+            do {
+                let recording = try await self.recorder.stopRecording()
+                await MainActor.run {
+                    self.recording = recording
+                    self.state = .playback
+                }
+            } catch {
+                await MainActor.run {
                     self.state = .error
                     logError(error)
-
-                    await Task.sleep(seconds: 1.5)
+                }
+                await Task.sleep(seconds: 1.5)
+                await MainActor.run {
                     self.state = .idle
                 }
             }

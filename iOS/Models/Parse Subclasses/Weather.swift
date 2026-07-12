@@ -7,7 +7,7 @@
 //
 
 import Foundation
-import Parse
+import ParseCore
 import WeatherKit
 
 enum WeatherKey: String {

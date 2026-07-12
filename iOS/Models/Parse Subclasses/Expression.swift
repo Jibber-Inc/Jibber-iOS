@@ -7,7 +7,7 @@
 //
 
 import Foundation
-import Parse
+import ParseCore
 
 struct ExpressionInfo: Hashable {
     var authorId: String

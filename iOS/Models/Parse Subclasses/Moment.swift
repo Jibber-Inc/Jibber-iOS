@@ -7,7 +7,7 @@
 //
 
 import Foundation
-import Parse
+import ParseCore
 import LinkPresentation
 
  enum MomentKey: String {
@@ -17,6 +17,7 @@ import LinkPresentation
      case preview
      case caption
      case location
+     case messagingConversationId
  }
 
  final class Moment: PFObject, PFSubclassing {
@@ -52,8 +53,17 @@ import LinkPresentation
      }
      
      var commentsId: String {
+         if let messagingConversationId = self.messagingConversationId,
+            !messagingConversationId.isEmpty {
+             return messagingConversationId
+         }
          guard let objectId = self.objectId else { return "" }
          return "moment:" + objectId
+     }
+
+     var messagingConversationId: String? {
+         get { self.getObject(for: .messagingConversationId) }
+         set { self.setObject(for: .messagingConversationId, with: newValue) }
      }
 
      var author: User? {

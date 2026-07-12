@@ -7,7 +7,7 @@
 //
 
 import Foundation
-import Parse
+import ParseCore
 import Sentry
 
 enum LaunchActivity {
@@ -24,6 +24,7 @@ protocol LaunchActivityHandler {
 enum LaunchStatus {
     case success(deepLink: DeepLinkable?)
     case failed(error: ClientError?, deepLink: DeepLinkable?)
+    case updateRequired(message: String)
 }
 
 protocol LaunchManagerDelegate: AnyObject {
@@ -96,13 +97,26 @@ class LaunchManager {
         }
 
 #if !APPCLIP && !NOTIFICATION
+        // Messaging is a launch-critical service. Capability/schema/minimum-
+        // version failures deliberately stop here so an incompatible client
+        // can never enter the app and issue unsupported writes.
         do {
-            try await JibberChatClient.shared.initialize(for: user)
+            try await ParseMessagingManager.shared.initialize(for: user)
         } catch {
+            if let messagingError = error as? ParseMessagingManagerError {
+                switch messagingError {
+                case .appUpdateRequired, .unsupportedSchemaVersion:
+                    return .updateRequired(
+                        message: messagingError.localizedDescription
+                    )
+                default:
+                    break
+                }
+            }
             return .failed(error: ClientError.error(error: error), deepLink: deeplink)
         }
 
-        return await self.getChatToken(for: user, deepLink: deeplink)
+        return await self.finishMessagingLaunch(for: user, deepLink: deeplink)
 #else
         return .success(deepLink: deeplink)
 #endif
@@ -118,7 +132,7 @@ class LaunchManager {
 extension LaunchManager {
 
 #if !APPCLIP && !NOTIFICATION
-    func getChatToken(for user: User, deepLink: DeepLinkable?) async -> LaunchStatus {
+    func finishMessagingLaunch(for user: User, deepLink: DeepLinkable?) async -> LaunchStatus {
         if let user = User.current(), user.isAuthenticated {
             await UserNotificationManager.shared.silentRegister(withApplication: UIApplication.shared)
         }

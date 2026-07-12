@@ -16,7 +16,7 @@ class MomentReactionsView: BaseView {
 
     #if IOS
     private let badgeView = BadgeCounterView()
-    private(set) var controller: ConversationController?
+    private(set) var controller: ParseConversationController?
     private var subscriptions = Set<AnyCancellable>()
     #endif
     
@@ -64,7 +64,10 @@ class MomentReactionsView: BaseView {
                 subscription.cancel()
             }
             
-            self.controller = ConversationController.controller(for: moment.commentsId)
+            self.controller = ParseConversationController(
+                conversationID: moment.commentsId,
+                automaticallySynchronize: false
+            )
             try? await self.controller?.synchronize()
             let expressions = self.controller?.conversation?.expressions ?? []
             
@@ -79,7 +82,7 @@ class MomentReactionsView: BaseView {
                 self.reactionsView.isHidden = true
             }
             
-            self.controller?.channelChangePublisher.mainSink(receiveValue: { [unowned self] _ in
+            self.controller?.conversationChangePublisher.mainSink(receiveValue: { [unowned self] _ in
                 let expressions = self.controller?.conversation?.expressions ?? []
                 self.badgeView.set(value: expressions.count)
                 

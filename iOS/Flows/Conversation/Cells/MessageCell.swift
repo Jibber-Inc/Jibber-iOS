@@ -17,7 +17,7 @@ struct MessageDetailState: Equatable {
 /// A cell for displaying individual messages, author and reactions.
 class MessageCell: UICollectionViewCell {
 
-    private var message: Messageable?
+    private var message: ParseMessage?
     
     lazy var shadowLayer: CAShapeLayer = {
         let layer = CAShapeLayer()
@@ -116,6 +116,10 @@ class MessageCell: UICollectionViewCell {
     // MARK: Configuration
 
     func configure(with message: Messageable) {
+        guard let message = message as? ParseMessage else {
+            assertionFailure("MessageCell requires Parse-backed messages after the messaging cutover.")
+            return
+        }
         self.content.configure(with: message)
 
         self.content.textView.textColor = self.getTextColor(for: message)
@@ -199,7 +203,7 @@ class MessageCell: UICollectionViewCell {
         }
     }
 
-    private var messageController: MessageController?
+    private var messageController: ParseMessageController?
     private var messageSubscriptions: Set<AnyCancellable> = []
     private var messageTasks = TaskPool()
 
@@ -207,37 +211,25 @@ class MessageCell: UICollectionViewCell {
         // If we're already subscribed to message updates, don't do it again.
         guard messageable.id != self.messageController?.messageId else { return }
 
-        self.messageController = JibberChatClient.shared.messageController(for: messageable)
-
-        self.messageController?.reactionsPublisher
-            .mainSink(receiveValue: { [unowned self] _ in
-                Task {
-                    await self.refreshFooter()
-                }.add(to: self.messageTasks)
-            }).store(in: &self.messageSubscriptions)
+        self.messageSubscriptions.removeAll()
+        self.messageTasks.cancelAndRemoveAll()
+        self.messageController = ParseMessageController.controller(for: messageable)
 
         self.messageController?.repliesChangesPublisher
             .mainSink(receiveValue: { [unowned self] _ in
-                Task {
-                    await self.refreshFooter()
-                }.add(to: self.messageTasks)
+                self.refreshFooter()
             }).store(in: &self.messageSubscriptions)
         
         self.messageController?.messageChangePublisher
             .mainSink(receiveValue: { [unowned self] _ in
-                Task {
-                    await self.refreshFooter()
-                }.add(to: self.messageTasks)
+                self.refreshFooter()
             }).store(in: &self.messageSubscriptions)
     }
 
     /// Gets the latest state of the message and updates the footer with that new state.
-    private func refreshFooter() async {
-        try? await self.messageController?.synchronize()
-
-        guard !Task.isCancelled else { return }
-
+    private func refreshFooter() {
         guard let message = self.messageController?.message else { return }
+        self.message = message
         self.footerView.configure(for: message)
     }
 
@@ -248,6 +240,7 @@ class MessageCell: UICollectionViewCell {
         self.content.imageView.displayable = nil
         self.content.emotionCollectionView.setEmotionsCounts([:], animated: false)
         self.content.setEmotions(areShown: false, animated: false)
+        self.message = nil
         self.messageController = nil
         self.messageSubscriptions.removeAll()
         self.messageTasks.cancelAndRemoveAll()
@@ -275,7 +268,7 @@ class MessageCell: UICollectionViewCell {
     }
 
     /// If necessary for the message, starts a task that sets the delivery status to reading, then consumes the message after a delay.
-    private func startConsumptionTaskIfNeeded(for messageable: Messageable) {
+    private func startConsumptionTaskIfNeeded(for messageable: ParseMessage) {
         guard messageable.canBeConsumed else { return }
 
         Task {
@@ -295,16 +288,21 @@ class MessageCell: UICollectionViewCell {
     
     private func addReply(with text: String) {
         guard let msg = self.message,
-                let controller = JibberChatClient.shared.messageController(for: msg) else { return }
+              let controller = ParseMessageController.controller(for: msg) else { return }
         
         Task {
-            let object = SendableObject(kind: .text(text),
-                                        deliveryType: msg.deliveryType,
-                                        expression: nil)
-            try await controller.createNewReply(with: object)
-            
-            AnalyticsManager.shared.trackEvent(type: .suggestionSelected, properties: ["value": text])
-        }
+            do {
+                let object = SendableObject(kind: .text(text),
+                                            deliveryType: msg.deliveryType,
+                                            expression: nil)
+                try await controller.createNewReply(with: object)
+
+                AnalyticsManager.shared.trackEvent(type: .suggestionSelected, properties: ["value": text])
+            } catch {
+                await ToastScheduler.shared.schedule(toastType: .error(error))
+                logError(error)
+            }
+        }.add(to: self.messageTasks)
     }
     
     // MARK: - Touch Handling
