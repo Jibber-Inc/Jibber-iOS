@@ -8,10 +8,74 @@ import GRDB
 import MessagingContracts
 import ParseSwift
 
+public struct MessagingConversationRelatedCacheState: Sendable {
+    public let members: [MessagingMemberSnapshot]
+    public let conversation: MessagingConversationSnapshot?
+    public let pinnedMessages: [MessagingMessageSnapshot]
+
+    public init(
+        members: [MessagingMemberSnapshot],
+        conversation: MessagingConversationSnapshot?,
+        pinnedMessages: [MessagingMessageSnapshot]
+    ) {
+        self.members = members
+        self.conversation = conversation
+        self.pinnedMessages = pinnedMessages
+    }
+}
+
+public struct MessagingConversationCacheState: Sendable {
+    public let messages: MessagingPage<MessagingMessageSnapshot>
+    public let members: [MessagingMemberSnapshot]
+    public let conversation: MessagingConversationSnapshot?
+    public let pinnedMessages: [MessagingMessageSnapshot]
+
+    public init(
+        messages: MessagingPage<MessagingMessageSnapshot>,
+        members: [MessagingMemberSnapshot],
+        conversation: MessagingConversationSnapshot?,
+        pinnedMessages: [MessagingMessageSnapshot]
+    ) {
+        self.messages = messages
+        self.members = members
+        self.conversation = conversation
+        self.pinnedMessages = pinnedMessages
+    }
+}
+
+public struct MessagingConversationListCacheEntry: Sendable {
+    public let conversation: MessagingConversationSnapshot
+    public let members: [MessagingMemberSnapshot]
+    public let latestMessage: MessagingMessageSnapshot?
+
+    public init(
+        conversation: MessagingConversationSnapshot,
+        members: [MessagingMemberSnapshot],
+        latestMessage: MessagingMessageSnapshot?
+    ) {
+        self.conversation = conversation
+        self.members = members
+        self.latestMessage = latestMessage
+    }
+}
+
+public struct MessagingConversationListCacheState: Sendable {
+    public let page: MessagingPage<MessagingConversationSnapshot>
+    public let entries: [MessagingConversationListCacheEntry]
+
+    public init(
+        page: MessagingPage<MessagingConversationSnapshot>,
+        entries: [MessagingConversationListCacheEntry]
+    ) {
+        self.page = page
+        self.entries = entries
+    }
+}
+
 /// Durable, transactionally consistent cache and outbox. A send is staged in
 /// the message cache and outbox in the same SQLite transaction, so process
 /// termination cannot leave an optimistic bubble without its retry operation.
-public final class GRDBMessagingStore: MessagingLocalStore {
+public final class GRDBMessagingStore: MessagingLocalStore, @unchecked Sendable {
     public struct Limits: Hashable {
         public var conversations: Int
         public var messagesPerConversation: Int
@@ -106,38 +170,51 @@ public final class GRDBMessagingStore: MessagingLocalStore {
             )
         }
         return try databaseQueue.read { db in
-            let rows: [Row]
-            if let cursor = cursor {
-                rows = try Row.fetchAll(
-                    db,
-                    sql: """
-                        SELECT payload FROM messaging_conversation_cache
-                        WHERE sort_date < ? OR (sort_date = ? AND id < ?)
-                        ORDER BY sort_date DESC, id DESC
-                        LIMIT ?
-                        """,
-                    arguments: [
-                        cursor.sortDate.timeIntervalSince1970,
-                        cursor.sortDate.timeIntervalSince1970,
-                        cursor.stableID,
-                        pageSize + 1
-                    ]
-                )
-            } else {
-                rows = try Row.fetchAll(
-                    db,
-                    sql: """
-                        SELECT payload FROM messaging_conversation_cache
-                        ORDER BY sort_date DESC, id DESC
-                        LIMIT ?
-                        """,
-                    arguments: [pageSize + 1]
+            try Self.cachedConversations(before: cursor, pageSize: pageSize, in: db)
+        }
+    }
+
+    public func cachedConversationListState(
+        before cursor: MessagingCursor? = nil,
+        pageSize: Int
+    ) async throws -> MessagingConversationListCacheState {
+        try Self.validate(pageSize: pageSize)
+        if let cursor {
+            try MessagingCursorCodec.validate(
+                cursor,
+                expectedScope: MessagingCursor.conversationScope
+            )
+        }
+        return try await databaseQueue.read { db in
+            let page = try Self.cachedConversations(
+                before: cursor,
+                pageSize: pageSize,
+                in: db
+            )
+            let entries = try page.items.map { conversation in
+                MessagingConversationListCacheEntry(
+                    conversation: conversation,
+                    members: try Self.cachedMembers(
+                        conversationID: conversation.id,
+                        in: db
+                    ),
+                    latestMessage: try Self.cachedMessages(
+                        conversationID: conversation.id,
+                        before: nil,
+                        pageSize: 1,
+                        in: db
+                    ).items.first
                 )
             }
-            let values: [MessagingConversationSnapshot] = try rows.map {
-                try Self.decode(MessagingConversationSnapshot.self, from: $0["payload"])
-            }
-            return try MessagingPageBuilder.conversations(values, pageSize: pageSize)
+            return MessagingConversationListCacheState(page: page, entries: entries)
+        }
+    }
+
+    public func cachedConversation(
+        id: MessagingConversationID
+    ) throws -> MessagingConversationSnapshot? {
+        try databaseQueue.read { db in
+            try Self.cachedConversation(id: id, in: db)
         }
     }
 
@@ -165,46 +242,11 @@ public final class GRDBMessagingStore: MessagingLocalStore {
             try MessagingCursorCodec.validate(cursor, expectedScope: scope)
         }
         return try databaseQueue.read { db in
-            let rows: [Row]
-            if let cursor = cursor {
-                rows = try Row.fetchAll(
-                    db,
-                    sql: """
-                        SELECT payload FROM messaging_message_cache
-                        WHERE conversation_id = ?
-                          AND reply_to_id IS NULL
-                          AND (sort_date < ? OR (sort_date = ? AND sort_id < ?))
-                        ORDER BY sort_date DESC, sort_id DESC
-                        LIMIT ?
-                        """,
-                    arguments: [
-                        conversationID,
-                        cursor.sortDate.timeIntervalSince1970,
-                        cursor.sortDate.timeIntervalSince1970,
-                        cursor.stableID,
-                        pageSize + 1
-                    ]
-                )
-            } else {
-                rows = try Row.fetchAll(
-                    db,
-                    sql: """
-                        SELECT payload FROM messaging_message_cache
-                        WHERE conversation_id = ?
-                          AND reply_to_id IS NULL
-                        ORDER BY sort_date DESC, sort_id DESC
-                        LIMIT ?
-                        """,
-                    arguments: [conversationID, pageSize + 1]
-                )
-            }
-            let values: [MessagingMessageSnapshot] = try rows.map {
-                try Self.decode(MessagingMessageSnapshot.self, from: $0["payload"])
-            }
-            return try MessagingPageBuilder.messages(
-                values,
+            try Self.cachedMessages(
                 conversationID: conversationID,
-                pageSize: pageSize
+                before: cursor,
+                pageSize: pageSize,
+                in: db
             )
         }
     }
@@ -220,44 +262,31 @@ public final class GRDBMessagingStore: MessagingLocalStore {
             try MessagingCursorCodec.validate(cursor, expectedScope: scope)
         }
         return try databaseQueue.read { db in
-            let rows: [Row]
-            if let cursor = cursor {
-                rows = try Row.fetchAll(
-                    db,
-                    sql: """
-                        SELECT payload FROM messaging_message_cache
-                        WHERE reply_to_id = ?
-                          AND (sort_date < ? OR (sort_date = ? AND sort_id < ?))
-                        ORDER BY sort_date DESC, sort_id DESC
-                        LIMIT ?
-                        """,
-                    arguments: [
-                        messageID,
-                        cursor.sortDate.timeIntervalSince1970,
-                        cursor.sortDate.timeIntervalSince1970,
-                        cursor.stableID,
-                        pageSize + 1
-                    ]
-                )
-            } else {
-                rows = try Row.fetchAll(
-                    db,
-                    sql: """
-                        SELECT payload FROM messaging_message_cache
-                        WHERE reply_to_id = ?
-                        ORDER BY sort_date DESC, sort_id DESC
-                        LIMIT ?
-                        """,
-                    arguments: [messageID, pageSize + 1]
-                )
-            }
-            let values: [MessagingMessageSnapshot] = try rows.map {
-                try Self.decode(MessagingMessageSnapshot.self, from: $0["payload"])
-            }
-            return try MessagingPageBuilder.replies(
-                values,
+            try Self.cachedReplies(
                 messageID: messageID,
-                pageSize: pageSize
+                before: cursor,
+                pageSize: pageSize,
+                in: db
+            )
+        }
+    }
+
+    public func cachedRepliesAsync(
+        messageID: MessagingMessageID,
+        before cursor: MessagingCursor? = nil,
+        pageSize: Int
+    ) async throws -> MessagingPage<MessagingMessageSnapshot> {
+        try Self.validate(pageSize: pageSize)
+        let scope = MessagingCursor.replyScope(messageID: messageID)
+        if let cursor {
+            try MessagingCursorCodec.validate(cursor, expectedScope: scope)
+        }
+        return try await databaseQueue.read { db in
+            try Self.cachedReplies(
+                messageID: messageID,
+                before: cursor,
+                pageSize: pageSize,
+                in: db
             )
         }
     }
@@ -266,18 +295,7 @@ public final class GRDBMessagingStore: MessagingLocalStore {
         conversationID: MessagingConversationID
     ) throws -> [MessagingMessageSnapshot] {
         try databaseQueue.read { db in
-            let rows = try Row.fetchAll(
-                db,
-                sql: """
-                    SELECT payload FROM messaging_message_cache
-                    WHERE conversation_id = ? AND is_pinned = 1
-                    ORDER BY sort_date DESC, sort_id DESC
-                    """,
-                arguments: [conversationID]
-            )
-            return try rows.map {
-                try Self.decode(MessagingMessageSnapshot.self, from: $0["payload"])
-            }
+            try Self.cachedPinnedMessages(conversationID: conversationID, in: db)
         }
     }
 
@@ -298,29 +316,48 @@ public final class GRDBMessagingStore: MessagingLocalStore {
         }
     }
 
+    /// Resolves each identifier as a server object id first, then as the
+    /// stable/client id, using one consistent database read. Missing ids are
+    /// omitted and duplicate requests remain duplicated in request order.
+    public func cachedMessages(
+        ids: [MessagingMessageID]
+    ) throws -> [MessagingMessageSnapshot] {
+        guard !ids.isEmpty else { return [] }
+        return try databaseQueue.read { db in
+            let uniqueIDs = Array(Set(ids))
+            let placeholders = Array(
+                repeating: "?",
+                count: uniqueIDs.count
+            ).joined(separator: ", ")
+            let rows = try Row.fetchAll(
+                db,
+                sql: """
+                    SELECT payload FROM messaging_message_cache
+                    WHERE object_id IN (\(placeholders))
+                       OR stable_id IN (\(placeholders))
+                    """,
+                arguments: StatementArguments(uniqueIDs + uniqueIDs)
+            )
+            let messages = try rows.map {
+                try Self.decode(MessagingMessageSnapshot.self, from: $0["payload"])
+            }
+            let byObjectID = Dictionary(
+                uniqueKeysWithValues: messages.compactMap { message in
+                    message.objectID.map { ($0, message) }
+                }
+            )
+            let byStableID = Dictionary(
+                uniqueKeysWithValues: messages.map { ($0.stableID, $0) }
+            )
+            return ids.compactMap { byObjectID[$0] ?? byStableID[$0] }
+        }
+    }
+
     public func upsert(members: [MessagingMemberSnapshot]) throws {
         guard !members.isEmpty else { return }
         try databaseQueue.write { db in
             for member in members {
-                try db.execute(
-                    sql: """
-                        INSERT INTO messaging_member_cache
-                            (object_id, conversation_id, user_id, typing_expires_at, payload)
-                        VALUES (?, ?, ?, ?, ?)
-                        ON CONFLICT(object_id) DO UPDATE SET
-                            conversation_id = excluded.conversation_id,
-                            user_id = excluded.user_id,
-                            typing_expires_at = excluded.typing_expires_at,
-                            payload = excluded.payload
-                        """,
-                    arguments: [
-                        member.objectID,
-                        member.conversationID,
-                        member.userID,
-                        member.typingExpiresAt?.timeIntervalSince1970,
-                        try Self.encode(member)
-                    ]
-                )
+                try Self.upsert(member: member, in: db)
             }
         }
     }
@@ -329,18 +366,59 @@ public final class GRDBMessagingStore: MessagingLocalStore {
         conversationID: MessagingConversationID
     ) throws -> [MessagingMemberSnapshot] {
         try databaseQueue.read { db in
-            let rows = try Row.fetchAll(
-                db,
-                sql: """
-                    SELECT payload FROM messaging_member_cache
-                    WHERE conversation_id = ?
-                    ORDER BY user_id ASC
-                    """,
-                arguments: [conversationID]
+            try Self.cachedMembers(conversationID: conversationID, in: db)
+        }
+    }
+
+    /// Reads a presentation-consistent conversation aggregate without ever
+    /// occupying the caller's actor. GRDB executes this closure on its
+    /// serialized database queue and returns only Sendable snapshots.
+    public func cachedConversationState(
+        conversationID: MessagingConversationID,
+        before cursor: MessagingCursor? = nil,
+        pageSize: Int
+    ) async throws -> MessagingConversationCacheState {
+        try Self.validate(pageSize: pageSize)
+        let scope = MessagingCursor.messageScope(conversationID: conversationID)
+        if let cursor {
+            try MessagingCursorCodec.validate(cursor, expectedScope: scope)
+        }
+        return try await databaseQueue.read { db in
+            MessagingConversationCacheState(
+                messages: try Self.cachedMessages(
+                    conversationID: conversationID,
+                    before: cursor,
+                    pageSize: pageSize,
+                    in: db
+                ),
+                members: try Self.cachedMembers(
+                    conversationID: conversationID,
+                    in: db
+                ),
+                conversation: try Self.cachedConversation(id: conversationID, in: db),
+                pinnedMessages: try Self.cachedPinnedMessages(
+                    conversationID: conversationID,
+                    in: db
+                )
             )
-            return try rows.map {
-                try Self.decode(MessagingMemberSnapshot.self, from: $0["payload"])
-            }
+        }
+    }
+
+    public func cachedConversationRelatedState(
+        conversationID: MessagingConversationID
+    ) async throws -> MessagingConversationRelatedCacheState {
+        try await databaseQueue.read { db in
+            MessagingConversationRelatedCacheState(
+                members: try Self.cachedMembers(
+                    conversationID: conversationID,
+                    in: db
+                ),
+                conversation: try Self.cachedConversation(id: conversationID, in: db),
+                pinnedMessages: try Self.cachedPinnedMessages(
+                    conversationID: conversationID,
+                    in: db
+                )
+            )
         }
     }
 
@@ -721,6 +799,13 @@ public final class GRDBMessagingStore: MessagingLocalStore {
         conversation: MessagingConversationSnapshot,
         in db: Database
     ) throws {
+        if let local = try cachedConversation(id: conversation.id, in: db),
+           !shouldReplace(
+               localServerUpdatedAt: local.serverUpdatedAt,
+               incomingServerUpdatedAt: conversation.serverUpdatedAt
+           ) {
+            return
+        }
         try db.execute(
             sql: """
                 INSERT INTO messaging_conversation_cache (id, sort_date, payload)
@@ -738,6 +823,79 @@ public final class GRDBMessagingStore: MessagingLocalStore {
     }
 
     private static func upsert(
+        member: MessagingMemberSnapshot,
+        in db: Database
+    ) throws {
+        if let payload = try Data.fetchOne(
+            db,
+            sql: "SELECT payload FROM messaging_member_cache WHERE object_id = ?",
+            arguments: [member.objectID]
+        ) {
+            let local = try decode(MessagingMemberSnapshot.self, from: payload)
+            guard shouldReplace(
+                localServerUpdatedAt: local.serverUpdatedAt,
+                incomingServerUpdatedAt: member.serverUpdatedAt
+            ) else { return }
+        }
+        try db.execute(
+            sql: """
+                INSERT INTO messaging_member_cache
+                    (object_id, conversation_id, user_id, typing_expires_at, payload)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(object_id) DO UPDATE SET
+                    conversation_id = excluded.conversation_id,
+                    user_id = excluded.user_id,
+                    typing_expires_at = excluded.typing_expires_at,
+                    payload = excluded.payload
+                """,
+            arguments: [
+                member.objectID,
+                member.conversationID,
+                member.userID,
+                member.typingExpiresAt?.timeIntervalSince1970,
+                try encode(member)
+            ]
+        )
+    }
+
+    /// Parse update timestamps are authoritative. A timestamped value always
+    /// beats a legacy value without one, equal versions keep the cached copy,
+    /// and nil-vs-nil retains the pre-migration last-write behavior.
+    private static func shouldReplace(
+        localServerUpdatedAt: Date?,
+        incomingServerUpdatedAt: Date?
+    ) -> Bool {
+        switch (localServerUpdatedAt, incomingServerUpdatedAt) {
+        case let (local?, incoming?):
+            return incoming > local
+        case (nil, _?):
+            return true
+        case (_?, nil):
+            return false
+        case (nil, nil):
+            return true
+        }
+    }
+
+    private static func upsert(
+        message: MessagingMessageSnapshot,
+        in db: Database
+    ) throws {
+        let local = try message.objectID.flatMap { try fetchMessage(objectID: $0, in: db) }
+            ?? fetchMessage(clientMessageID: message.clientMessageID, in: db)
+        let reconciled: MessagingMessageSnapshot
+        switch MessagingMessageReconciler.reconcile(local: local, remote: message) {
+        case .ignore:
+            return
+        case .upsert(let snapshot):
+            reconciled = snapshot
+        }
+        try write(message: reconciled, in: db)
+    }
+
+    /// Writes an already-reconciled snapshot. All callers must enter through
+    /// `upsert(message:in:)` so the read/compare/write remains one transaction.
+    private static func write(
         message: MessagingMessageSnapshot,
         in db: Database
     ) throws {
@@ -824,6 +982,18 @@ public final class GRDBMessagingStore: MessagingLocalStore {
         return try decode(MessagingMessageSnapshot.self, from: data)
     }
 
+    private static func fetchMessage(
+        objectID: MessagingMessageID,
+        in db: Database
+    ) throws -> MessagingMessageSnapshot? {
+        guard let data = try Data.fetchOne(
+            db,
+            sql: "SELECT payload FROM messaging_message_cache WHERE object_id = ?",
+            arguments: [objectID]
+        ) else { return nil }
+        return try decode(MessagingMessageSnapshot.self, from: data)
+    }
+
     private static func fetchOutbox(
         idempotencyKey: String,
         in db: Database
@@ -865,16 +1035,64 @@ public final class GRDBMessagingStore: MessagingLocalStore {
     ) throws {
         try db.execute(
             sql: """
-                DELETE FROM messaging_message_cache
-                WHERE stable_id IN (
-                    SELECT stable_id FROM messaging_message_cache
+                WITH newest AS (
+                    SELECT stable_id, reply_to_id
+                    FROM messaging_message_cache
                     WHERE conversation_id = ?
                       AND stable_id NOT IN (SELECT idempotency_key FROM messaging_outbox)
                     ORDER BY sort_date DESC, sort_id DESC
-                    LIMIT -1 OFFSET ?
+                    LIMIT ?
+                ),
+                retained_pins AS (
+                    SELECT stable_id, reply_to_id
+                    FROM messaging_message_cache
+                    WHERE conversation_id = ?
+                      AND is_pinned = 1
+                      AND stable_id NOT IN (SELECT idempotency_key FROM messaging_outbox)
+                    ORDER BY sort_date DESC, sort_id DESC
+                    LIMIT ?
+                ),
+                retained_reply_parent_ids AS (
+                    SELECT reply_to_id FROM newest WHERE reply_to_id IS NOT NULL
+                    UNION
+                    SELECT reply_to_id FROM retained_pins WHERE reply_to_id IS NOT NULL
+                    UNION
+                    SELECT reply_to_id FROM messaging_message_cache
+                    WHERE conversation_id = ?
+                      AND reply_to_id IS NOT NULL
+                      AND stable_id IN (SELECT idempotency_key FROM messaging_outbox)
+                ),
+                retained_roots AS (
+                    SELECT stable_id
+                    FROM messaging_message_cache
+                    WHERE conversation_id = ?
+                      AND reply_to_id IS NULL
+                      AND (
+                          object_id IN (SELECT reply_to_id FROM retained_reply_parent_ids)
+                          OR stable_id IN (SELECT reply_to_id FROM retained_reply_parent_ids)
+                      )
+                ),
+                retained AS (
+                    SELECT stable_id FROM newest
+                    UNION
+                    SELECT stable_id FROM retained_pins
+                    UNION
+                    SELECT stable_id FROM retained_roots
                 )
+                DELETE FROM messaging_message_cache
+                WHERE conversation_id = ?
+                  AND stable_id NOT IN (SELECT idempotency_key FROM messaging_outbox)
+                  AND stable_id NOT IN (SELECT stable_id FROM retained)
                 """,
-            arguments: [conversationID, limits.messagesPerConversation]
+            arguments: [
+                conversationID,
+                limits.messagesPerConversation,
+                conversationID,
+                limits.messagesPerConversation,
+                conversationID,
+                conversationID,
+                conversationID
+            ]
         )
     }
 
@@ -913,8 +1131,196 @@ public final class GRDBMessagingStore: MessagingLocalStore {
         )
     }
 
+    private static func cachedConversation(
+        id: MessagingConversationID,
+        in db: Database
+    ) throws -> MessagingConversationSnapshot? {
+        guard let payload = try Data.fetchOne(
+            db,
+            sql: "SELECT payload FROM messaging_conversation_cache WHERE id = ?",
+            arguments: [id]
+        ) else {
+            return nil
+        }
+        return try Self.decode(MessagingConversationSnapshot.self, from: payload)
+    }
+
+    private static func cachedConversations(
+        before cursor: MessagingCursor?,
+        pageSize: Int,
+        in db: Database
+    ) throws -> MessagingPage<MessagingConversationSnapshot> {
+        let rows: [Row]
+        if let cursor {
+            rows = try Row.fetchAll(
+                db,
+                sql: """
+                    SELECT payload FROM messaging_conversation_cache
+                    WHERE sort_date < ? OR (sort_date = ? AND id < ?)
+                    ORDER BY sort_date DESC, id DESC
+                    LIMIT ?
+                    """,
+                arguments: [
+                    cursor.sortDate.timeIntervalSince1970,
+                    cursor.sortDate.timeIntervalSince1970,
+                    cursor.stableID,
+                    pageSize + 1
+                ]
+            )
+        } else {
+            rows = try Row.fetchAll(
+                db,
+                sql: """
+                    SELECT payload FROM messaging_conversation_cache
+                    ORDER BY sort_date DESC, id DESC
+                    LIMIT ?
+                    """,
+                arguments: [pageSize + 1]
+            )
+        }
+        let values: [MessagingConversationSnapshot] = try rows.map {
+            try Self.decode(MessagingConversationSnapshot.self, from: $0["payload"])
+        }
+        return try MessagingPageBuilder.conversations(values, pageSize: pageSize)
+    }
+
+    private static func cachedMessages(
+        conversationID: MessagingConversationID,
+        before cursor: MessagingCursor?,
+        pageSize: Int,
+        in db: Database
+    ) throws -> MessagingPage<MessagingMessageSnapshot> {
+        let rows: [Row]
+        if let cursor {
+            rows = try Row.fetchAll(
+                db,
+                sql: """
+                    SELECT payload FROM messaging_message_cache
+                    WHERE conversation_id = ?
+                      AND reply_to_id IS NULL
+                      AND (sort_date < ? OR (sort_date = ? AND sort_id < ?))
+                    ORDER BY sort_date DESC, sort_id DESC
+                    LIMIT ?
+                    """,
+                arguments: [
+                    conversationID,
+                    cursor.sortDate.timeIntervalSince1970,
+                    cursor.sortDate.timeIntervalSince1970,
+                    cursor.stableID,
+                    pageSize + 1
+                ]
+            )
+        } else {
+            rows = try Row.fetchAll(
+                db,
+                sql: """
+                    SELECT payload FROM messaging_message_cache
+                    WHERE conversation_id = ?
+                      AND reply_to_id IS NULL
+                    ORDER BY sort_date DESC, sort_id DESC
+                    LIMIT ?
+                    """,
+                arguments: [conversationID, pageSize + 1]
+            )
+        }
+        let values: [MessagingMessageSnapshot] = try rows.map {
+            try Self.decode(MessagingMessageSnapshot.self, from: $0["payload"])
+        }
+        return try MessagingPageBuilder.messages(
+            values,
+            conversationID: conversationID,
+            pageSize: pageSize
+        )
+    }
+
+    private static func cachedMembers(
+        conversationID: MessagingConversationID,
+        in db: Database
+    ) throws -> [MessagingMemberSnapshot] {
+        let rows = try Row.fetchAll(
+            db,
+            sql: """
+                SELECT payload FROM messaging_member_cache
+                WHERE conversation_id = ?
+                ORDER BY user_id ASC
+                """,
+            arguments: [conversationID]
+        )
+        return try rows.map {
+            try Self.decode(MessagingMemberSnapshot.self, from: $0["payload"])
+        }
+    }
+
+    private static func cachedReplies(
+        messageID: MessagingMessageID,
+        before cursor: MessagingCursor?,
+        pageSize: Int,
+        in db: Database
+    ) throws -> MessagingPage<MessagingMessageSnapshot> {
+        let rows: [Row]
+        if let cursor {
+            rows = try Row.fetchAll(
+                db,
+                sql: """
+                    SELECT payload FROM messaging_message_cache
+                    WHERE reply_to_id = ?
+                      AND (sort_date < ? OR (sort_date = ? AND sort_id < ?))
+                    ORDER BY sort_date DESC, sort_id DESC
+                    LIMIT ?
+                    """,
+                arguments: [
+                    messageID,
+                    cursor.sortDate.timeIntervalSince1970,
+                    cursor.sortDate.timeIntervalSince1970,
+                    cursor.stableID,
+                    pageSize + 1
+                ]
+            )
+        } else {
+            rows = try Row.fetchAll(
+                db,
+                sql: """
+                    SELECT payload FROM messaging_message_cache
+                    WHERE reply_to_id = ?
+                    ORDER BY sort_date DESC, sort_id DESC
+                    LIMIT ?
+                    """,
+                arguments: [messageID, pageSize + 1]
+            )
+        }
+        let values: [MessagingMessageSnapshot] = try rows.map {
+            try Self.decode(MessagingMessageSnapshot.self, from: $0["payload"])
+        }
+        return try MessagingPageBuilder.replies(
+            values,
+            messageID: messageID,
+            pageSize: pageSize
+        )
+    }
+
+    private static func cachedPinnedMessages(
+        conversationID: MessagingConversationID,
+        in db: Database
+    ) throws -> [MessagingMessageSnapshot] {
+        let rows = try Row.fetchAll(
+            db,
+            sql: """
+                SELECT payload FROM messaging_message_cache
+                WHERE conversation_id = ? AND is_pinned = 1
+                ORDER BY sort_date DESC, sort_id DESC
+                """,
+            arguments: [conversationID]
+        )
+        return try rows.map {
+            try Self.decode(MessagingMessageSnapshot.self, from: $0["payload"])
+        }
+    }
+
     private static func validate(pageSize: Int) throws {
-        guard (1...ParseMessagingQueryFactory.maximumPageSize).contains(pageSize) else {
+        // Parse's 100-item ceiling is a network-query constraint. The local
+        // cache also rebuilds presentation state spanning multiple fetched
+        // pages, so it intentionally accepts any positive size.
+        guard pageSize > 0 else {
             throw MessagingPaginationError.invalidPageSize(pageSize)
         }
     }

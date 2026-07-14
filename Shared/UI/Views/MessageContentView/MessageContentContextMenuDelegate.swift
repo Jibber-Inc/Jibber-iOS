@@ -45,7 +45,7 @@ class MessageContentContextMenuDelegate: NSObject, UIContextMenuInteractionDeleg
                 )
                 do {
                     try await controller.synchronize()
-                    try controller.deleteMessage()
+                    try await controller.deleteMessage()
                 } catch {
                     await ToastScheduler.shared.schedule(toastType: .error(error))
                 }

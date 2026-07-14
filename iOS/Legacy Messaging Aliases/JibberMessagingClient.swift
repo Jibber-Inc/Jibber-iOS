@@ -9,14 +9,22 @@ import MessagingContracts
 import MessagingPersistence
 import ParseCore
 
+private final class WeakControllerBox<Value: AnyObject> {
+    weak var value: Value?
+
+    init(_ value: Value) {
+        self.value = value
+    }
+}
+
 @MainActor
 final class JibberMessagingClient {
 
     static let shared = JibberMessagingClient()
 
     private let manager = ParseMessagingManager.shared
-    private var conversationControllers: [String: ParseConversationController] = [:]
-    private var messageControllers: [String: ParseMessageController] = [:]
+    private var conversationControllers: [String: WeakControllerBox<ParseConversationController>] = [:]
+    private var messageControllers: [String: WeakControllerBox<ParseMessageController>] = [:]
 
     private init() {}
 
@@ -35,64 +43,48 @@ final class JibberMessagingClient {
         self.messageControllers.removeAll()
     }
 
-    func conversation(for conversationID: String) -> Conversation? {
-        guard !conversationID.isEmpty,
-              let store = self.manager.store,
-              let snapshot = try? ParseMessagingControllerSupport.cachedConversation(
-                id: conversationID,
-                manager: self.manager
-              ) else {
-            return nil
-        }
-
-        let members = (try? store.cachedMembers(conversationID: conversationID))?
-            .map(ParseConversationMember.init) ?? []
-        let messages = (try? store.cachedMessages(
-            conversationID: conversationID,
-            before: nil,
-            pageSize: 100
-        ).items.map { ParseMessage(snapshot: $0) }) ?? []
-        return ParseConversation(
-            snapshot: snapshot,
-            members: members,
-            messages: messages,
-            pinnedMessages: messages.filter(\.isPinned)
-        )
-    }
-
     func conversationController(for conversationID: String) -> ConversationController? {
         guard !conversationID.isEmpty else { return nil }
-        if let controller = self.conversationControllers[conversationID] {
+        self.pruneReleasedControllers()
+        if let controller = self.conversationControllers[conversationID]?.value {
             return controller
         }
+        self.conversationControllers[conversationID] = nil
         let controller = ParseConversationController(conversationID: conversationID)
-        self.conversationControllers[conversationID] = controller
+        self.conversationControllers[conversationID] = WeakControllerBox(controller)
         return controller
     }
 
     func messageController(for conversationID: String, id messageID: String) -> MessageController? {
         guard !conversationID.isEmpty, !messageID.isEmpty else { return nil }
+        self.pruneReleasedControllers()
         let key = "\(conversationID):\(messageID)"
-        if let controller = self.messageControllers[key] {
+        if let controller = self.messageControllers[key]?.value {
             return controller
         }
+        self.messageControllers[key] = nil
         let controller = ParseMessageController(
             conversationID: conversationID,
             messageID: messageID
         )
-        self.messageControllers[key] = controller
+        self.messageControllers[key] = WeakControllerBox(controller)
         return controller
+    }
+
+    private func pruneReleasedControllers() {
+        self.conversationControllers = self.conversationControllers.filter { $0.value.value != nil }
+        self.messageControllers = self.messageControllers.filter { $0.value.value != nil }
     }
 
     func messageController(for message: Messageable) -> MessageController? {
         self.messageController(for: message.conversationId, id: message.id)
     }
 
-    func message(conversationId: String, id messageID: String) -> Messageable? {
-        guard let store = self.manager.store else { return nil }
-        let snapshot = (try? store.cachedMessage(objectID: messageID))
-            ?? (try? store.cachedMessage(clientMessageID: messageID))
-        guard let snapshot, snapshot.conversationID == conversationId else { return nil }
+    func message(conversationId: String, id messageID: String) async -> Messageable? {
+        guard let snapshot = try? await self.manager.cachedMessage(
+            conversationID: conversationId,
+            id: messageID
+        ) else { return nil }
         return ParseMessage(snapshot: snapshot)
     }
 
@@ -124,9 +116,11 @@ final class JibberMessagingClient {
             clientConversationID: UUID().uuidString.lowercased(),
             contextKey: nil
         )
-        _ = try? await self.manager.members(conversationID: snapshot.id)
+        let members = try? await self.manager.members(conversationID: snapshot.id)
         AnalyticsManager.shared.trackEvent(type: .conversationCreated, properties: nil)
-        return self.conversation(for: snapshot.id)
-            ?? ParseConversation(snapshot: snapshot)
+        return ParseConversation(
+            snapshot: snapshot,
+            members: members?.map(ParseConversationMember.init) ?? []
+        )
     }
 }

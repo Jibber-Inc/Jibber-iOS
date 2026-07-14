@@ -53,9 +53,8 @@ class UnreadMessagesCounter: BaseView {
         
         self.addSubview(self.counter)
         
-        ConversationsManager.shared.$activeController.mainSink { [unowned self] active in
-            guard let active = active else { return }
-            self.configure(witch: active)
+        ConversationsManager.shared.$activeController.mainSink { [weak self] active in
+            self?.configure(with: active)
         }.store(in: &self.cancellables)
     }
     
@@ -82,12 +81,18 @@ class UnreadMessagesCounter: BaseView {
         self.countCircle.center = self.counter.center
     }
     
-    private func configure(witch controller: MessageSequenceController) {
+    private func configure(with controller: MessageSequenceController?) {
+        self.subscriptions.forEach { $0.cancel() }
+        self.subscriptions.removeAll()
         self.controller = controller
-        if let sequence = controller.messageSequence {
-            self.update(count: sequence.totalUnread)
+
+        guard let controller else {
+            self.update(count: 0)
+            return
         }
-        self.subscribeToUpdates()
+
+        self.update(count: controller.messageSequence?.totalUnread ?? 0)
+        self.subscribeToUpdates(for: controller)
     }
 
     /// The last input state the counter has received.
@@ -104,29 +109,29 @@ class UnreadMessagesCounter: BaseView {
         }
     }
     
-    private func subscribeToUpdates() {
-        self.subscriptions.forEach { cancellable in
-            cancellable.cancel()
-        }
-        
-        self.controller?
+    private func subscribeToUpdates(for controller: MessageSequenceController) {
+        controller
             .messageSequenceChangePublisher
-            .mainSink { [unowned self] event in
+            .mainSink { [weak self] event in
+                guard let self else { return }
                 switch event {
-                case .update(let sequence), .create(let sequence), .remove(let sequence):
+                case .update(let sequence), .create(let sequence):
                     self.update(count: sequence.totalUnread)
+                case .remove:
+                    self.update(count: 0)
                 }
             }.store(in: &self.subscriptions)
-        
-        self.controller?
+
+        controller
             .messagesChangesPublisher
-            .mainSink(receiveValue: { [unowned self] _ in
+            .mainSink(receiveValue: { [weak self] _ in
+                guard let self else { return }
                 guard let sequence = self.controller?.messageSequence else {
                     return
                 }
 
                 self.update(count: sequence.totalUnread)
-            }).store(in: &self.cancellables)
+            }).store(in: &self.subscriptions)
     }
     
     private func update(count: Int) {

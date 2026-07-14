@@ -97,9 +97,9 @@ class MessageDetailCoordinator: PresentableCoordinator<MessageDetailResult> {
         
         Task {
             if shouldPin {
-                try? controller.pinMessage()
+                try? await controller.pinMessage()
             } else {
-                try? controller.unpinMessage()
+                try? await controller.unpinMessage()
             }
         }
     }
@@ -107,7 +107,7 @@ class MessageDetailCoordinator: PresentableCoordinator<MessageDetailResult> {
     private func handleDelete() {
         Task {
             let controller = MessageController.controller(for: self.message)
-            try? controller?.deleteMessage()
+            try? await controller?.deleteMessage()
             
             await ToastScheduler.shared.schedule(toastType: .success(ImageSymbol.trash, "Message Deleted"))
             

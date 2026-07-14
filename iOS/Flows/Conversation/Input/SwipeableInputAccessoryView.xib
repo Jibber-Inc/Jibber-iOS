@@ -35,7 +35,7 @@
                                         <constraint firstAttribute="height" relation="lessThanOrEqual" constant="102" id="uIT-mU-AJz"/>
                                     </constraints>
                                     <color key="textColor" name="RED"/>
-                                    <fontDescription key="fontDescription" name="SFProText-Bold" family="SF Pro Text" pointSize="14"/>
+                                    <fontDescription key="fontDescription" type="system" weight="bold" pointSize="14"/>
                                     <textInputTraits key="textInputTraits" autocapitalizationType="sentences"/>
                                 </textView>
                                 <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="b2H-ok-H5y">

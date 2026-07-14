@@ -71,6 +71,70 @@ final class ParseMessagingModelsTests: XCTestCase {
         XCTAssertFalse(json.contains("authorID"))
     }
 
+    func testAttachmentSnapshotDerivesStableIDWhenServerOmitsAttachmentID() throws {
+        let url = URL(string: "https://parsefiles.back4app.com/app/maya-image.png")!
+        let file = try JSONDecoder().decode(
+            ParseFile.self,
+            from: Data(
+                """
+                {
+                  "__type": "File",
+                  "name": "maya-image.png",
+                  "url": "\(url.absoluteString)"
+                }
+                """.utf8
+            )
+        )
+        let attachment = MessagingParseAttachment(
+            kind: .image,
+            file: file,
+            fileName: "maya-image.png",
+            mimeType: "image/png",
+            byteCount: 1234
+        )
+
+        let snapshot = try attachment.snapshot()
+
+        XCTAssertEqual(snapshot.id, url.absoluteString)
+        XCTAssertEqual(snapshot.kind, .image)
+        XCTAssertEqual(snapshot.remoteURL, url)
+        XCTAssertEqual(snapshot.fileName, "maya-image.png")
+        XCTAssertEqual(snapshot.mimeType, "image/png")
+        XCTAssertEqual(snapshot.byteCount, 1234)
+    }
+
+    func testRelatedSnapshotsCarryParseUpdateTimestamps() throws {
+        let updatedAt = Date(timeIntervalSince1970: 300)
+        var reaction = MessagingParseReaction()
+        reaction.objectId = "reaction-1"
+        reaction.createdAt = Date(timeIntervalSince1970: 100)
+        reaction.updatedAt = updatedAt
+        reaction.message = Pointer<MessagingParseMessage>(objectId: "message-1")
+        reaction.user = Pointer<MessagingParseUser>(objectId: "user-1")
+        reaction.type = "heart"
+
+        var receipt = MessagingParseReceipt()
+        receipt.objectId = "receipt-1"
+        receipt.createdAt = Date(timeIntervalSince1970: 100)
+        receipt.updatedAt = updatedAt
+        receipt.message = Pointer<MessagingParseMessage>(objectId: "message-1")
+        receipt.user = Pointer<MessagingParseUser>(objectId: "user-1")
+        receipt.state = .read
+        receipt.readAt = Date(timeIntervalSince1970: 250)
+
+        var member = MessagingParseConversationMember()
+        member.objectId = "member-1"
+        member.updatedAt = updatedAt
+        member.conversation = Pointer<MessagingParseConversation>(objectId: "conversation-1")
+        member.user = Pointer<MessagingParseUser>(objectId: "user-1")
+        member.role = .member
+        member.joinedAt = Date(timeIntervalSince1970: 100)
+
+        XCTAssertEqual(try reaction.snapshot().serverUpdatedAt, updatedAt)
+        XCTAssertEqual(try receipt.snapshot().serverUpdatedAt, updatedAt)
+        XCTAssertEqual(try member.snapshot().serverUpdatedAt, updatedAt)
+    }
+
     func testCacheFallbackAndReactionAbsenceUseNarrowParseErrorClasses() throws {
         let objectNotFound = try parseError(code: 101)
         let permissionDenied = try parseError(code: 119)

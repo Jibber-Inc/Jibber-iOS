@@ -12,22 +12,148 @@ public enum MessagingReconciliationDecision: Hashable {
 }
 
 public enum MessagingMessageReconciler {
-    /// Server timestamps order confirmed updates. A server-confirmed copy always
-    /// replaces an optimistic copy with the same client-generated ID.
+    /// Reconciles the independently versioned message core and related state.
+    /// A server-confirmed copy always confirms an optimistic copy with the same
+    /// client-generated ID, while an older page can contribute only related
+    /// records that are themselves newer than the cached records.
     public static func reconcile(
         local: MessagingMessageSnapshot?,
         remote: MessagingMessageSnapshot
     ) -> MessagingReconciliationDecision {
         guard let local = local else { return .upsert(remote) }
+
+        var aggregate: MessagingMessageSnapshot
         if local.objectID == nil, remote.objectID != nil {
-            return .upsert(remote)
+            aggregate = remote
+        } else if isRemoteCoreOlder(than: local, remote: remote) {
+            aggregate = local
+        } else {
+            aggregate = remote
         }
-        if let localUpdated = local.serverUpdatedAt,
-           let remoteUpdated = remote.serverUpdatedAt,
-           remoteUpdated < localUpdated {
-            return .ignore
+
+        aggregate.reactions = mergedReactions(
+            preserving: local.reactions,
+            including: remote.reactions
+        )
+        aggregate.receipts = mergedReceipts(
+            preserving: local.receipts,
+            including: remote.receipts
+        )
+
+        // Confirmation is local transport state, not part of server core
+        // freshness. A delayed confirmation may not revert a newer edit, but
+        // it must still finish the optimistic send.
+        if remote.objectID != nil, remote.localState == .confirmed {
+            aggregate.localState = .confirmed
+            aggregate.lastFailureDescription = nil
         }
-        return local == remote ? .ignore : .upsert(remote)
+
+        return local == aggregate ? .ignore : .upsert(aggregate)
+    }
+
+    private static func isRemoteCoreOlder(
+        than local: MessagingMessageSnapshot,
+        remote: MessagingMessageSnapshot
+    ) -> Bool {
+        switch (local.serverUpdatedAt, remote.serverUpdatedAt) {
+        case let (localUpdated?, remoteUpdated?):
+            return remoteUpdated < localUpdated
+        case (_?, nil):
+            return true
+        case (nil, _):
+            return false
+        }
+    }
+
+    static func apply(
+        _ reaction: MessagingReactionSnapshot,
+        to reactions: inout [MessagingReactionSnapshot]
+    ) {
+        guard let index = reactions.firstIndex(where: {
+            if let objectID = reaction.objectID, $0.objectID == objectID { return true }
+            return $0.userID == reaction.userID && $0.type == reaction.type
+        }) else {
+            // Keep deletion tombstones. Without one, a stale hydrated page that
+            // excludes deleted reactions can resurrect an older active value.
+            reactions.append(reaction)
+            return
+        }
+        guard shouldReplace(reactions[index], with: reaction) else { return }
+        reactions[index] = reaction
+    }
+
+    static func apply(
+        _ receipt: MessagingReceiptSnapshot,
+        to receipts: inout [MessagingReceiptSnapshot]
+    ) {
+        guard let index = receipts.firstIndex(where: { $0.userID == receipt.userID }) else {
+            receipts.append(receipt)
+            return
+        }
+        guard shouldReplace(receipts[index], with: receipt) else { return }
+        receipts[index] = receipt
+    }
+
+    static func mergedReactions(
+        preserving local: [MessagingReactionSnapshot],
+        including remote: [MessagingReactionSnapshot]
+    ) -> [MessagingReactionSnapshot] {
+        var result = local
+        for reaction in remote { apply(reaction, to: &result) }
+        return result
+    }
+
+    static func mergedReceipts(
+        preserving local: [MessagingReceiptSnapshot],
+        including remote: [MessagingReceiptSnapshot]
+    ) -> [MessagingReceiptSnapshot] {
+        var result = local
+        for receipt in remote { apply(receipt, to: &result) }
+        return result
+    }
+
+    private static func shouldReplace(
+        _ existing: MessagingReactionSnapshot,
+        with incoming: MessagingReactionSnapshot
+    ) -> Bool {
+        switch (existing.serverUpdatedAt, incoming.serverUpdatedAt) {
+        case let (existingUpdated?, incomingUpdated?):
+            if incomingUpdated != existingUpdated {
+                return incomingUpdated > existingUpdated
+            }
+        case (nil, _?):
+            return true
+        case (_?, nil):
+            return false
+        case (nil, nil):
+            let existingDate = existing.deletedAt ?? existing.createdAt
+            let incomingDate = incoming.deletedAt ?? incoming.createdAt
+            if incomingDate != existingDate { return incomingDate > existingDate }
+        }
+        // A deletion is the safe deterministic result for tied versions.
+        return incoming.isDeleted && !existing.isDeleted
+    }
+
+    private static func shouldReplace(
+        _ existing: MessagingReceiptSnapshot,
+        with incoming: MessagingReceiptSnapshot
+    ) -> Bool {
+        switch (existing.serverUpdatedAt, incoming.serverUpdatedAt) {
+        case let (existingUpdated?, incomingUpdated?):
+            if incomingUpdated != existingUpdated {
+                return incomingUpdated > existingUpdated
+            }
+            return false
+        case (nil, _?):
+            return true
+        case (_?, nil):
+            return false
+        case (nil, nil):
+            if incoming.occurredAt != existing.occurredAt {
+                return incoming.occurredAt > existing.occurredAt
+            }
+            return false
+        }
     }
 }
 
@@ -88,11 +214,11 @@ public final class MessagingRealtimeReconciler {
             ?? store.cachedMessage(clientMessageID: remote.clientMessageID)
         var aggregate = remote
         if let local = local {
-            aggregate.reactions = Self.mergedReactions(
+            aggregate.reactions = MessagingMessageReconciler.mergedReactions(
                 preserving: local.reactions,
                 including: aggregate.reactions
             )
-            aggregate.receipts = Self.mergedReceipts(
+            aggregate.receipts = MessagingMessageReconciler.mergedReceipts(
                 preserving: local.receipts,
                 including: aggregate.receipts
             )
@@ -105,10 +231,9 @@ public final class MessagingRealtimeReconciler {
                 Self.apply(receipt, to: &aggregate)
             }
         }
-        switch MessagingMessageReconciler.reconcile(local: local, remote: aggregate) {
-        case .upsert(let message): try store.upsert(messages: [message])
-        case .ignore: break
-        }
+        // GRDB performs the final read/compare/write atomically. Do not make a
+        // non-atomic ignore decision from the snapshot read above.
+        try store.upsert(messages: [aggregate])
     }
 
     private func apply(_ reaction: MessagingReactionSnapshot) throws {
@@ -157,11 +282,7 @@ public final class MessagingRealtimeReconciler {
         _ reaction: MessagingReactionSnapshot,
         to reactions: inout [MessagingReactionSnapshot]
     ) {
-        reactions.removeAll {
-            if let objectID = reaction.objectID, $0.objectID == objectID { return true }
-            return $0.userID == reaction.userID && $0.type == reaction.type
-        }
-        if !reaction.isDeleted { reactions.append(reaction) }
+        MessagingMessageReconciler.apply(reaction, to: &reactions)
     }
 
     private static func apply(
@@ -175,25 +296,6 @@ public final class MessagingRealtimeReconciler {
         _ receipt: MessagingReceiptSnapshot,
         to receipts: inout [MessagingReceiptSnapshot]
     ) {
-        receipts.removeAll { $0.userID == receipt.userID }
-        receipts.append(receipt)
-    }
-
-    private static func mergedReactions(
-        preserving local: [MessagingReactionSnapshot],
-        including remote: [MessagingReactionSnapshot]
-    ) -> [MessagingReactionSnapshot] {
-        var result = local
-        for reaction in remote { apply(reaction, to: &result) }
-        return result
-    }
-
-    private static func mergedReceipts(
-        preserving local: [MessagingReceiptSnapshot],
-        including remote: [MessagingReceiptSnapshot]
-    ) -> [MessagingReceiptSnapshot] {
-        var result = local
-        for receipt in remote { apply(receipt, to: &result) }
-        return result
+        MessagingMessageReconciler.apply(receipt, to: &receipts)
     }
 }

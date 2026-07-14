@@ -80,12 +80,23 @@ class CommentsCoordinator: InputHandlerCoordinator<Void>, DeepLinkHandler {
     }
     
     override func messageContent(_ content: MessageContentView, didTapMessage message: Messageable) {
-        
-        if let parentId = message.parentMessageId,
-           let parentMessage = JibberMessagingClient.shared.message(conversationId: message.conversationId, id: parentId) {
-            self.presentThread(for: parentMessage, startingReplyId: message.id)
-        } else {
+        guard let parentId = message.parentMessageId else {
             self.presentMessageDetail(for: message)
+            return
+        }
+
+        if let parentMessage = self.commentsVC.conversationController?.getMessage(withId: parentId) {
+            self.presentThread(for: parentMessage, startingReplyId: message.id)
+            return
+        }
+
+        Task { @MainActor [weak self] in
+            guard let self,
+                  let parentMessage = await JibberMessagingClient.shared.message(
+                    conversationId: message.conversationId,
+                    id: parentId
+                  ) else { return }
+            self.presentThread(for: parentMessage, startingReplyId: message.id)
         }
     }
     

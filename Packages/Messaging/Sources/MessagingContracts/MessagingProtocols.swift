@@ -193,6 +193,9 @@ public protocol MessagingRealtimeClient: AnyObject {
 
 public protocol MessagingCache: AnyObject {
     func upsert(conversations: [MessagingConversationSnapshot]) throws
+    func cachedConversation(
+        id: MessagingConversationID
+    ) throws -> MessagingConversationSnapshot?
     func cachedConversations(
         before cursor: MessagingCursor?,
         pageSize: Int

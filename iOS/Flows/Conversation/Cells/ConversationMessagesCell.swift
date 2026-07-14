@@ -55,8 +55,9 @@ class ConversationMessagesCell: UICollectionViewCell, ConversationUIStateSettabl
     private var subscriptions = Set<AnyCancellable>()
     /// A reference to the current task that scrolls to a specific message
     private var scrollToMessageTask: Task<Void, Never>?
-    /// If true we should scroll to the last item in the collection in layout subviews.
-    private var scrollToLastMessageIfNeccessary: Bool = false
+    /// Remains set until a non-empty nested snapshot has actually applied and
+    /// the collection view has usable bounds.
+    private var needsInitialLatestPosition = false
 
     // MARK: - Lifecycle
 
@@ -94,15 +95,24 @@ class ConversationMessagesCell: UICollectionViewCell, ConversationUIStateSettabl
 
         self.collectionView.expandToSuperviewSize()
 
-        if self.scrollToLastMessageIfNeccessary {
-            self.scrollToLastMessageIfNeccessary = false
-            self.scrollToLastMessage()
-        }
+        self.finishPendingInitialScrollIfPossible()
     }
 
     private func scrollToLastMessage() {
+        self.collectionView.layoutIfNeeded()
         let maxOffset = self.collectionLayout.maxZPosition
         self.collectionView.setContentOffset(CGPoint(x: 0, y: maxOffset), animated: false)
+    }
+
+    private func finishPendingInitialScrollIfPossible() {
+        guard self.needsInitialLatestPosition,
+              !self.collectionView.bounds.isEmpty,
+              self.dataSource.snapshot().numberOfItems > 0 else {
+            return
+        }
+
+        self.needsInitialLatestPosition = false
+        self.scrollToLastMessage()
     }
 
     /// Configures the cell to display the given messages. The message sequence should be ordered newest to oldest.
@@ -111,17 +121,12 @@ class ConversationMessagesCell: UICollectionViewCell, ConversationUIStateSettabl
         var updatedController = false
         if conversation.cid != self.conversation?.cid {
             updatedController = true
+            self.needsInitialLatestPosition = true
             let conversationController = JibberMessagingClient.shared.conversationController(
                 for: conversation.id
             ) ?? ParseConversationController.controller(for: conversation)
             self.conversationController = conversationController
             self.subscribeToUpdates()
-
-            if conversationController.messages.isEmpty {
-                Task {
-                    try? await conversationController.synchronize(pageSize: Self.messagesPageSize)
-                }
-            }
         }
 
         // Do nothing if neither the controller nor the prepareToSend state were changed.
@@ -133,13 +138,47 @@ class ConversationMessagesCell: UICollectionViewCell, ConversationUIStateSettabl
         
         guard let conversationController = self.conversationController else { return }
 
-        // Scroll to the last item when a new conversation is loaded.
-        if self.dataSource.snapshot().itemIdentifiers.isEmpty {
-            self.scrollToLastMessageIfNeccessary = true
-            self.setNeedsLayout()
-        }
+        self.applyMessages(from: conversationController)
+    }
 
-        self.dataSource.set(messagesController: conversationController, showLoadMore: self.shouldShowLoadMore)
+    private func applyMessages(
+        from controller: ParseConversationController,
+        itemsToReconfigure: [MessageSequenceItem] = []
+    ) {
+        self.dataSource.set(
+            messagesController: controller,
+            itemsToReconfigure: itemsToReconfigure,
+            showLoadMore: self.shouldShowLoadMore
+        ) { [weak self, weak controller] in
+            guard let self,
+                  let controller,
+                  self.conversationController === controller else {
+                return
+            }
+            self.collectionView.layoutIfNeeded()
+            self.finishPendingInitialScrollIfPossible()
+        }
+    }
+
+    /// Ensures the nested diffable snapshot and layout are ready before a
+    /// caller asks for a message index path or an initial content offset.
+    func prepareForScrolling(scrollToLatest: Bool) async {
+        guard let conversationController = self.conversationController else { return }
+        await self.dataSource.setAndWait(
+            messagesController: conversationController,
+            showLoadMore: self.shouldShowLoadMore
+        )
+        guard self.conversationController === conversationController else { return }
+
+        self.collectionView.layoutIfNeeded()
+        if scrollToLatest {
+            self.needsInitialLatestPosition = false
+            self.scrollToLastMessage()
+        } else {
+            // A targeted open owns the initial offset. Do not briefly execute
+            // the cell's deferred "latest" intent before moving to the target.
+            self.needsInitialLatestPosition = false
+        }
     }
 
     func set(state: ConversationUIState) {
@@ -179,6 +218,8 @@ class ConversationMessagesCell: UICollectionViewCell, ConversationUIStateSettabl
 
         self.subscriptions.removeAll()
         self.scrollToMessageTask?.cancel()
+        self.scrollToMessageTask = nil
+        self.needsInitialLatestPosition = false
 
         // Remove all the items so the next conversation loaded has a blank slate to work with.
         var snapshot = self.dataSource.snapshot()
@@ -223,50 +264,80 @@ class ConversationMessagesCell: UICollectionViewCell, ConversationUIStateSettabl
                     self.dataSource.shouldPrepareToSend = false
                 }
 
-                self.dataSource.set(messagesController: conversationController,
-                                    itemsToReconfigure: itemsToReconfigure,
-                                    showLoadMore: self.shouldShowLoadMore)
+                self.applyMessages(
+                    from: conversationController,
+                    itemsToReconfigure: itemsToReconfigure
+                )
             }.store(in: &self.subscriptions)
     }
 
     func scrollToMessage(with messageId: String, animateScroll: Bool, animateSelection: Bool) async {
-        let task = Task {
-            guard let conversationController = self.conversationController else { return }
+        self.scrollToMessageTask?.cancel()
 
-            // Load the message if necessary
-            if !conversationController.messages.contains(where: {
-                $0.id == messageId || $0.serverID == messageId
-            }) {
-                try? await conversationController.loadPreviousMessages(
-                    including: messageId,
-                    limit: Self.messagesPageSize
+        let task = Task { @MainActor [weak self] in
+            do {
+                guard let self,
+                      let conversationController = self.conversationController else {
+                    return
+                }
+
+                if !conversationController.messages.contains(where: {
+                    $0.id == messageId || $0.serverID == messageId
+                }) {
+                    try await conversationController.loadPreviousMessages(
+                        including: messageId,
+                        limit: Self.messagesPageSize
+                    )
+                }
+
+                try Task.checkCancellation()
+                guard self.conversationController === conversationController else { return }
+
+                // Do not race the Combine-delivered snapshot update. Apply the
+                // controller's latest state and wait for UIKit to finish it.
+                await self.dataSource.setAndWait(
+                    messagesController: conversationController,
+                    showLoadMore: self.shouldShowLoadMore
                 )
-            }
+                try Task.checkCancellation()
+                self.collectionView.layoutIfNeeded()
 
-            guard !Task.isCancelled else { return }
+                guard let stableMessageID = conversationController.messages.first(where: {
+                    $0.id == messageId || $0.serverID == messageId
+                })?.id else { return }
 
-            guard let stableMessageID = conversationController.messages.first(where: {
-                $0.id == messageId || $0.serverID == messageId
-            })?.id else { return }
+                let messageItem: MessageSequenceItem = .message(messageId: stableMessageID)
+                guard let messageIndexPath = self.dataSource.indexPath(for: messageItem) else { return }
 
-            let messageItem: MessageSequenceItem = .message(messageId: stableMessageID)
+                let targetOffset = CGPoint(
+                    x: 0,
+                    y: self.collectionLayout.focusPosition(for: messageIndexPath)
+                )
 
-            guard let messageIndexPath = self.dataSource.indexPath(for: messageItem) else { return }
+                if animateScroll {
+                    await UIView.awaitAnimation(with: .standard) {
+                        self.collectionView.setContentOffset(targetOffset, animated: false)
+                    }
+                } else {
+                    self.collectionView.setContentOffset(targetOffset, animated: false)
+                }
 
-            let yOffset = self.collectionLayout.focusPosition(for: messageIndexPath)
+                try Task.checkCancellation()
+                self.collectionView.layoutIfNeeded()
 
-            self.collectionView.setContentOffset(CGPoint(x: 0, y: yOffset), animated: animateScroll)
-
-            await Task.sleep(seconds: Theme.animationDurationStandard)
-            
-            if animateSelection, let cell = self.collectionView.cellForItem(at: messageIndexPath) {
-                await UIView.awaitAnimation(with: .fast, animations: {
-                    cell.transform = CGAffineTransform.init(scaleX: 1.05, y: 1.05)
-                })
-                
-                await UIView.awaitAnimation(with: .fast, animations: {
-                    cell.transform = .identity
-                })
+                if animateSelection,
+                   let cell = self.collectionView.cellForItem(at: messageIndexPath) {
+                    await UIView.awaitAnimation(with: .fast) {
+                        cell.contentView.transform = CGAffineTransform(scaleX: 1.05, y: 1.05)
+                    }
+                    await UIView.awaitAnimation(with: .fast) {
+                        cell.contentView.transform = .identity
+                    }
+                }
+            } catch is CancellationError {
+                return
+            } catch {
+                logError(error)
             }
         }
         self.scrollToMessageTask = task
@@ -297,8 +368,12 @@ class ConversationMessagesCell: UICollectionViewCell, ConversationUIStateSettabl
 
         switch item {
         case .message(messageId: let messageID, _):
-            guard let cid = self.conversation?.cid,
-                  let message = JibberMessagingClient.shared.message(conversationId: cid.description, id: messageID) else { break }
+            // The selected identifier came from this controller's applied
+            // snapshot, so reuse its retained model instead of decoding the
+            // same GRDB row synchronously on the main actor.
+            guard let message = self.conversationController?.getMessage(withId: messageID) else {
+                break
+            }
             
             self.messageContentDelegate?.messageContent(cell.content, didTapMessage: message)
         case .loadMore, .placeholder, .initial:

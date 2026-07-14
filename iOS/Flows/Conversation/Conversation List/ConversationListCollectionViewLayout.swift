@@ -86,7 +86,10 @@ class ConversationListCollectionViewLayout: UICollectionViewFlowLayout {
         let alpha = ratio * (1 - self.sideItemAlpha) + self.sideItemAlpha
 
         attributes.alpha = alpha
-        attributes.canScroll = alpha == 1.0
+        // A perfectly centered cell can still land on a fractional point after
+        // animation and inset rounding. Exact floating-point equality here
+        // made the inner vertical chat intermittently non-interactive.
+        attributes.canScroll = distance <= 1
 
         return attributes
     }

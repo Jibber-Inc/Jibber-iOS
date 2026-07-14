@@ -17,6 +17,288 @@ extension Notification.Name {
     static let parseMessagingDidFail = Notification.Name("parseMessagingDidFail")
 }
 
+private enum ParseMessagingNotificationKey {
+    static let conversationIDs = "conversationIDs"
+}
+
+private actor ParseMessagingLifecycleGate {
+    private var isLocked = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func acquire() async {
+        guard self.isLocked else {
+            self.isLocked = true
+            return
+        }
+        await withCheckedContinuation { continuation in
+            self.waiters.append(continuation)
+        }
+    }
+
+    func release() {
+        guard !self.waiters.isEmpty else {
+            self.isLocked = false
+            return
+        }
+        self.waiters.removeFirst().resume()
+    }
+}
+
+extension Notification {
+    /// `nil` means the cache changed globally. A non-nil set lets retained
+    /// controllers ignore work for conversations they do not present.
+    var parseMessagingConversationIDs: Set<MessagingConversationID>? {
+        self.userInfo?[ParseMessagingNotificationKey.conversationIDs]
+            as? Set<MessagingConversationID>
+    }
+
+    func affectsMessagingConversation(_ conversationID: MessagingConversationID) -> Bool {
+        self.parseMessagingConversationIDs?.contains(conversationID) ?? true
+    }
+}
+
+/// LiveQuery callbacks arrive on the presentation facade, but GRDB
+/// reconciliation must never occupy the main actor. The actor also preserves
+/// event ordering while the shared DatabaseQueue serializes its transactions.
+private actor ParseMessagingRealtimeProcessor {
+    private let store: GRDBMessagingStore
+    private let reconciler: MessagingRealtimeReconciler
+    private var isValid = true
+
+    init(store: GRDBMessagingStore) {
+        self.store = store
+        self.reconciler = MessagingRealtimeReconciler(store: store)
+    }
+
+    func apply(
+        _ event: MessagingRealtimeEvent
+    ) throws -> Set<MessagingConversationID> {
+        guard self.isValid else { throw CancellationError() }
+        try self.reconciler.apply(event)
+        switch event {
+        case .conversationUpserted(let conversation):
+            return [conversation.id]
+        case .memberUpserted(let member):
+            return [member.conversationID]
+        case .messageUpserted(let message), .messageDeleted(let message):
+            return [message.conversationID]
+        case .reactionUpserted(let reaction):
+            return try self.store.cachedMessage(objectID: reaction.messageID)
+                .map { [$0.conversationID] } ?? []
+        case .receiptUpserted(let receipt):
+            return try self.store.cachedMessage(objectID: receipt.messageID)
+                .map { [$0.conversationID] } ?? []
+        case .conversationSetInvalidated(let conversationID):
+            return [conversationID]
+        case .connected, .disconnected:
+            return []
+        }
+    }
+
+    func removeConversation(id: MessagingConversationID) throws {
+        guard self.isValid else { throw CancellationError() }
+        try self.store.removeConversation(id: id)
+    }
+
+    func invalidate() {
+        self.isValid = false
+    }
+}
+
+/// Keeps synchronous GRDB APIs off the main actor while preserving the
+/// ordering of cache mutations issued by the presentation facade.
+private actor ParseMessagingStorage {
+    private let store: GRDBMessagingStore
+    private var isValid = true
+
+    init(store: GRDBMessagingStore) {
+        self.store = store
+    }
+
+    func upsert(conversations: [MessagingConversationSnapshot]) throws {
+        try self.requireValid()
+        try self.store.upsert(conversations: conversations)
+    }
+
+    func upsert(messages: [MessagingMessageSnapshot]) throws {
+        try self.requireValid()
+        try self.store.upsert(messages: messages)
+    }
+
+    func upsert(members: [MessagingMemberSnapshot]) throws {
+        try self.requireValid()
+        try self.store.upsert(members: members)
+    }
+
+    func cachedConversations(
+        before cursor: MessagingCursor?,
+        pageSize: Int
+    ) throws -> MessagingPage<MessagingConversationSnapshot> {
+        try self.requireValid()
+        return try self.store.cachedConversations(before: cursor, pageSize: pageSize)
+    }
+
+    func cachedConversations(
+        ids: [MessagingConversationID]
+    ) throws -> [MessagingConversationSnapshot] {
+        try self.requireValid()
+        return try ids.compactMap { try self.store.cachedConversation(id: $0) }
+    }
+
+    func cachedMessages(
+        conversationID: MessagingConversationID,
+        before cursor: MessagingCursor?,
+        pageSize: Int
+    ) throws -> MessagingPage<MessagingMessageSnapshot> {
+        try self.requireValid()
+        return try self.store.cachedMessages(
+            conversationID: conversationID,
+            before: cursor,
+            pageSize: pageSize
+        )
+    }
+
+    func cachedMessages(
+        ids: [MessagingMessageID]
+    ) throws -> [MessagingMessageSnapshot] {
+        try self.requireValid()
+        return try self.store.cachedMessages(ids: ids)
+    }
+
+    func cachedReplies(
+        messageID: MessagingMessageID,
+        before cursor: MessagingCursor?,
+        pageSize: Int
+    ) throws -> MessagingPage<MessagingMessageSnapshot> {
+        try self.requireValid()
+        return try self.store.cachedReplies(
+            messageID: messageID,
+            before: cursor,
+            pageSize: pageSize
+        )
+    }
+
+    func cachedPinnedMessages(
+        conversationID: MessagingConversationID
+    ) throws -> [MessagingMessageSnapshot] {
+        try self.requireValid()
+        return try self.store.cachedPinnedMessages(conversationID: conversationID)
+    }
+
+    func cachedMembers(
+        conversationID: MessagingConversationID
+    ) throws -> [MessagingMemberSnapshot] {
+        try self.requireValid()
+        return try self.store.cachedMembers(conversationID: conversationID)
+    }
+
+    func cachedMembers(
+        conversationIDs: [MessagingConversationID]
+    ) throws -> [MessagingMemberSnapshot] {
+        try self.requireValid()
+        return try conversationIDs.flatMap {
+            try self.store.cachedMembers(conversationID: $0)
+        }
+    }
+
+    func cachedConversationIDs() throws -> Set<MessagingConversationID> {
+        try self.requireValid()
+        var ids: Set<MessagingConversationID> = []
+        var cursor: MessagingCursor?
+        repeat {
+            let page = try self.store.cachedConversations(before: cursor, pageSize: 100)
+            ids.formUnion(page.items.map(\.id))
+            cursor = page.hasMore ? page.nextCursor : nil
+        } while cursor != nil
+        return ids
+    }
+
+    func cachedConversationState(
+        conversationID: MessagingConversationID,
+        pageSize: Int
+    ) async throws -> MessagingConversationCacheState {
+        try self.requireValid()
+        let state = try await self.store.cachedConversationState(
+            conversationID: conversationID,
+            pageSize: pageSize
+        )
+        try self.requireValid()
+        return state
+    }
+
+    func cachedMessage(id: MessagingMessageID) throws -> MessagingMessageSnapshot? {
+        try self.requireValid()
+        return try self.store.cachedMessage(objectID: id)
+            ?? self.store.cachedMessage(clientMessageID: id)
+    }
+
+    func stageSend(
+        draft: MessagingMessageDraft,
+        authorID: MessagingUserID
+    ) throws -> (message: MessagingMessageSnapshot, entry: MessagingOutboxEntry) {
+        try self.requireValid()
+        return try self.store.stageSend(draft: draft, authorID: authorID)
+    }
+
+    func enqueue(_ entry: MessagingOutboxEntry) throws -> MessagingOutboxEntry {
+        try self.requireValid()
+        return try self.store.enqueue(entry)
+    }
+
+    func retryBlockedOutboxEntry(
+        idempotencyKey: String,
+        at date: Date
+    ) throws -> MessagingOutboxEntry {
+        try self.requireValid()
+        return try self.store.retryBlockedOutboxEntry(
+            idempotencyKey: idempotencyKey,
+            at: date
+        )
+    }
+
+    func cancelBlockedOutboxEntry(idempotencyKey: String) throws {
+        try self.requireValid()
+        try self.store.cancelBlockedOutboxEntry(idempotencyKey: idempotencyKey)
+    }
+
+    func removeConversation(id: MessagingConversationID) throws {
+        try self.requireValid()
+        try self.store.removeConversation(id: id)
+    }
+
+    func removeConversations(ids: Set<MessagingConversationID>) throws {
+        try self.requireValid()
+        for id in ids {
+            try self.store.removeConversation(id: id)
+        }
+    }
+
+    func removeConversation(containingMessageID messageID: MessagingMessageID) throws {
+        try self.requireValid()
+        if let root = try self.store.cachedMessage(objectID: messageID) {
+            try self.store.removeConversation(id: root.conversationID)
+        } else {
+            try self.store.removeAllMessagingData()
+        }
+    }
+
+    func removeAllMessagingData() throws {
+        try self.requireValid()
+        try self.store.removeAllMessagingData()
+    }
+
+    func invalidate(clearCachedData: Bool) throws {
+        self.isValid = false
+        if clearCachedData {
+            try self.store.removeAllMessagingData()
+        }
+    }
+
+    private func requireValid() throws {
+        guard self.isValid else { throw CancellationError() }
+    }
+}
+
 /// Owns the ParseSwift messaging session, user-scoped cache, realtime
 /// subscriptions, and durable outbox. Presentation code should depend on this
 /// facade instead of either Parse SDK directly.
@@ -30,17 +312,29 @@ final class ParseMessagingManager {
     private(set) var repository: ParseMessagingRepository?
 
     var isInitialized: Bool {
-        self.authenticatedUserID != nil && self.store != nil && self.repository != nil
+        self.authenticatedUserID != nil
+            && self.store != nil
+            && self.repository != nil
+            && self.storage != nil
+            && self.sessionIdentity != nil
+            && self.sessionIdentity == self.lifecycleIdentity
     }
 
     private static var didInitializeParseSwift = false
 
+    private let lifecycleGate = ParseMessagingLifecycleGate()
+    private var lifecycleIdentity = UUID()
     private var realtimeClient: ParseMessagingLiveQueryClient?
     private var realtimeSubscription: MessagingRealtimeSubscription?
-    private var realtimeReconciler: MessagingRealtimeReconciler?
+    private var realtimeProcessor: ParseMessagingRealtimeProcessor?
+    private var storage: ParseMessagingStorage?
+    private var sessionIdentity: UUID?
     private var outboxWorker: MessagingOutboxWorker?
     private var outboxPumpTask: Task<Void, Never>?
+    private var outboxDrainTask: Task<Void, Never>?
+    private var outboxDrainToken: UUID?
     private var refreshTask: Task<Void, Never>?
+    private var refreshTaskToken: UUID?
     private var isDrainingOutbox = false
     private var subscribedConversationIDs: Set<MessagingConversationID> = []
     private var realtimeCatchUpTracker = MessagingRealtimeCatchUpTracker()
@@ -65,6 +359,17 @@ final class ParseMessagingManager {
     }
 
     func initialize(for user: User) async throws {
+        await self.lifecycleGate.acquire()
+        do {
+            try await self.initializeHoldingLifecycleGate(for: user)
+            await self.lifecycleGate.release()
+        } catch {
+            await self.lifecycleGate.release()
+            throw error
+        }
+    }
+
+    private func initializeHoldingLifecycleGate(for user: User) async throws {
         guard let userID = user.objectId, !userID.isEmpty else {
             throw ParseMessagingManagerError.missingUserID
         }
@@ -75,9 +380,15 @@ final class ParseMessagingManager {
         if self.authenticatedUserID == userID, self.isInitialized {
             return
         }
-        if self.isInitialized {
-            await self.disconnect(clearCachedData: true)
+        if self.authenticatedUserID != nil
+            || self.store != nil
+            || self.repository != nil
+            || self.storage != nil {
+            await self.disconnectHoldingLifecycleGate(clearCachedData: true)
         }
+
+        let initializationIdentity = UUID()
+        self.lifecycleIdentity = initializationIdentity
 
         try Self.initializeParseSwiftIfNeeded()
         let sessionProvider = LegacyParseMessagingSessionProvider(
@@ -87,17 +398,21 @@ final class ParseMessagingManager {
         let authentication = MessagingAuthenticationCoordinator(
             sessionProvider: sessionProvider
         )
-        guard try await authentication.synchronizeSession() == userID else {
+        let synchronizedUserID = try await authentication.synchronizeSession()
+        try self.validateLifecycle(identity: initializationIdentity)
+        guard synchronizedUserID == userID else {
             throw ParseMessagingManagerError.identityVerificationFailed
         }
 
         let databaseURL = try Self.databaseURL(for: userID)
-        let store = try GRDBMessagingStore(databaseURL: databaseURL)
+        let store = try await Self.makeStore(databaseURL: databaseURL)
+        try self.validateLifecycle(identity: initializationIdentity)
         let repository = ParseMessagingRepository(
             authenticatedUserID: userID,
             uploadCache: store
         )
         let capabilities = try await Self.resolveCapabilities(repository: repository)
+        try self.validateLifecycle(identity: initializationIdentity)
         try Self.validate(capabilities: capabilities)
         let realtimeClient = try ParseMessagingLiveQueryClient(
             authenticatedUserID: userID
@@ -107,7 +422,9 @@ final class ParseMessagingManager {
         self.store = store
         self.repository = repository
         self.realtimeClient = realtimeClient
-        self.realtimeReconciler = MessagingRealtimeReconciler(store: store)
+        self.realtimeProcessor = ParseMessagingRealtimeProcessor(store: store)
+        self.storage = ParseMessagingStorage(store: store)
+        self.sessionIdentity = initializationIdentity
         self.outboxWorker = MessagingOutboxWorker(
             store: store,
             remote: repository,
@@ -118,45 +435,82 @@ final class ParseMessagingManager {
             try await self.refreshConversations()
             self.startOutboxPump()
         } catch {
+            guard self.lifecycleIdentity == initializationIdentity,
+                  self.sessionIdentity == initializationIdentity else {
+                throw CancellationError()
+            }
             let classifier = ParseMessagingErrorClassifier()
             if classifier.isRetryableMessagingError(error) {
-                let cachedIDs = try Self.cachedConversationIDs(in: store)
+                let components = try self.requireComponents()
+                let cachedIDs = try await components.storage.cachedConversationIDs()
+                try self.validateCurrentSession(components)
                 try self.replaceRealtimeSubscription(conversationIDs: cachedIDs)
                 self.startOutboxPump()
                 self.postChange()
             } else {
-                await self.disconnect(clearCachedData: false)
+                await self.disconnectHoldingLifecycleGate(clearCachedData: false)
                 throw error
             }
         }
     }
 
     func disconnect(clearCachedData: Bool = true) async {
-        self.refreshTask?.cancel()
-        self.refreshTask = nil
-        self.outboxPumpTask?.cancel()
-        self.outboxPumpTask = nil
+        await self.lifecycleGate.acquire()
+        await self.disconnectHoldingLifecycleGate(clearCachedData: clearCachedData)
+        await self.lifecycleGate.release()
+    }
+
+    private func disconnectHoldingLifecycleGate(clearCachedData: Bool) async {
+        self.lifecycleIdentity = UUID()
+        let storage = self.storage
+        let realtimeProcessor = self.realtimeProcessor
+        let outboxWorker = self.outboxWorker
+        let refreshTask = self.refreshTask
+        let outboxPumpTask = self.outboxPumpTask
+        let outboxDrainTask = self.outboxDrainTask
+        let typingMutationTasks = Array(self.typingMutationTasks.values)
+        self.sessionIdentity = nil
+        outboxWorker?.invalidate()
+        refreshTask?.cancel()
+        outboxPumpTask?.cancel()
+        outboxDrainTask?.cancel()
+        typingMutationTasks.forEach { $0.cancel() }
         self.realtimeSubscription?.cancel()
+
+        self.refreshTask = nil
+        self.refreshTaskToken = nil
+        self.outboxPumpTask = nil
+        self.outboxDrainTask = nil
+        self.outboxDrainToken = nil
         self.realtimeSubscription = nil
         self.subscribedConversationIDs.removeAll()
-        self.typingMutationTasks.values.forEach { $0.cancel() }
         self.typingMutationTasks.removeAll()
         self.typingMutationTokens.removeAll()
         self.pendingTypingMutations.removeAll()
         self.realtimeCatchUpTracker = MessagingRealtimeCatchUpTracker()
-
-        if clearCachedData {
-            try? self.store?.removeAllMessagingData()
-        }
-
         self.outboxWorker = nil
-        self.realtimeReconciler = nil
+        self.realtimeProcessor = nil
+        self.storage = nil
         self.realtimeClient = nil
         self.repository = nil
         self.store = nil
         self.authenticatedUserID = nil
         self.isDrainingOutbox = false
-        try? await MessagingParseUser.logout()
+
+        // ParseSwift bridges callback URLSession requests with continuations,
+        // so canceling their Swift Tasks does not make those continuations
+        // resume. Do not hold the lifecycle gate waiting for network timeouts.
+        // Session identity checks stop manager tasks before future writes, and
+        // worker invalidation provides the same fence inside an in-flight
+        // outbox drain. Actor invalidation below is bounded to synchronous GRDB
+        // work and is ordered before an optional purge.
+        await realtimeProcessor?.invalidate()
+        try? await storage?.invalidate(clearCachedData: clearCachedData)
+
+        // The Objective-C Parse logout remains the owner of server-session
+        // invalidation. An asynchronous ParseSwift logout can finish after a
+        // subsequent `become` and erase the new user's keychain session; the
+        // next manager initialization safely replaces this detached session.
     }
 
     // MARK: - Cached reads with remote refresh
@@ -171,16 +525,31 @@ final class ParseMessagingManager {
                 before: cursor,
                 pageSize: pageSize
             )
-            try components.store.upsert(conversations: page.items)
-            return page
+            try self.validateCurrentSession(components)
+            try await components.storage.upsert(conversations: page.items)
+            try self.validateCurrentSession(components)
+            let reconciled = try await components.storage.cachedConversations(
+                ids: page.items.map(\.id)
+            )
+            try self.validateCurrentSession(components)
+            return MessagingPage(
+                items: Self.reconciledConversationPageItems(
+                    remote: page.items,
+                    cached: reconciled
+                ),
+                nextCursor: page.nextCursor,
+                hasMore: page.hasMore
+            )
         } catch {
-            try self.requireRetryableCacheFallback(after: error) {
-                try components.store.removeAllMessagingData()
+            try await self.requireRetryableCacheFallback(after: error, components: components) {
+                try await components.storage.removeAllMessagingData()
             }
-            let cached = try components.store.cachedConversations(
+            try self.validateCurrentSession(components)
+            let cached = try await components.storage.cachedConversations(
                 before: cursor,
                 pageSize: pageSize
             )
+            try self.validateCurrentSession(components)
             guard !cached.items.isEmpty else { throw error }
             return cached
         }
@@ -198,17 +567,32 @@ final class ParseMessagingManager {
                 before: cursor,
                 pageSize: pageSize
             )
-            try components.store.upsert(messages: page.items)
-            return page
+            try self.validateCurrentSession(components)
+            try await components.storage.upsert(messages: page.items)
+            try self.validateCurrentSession(components)
+            let reconciled = try await components.storage.cachedMessages(
+                ids: page.items.map { $0.objectID ?? $0.stableID }
+            )
+            try self.validateCurrentSession(components)
+            return MessagingPage(
+                items: Self.reconciledPageItems(
+                    remote: page.items,
+                    cached: reconciled
+                ),
+                nextCursor: page.nextCursor,
+                hasMore: page.hasMore
+            )
         } catch {
-            try self.requireRetryableCacheFallback(after: error) {
-                try components.store.removeConversation(id: conversationID)
+            try await self.requireRetryableCacheFallback(after: error, components: components) {
+                try await components.storage.removeConversation(id: conversationID)
             }
-            let cached = try components.store.cachedMessages(
+            try self.validateCurrentSession(components)
+            let cached = try await components.storage.cachedMessages(
                 conversationID: conversationID,
                 before: cursor,
                 pageSize: pageSize
             )
+            try self.validateCurrentSession(components)
             guard !cached.items.isEmpty else { throw error }
             return cached
         }
@@ -226,21 +610,32 @@ final class ParseMessagingManager {
                 before: cursor,
                 pageSize: pageSize
             )
-            try components.store.upsert(messages: page.items)
-            return page
+            try self.validateCurrentSession(components)
+            try await components.storage.upsert(messages: page.items)
+            try self.validateCurrentSession(components)
+            let reconciled = try await components.storage.cachedMessages(
+                ids: page.items.map { $0.objectID ?? $0.stableID }
+            )
+            try self.validateCurrentSession(components)
+            return MessagingPage(
+                items: Self.reconciledPageItems(
+                    remote: page.items,
+                    cached: reconciled
+                ),
+                nextCursor: page.nextCursor,
+                hasMore: page.hasMore
+            )
         } catch {
-            try self.requireRetryableCacheFallback(after: error) {
-                if let root = try components.store.cachedMessage(objectID: messageID) {
-                    try components.store.removeConversation(id: root.conversationID)
-                } else {
-                    try components.store.removeAllMessagingData()
-                }
+            try await self.requireRetryableCacheFallback(after: error, components: components) {
+                try await components.storage.removeConversation(containingMessageID: messageID)
             }
-            let cached = try components.store.cachedReplies(
+            try self.validateCurrentSession(components)
+            let cached = try await components.storage.cachedReplies(
                 messageID: messageID,
                 before: cursor,
                 pageSize: pageSize
             )
+            try self.validateCurrentSession(components)
             guard !cached.items.isEmpty else { throw error }
             return cached
         }
@@ -254,15 +649,23 @@ final class ParseMessagingManager {
             let messages = try await components.repository.pinnedMessages(
                 conversationID: conversationID
             )
-            try components.store.upsert(messages: messages)
-            return messages
-        } catch {
-            try self.requireRetryableCacheFallback(after: error) {
-                try components.store.removeConversation(id: conversationID)
-            }
-            let cached = try components.store.cachedPinnedMessages(
+            try self.validateCurrentSession(components)
+            try await components.storage.upsert(messages: messages)
+            try self.validateCurrentSession(components)
+            let reconciled = try await components.storage.cachedPinnedMessages(
                 conversationID: conversationID
             )
+            try self.validateCurrentSession(components)
+            return reconciled
+        } catch {
+            try await self.requireRetryableCacheFallback(after: error, components: components) {
+                try await components.storage.removeConversation(id: conversationID)
+            }
+            try self.validateCurrentSession(components)
+            let cached = try await components.storage.cachedPinnedMessages(
+                conversationID: conversationID
+            )
+            try self.validateCurrentSession(components)
             guard !cached.isEmpty else { throw error }
             return cached
         }
@@ -276,15 +679,27 @@ final class ParseMessagingManager {
             let members = try await components.repository.members(
                 conversationID: conversationID
             )
-            try components.store.upsert(members: members)
-            return members
-        } catch {
-            try self.requireRetryableCacheFallback(after: error) {
-                try components.store.removeConversation(id: conversationID)
-            }
-            let cached = try components.store.cachedMembers(
+            try self.validateCurrentSession(components)
+            try await components.storage.upsert(members: members)
+            try self.validateCurrentSession(components)
+            let reconciled = try await components.storage.cachedMembers(
                 conversationID: conversationID
             )
+            try self.validateCurrentSession(components)
+            let changedConversationIDs = Set(members.map(\.conversationID))
+            if !changedConversationIDs.isEmpty {
+                self.postChange(conversationIDs: changedConversationIDs)
+            }
+            return reconciled
+        } catch {
+            try await self.requireRetryableCacheFallback(after: error, components: components) {
+                try await components.storage.removeConversation(id: conversationID)
+            }
+            try self.validateCurrentSession(components)
+            let cached = try await components.storage.cachedMembers(
+                conversationID: conversationID
+            )
+            try self.validateCurrentSession(components)
             guard !cached.isEmpty else { throw error }
             return cached
         }
@@ -299,20 +714,96 @@ final class ParseMessagingManager {
             let members = try await components.repository.members(
                 conversationIDs: conversationIDs
             )
-            try components.store.upsert(members: members)
-            return members
+            try self.validateCurrentSession(components)
+            try await components.storage.upsert(members: members)
+            try self.validateCurrentSession(components)
+            let reconciled = try await components.storage.cachedMembers(
+                conversationIDs: conversationIDs
+            )
+            try self.validateCurrentSession(components)
+            // A conversation-list refresh can hydrate membership while a
+            // retained conversation controller is already on screen. Publish
+            // the scoped cache change so that controller reloads authoritative
+            // unread/read-boundary state instead of waiting for LiveQuery.
+            let changedConversationIDs = Set(members.map(\.conversationID))
+            if !changedConversationIDs.isEmpty {
+                self.postChange(conversationIDs: changedConversationIDs)
+            }
+            return reconciled
         } catch {
-            try self.requireRetryableCacheFallback(after: error) {
-                for conversationID in conversationIDs {
-                    try components.store.removeConversation(id: conversationID)
-                }
+            try await self.requireRetryableCacheFallback(after: error, components: components) {
+                try await components.storage.removeConversations(ids: Set(conversationIDs))
             }
-            let cached = try conversationIDs.flatMap {
-                try components.store.cachedMembers(conversationID: $0)
-            }
+            try self.validateCurrentSession(components)
+            let cached = try await components.storage.cachedMembers(
+                conversationIDs: conversationIDs
+            )
+            try self.validateCurrentSession(components)
             guard !cached.isEmpty else { throw error }
             return cached
         }
+    }
+
+    /// Returns one transactionally consistent cache snapshot for legacy
+    /// presentation code without doing GRDB reads or decoding on MainActor.
+    func cachedConversationState(
+        conversationID: MessagingConversationID,
+        pageSize: Int = 100
+    ) async throws -> MessagingConversationCacheState {
+        let components = try self.requireComponents()
+        let state = try await components.storage.cachedConversationState(
+            conversationID: conversationID,
+            pageSize: pageSize
+        )
+        try self.validateCurrentSession(components)
+        return state
+    }
+
+    /// Resolves either a server object ID or an optimistic client ID while
+    /// enforcing both conversation and current-session identity.
+    func cachedMessage(
+        conversationID: MessagingConversationID,
+        id: MessagingMessageID
+    ) async throws -> MessagingMessageSnapshot? {
+        let components = try self.requireComponents()
+        let message = try await components.storage.cachedMessage(id: id)
+        try self.validateCurrentSession(components)
+        guard message?.conversationID == conversationID else { return nil }
+        return message
+    }
+
+    /// Preserve the exact remote page cardinality/cursor contract while using
+    /// freshness-reconciled cache values wherever retained. An incoming page
+    /// older than the local 2,000-message retention window is pruned during
+    /// upsert; those deliberate cache misses must still be returned or the
+    /// remote cursor would skip history forever.
+    private static func reconciledPageItems(
+        remote: [MessagingMessageSnapshot],
+        cached: [MessagingMessageSnapshot]
+    ) -> [MessagingMessageSnapshot] {
+        var cachedByID: [MessagingMessageID: MessagingMessageSnapshot] = [:]
+        cachedByID.reserveCapacity(cached.count * 2)
+        for message in cached {
+            cachedByID[message.stableID] = message
+            if let objectID = message.objectID {
+                cachedByID[objectID] = message
+            }
+        }
+        return remote.map { message in
+            if let objectID = message.objectID,
+               let reconciled = cachedByID[objectID] {
+                return reconciled
+            }
+            return cachedByID[message.stableID] ?? message
+        }
+    }
+
+    private static func reconciledConversationPageItems(
+        remote: [MessagingConversationSnapshot],
+        cached: [MessagingConversationSnapshot]
+    ) -> [MessagingConversationSnapshot] {
+        let cachedByID = Dictionary(uniqueKeysWithValues: cached.map { ($0.id, $0) })
+        return remote.map { cachedByID[$0.id] ?? $0 }
     }
 
     // MARK: - Writes
@@ -333,22 +824,50 @@ final class ParseMessagingManager {
             clientConversationID: clientConversationID,
             contextKey: contextKey
         )
-        try components.store.upsert(conversations: [conversation])
+        try self.validateCurrentSession(components)
+        try await components.storage.upsert(conversations: [conversation])
+        try self.validateCurrentSession(components)
         self.scheduleConversationRefresh()
-        self.postChange()
+        self.postChange(conversationIDs: [conversation.id])
         return conversation
+    }
+
+    /// Allows compatibility controllers that fetched through a captured
+    /// repository/store pair to cache the result without blocking the main
+    /// actor or crossing into a replacement user session.
+    func upsertConversation(
+        _ conversation: MessagingConversationSnapshot,
+        expectedStore: GRDBMessagingStore
+    ) async throws {
+        let components = try self.requireComponents()
+        guard components.store === expectedStore else {
+            throw CancellationError()
+        }
+        try await components.storage.upsert(conversations: [conversation])
+        try self.validateCurrentSession(components)
     }
 
     /// Stages the optimistic message and its send operation atomically before
     /// any network work begins.
     @discardableResult
-    func send(_ draft: MessagingMessageDraft) throws -> MessagingMessageSnapshot {
+    func send(
+        _ draft: MessagingMessageDraft,
+        expectedStore: GRDBMessagingStore? = nil,
+        expectedUserID: MessagingUserID? = nil
+    ) async throws -> MessagingMessageSnapshot {
         let components = try self.requireComponents()
-        guard let userID = self.authenticatedUserID else {
-            throw ParseMessagingManagerError.notInitialized
+        if let expectedStore, components.store !== expectedStore {
+            throw CancellationError()
         }
-        let staged = try components.store.stageSend(draft: draft, authorID: userID)
-        self.postChange()
+        if let expectedUserID, components.userID != expectedUserID {
+            throw CancellationError()
+        }
+        let staged = try await components.storage.stageSend(
+            draft: draft,
+            authorID: components.userID
+        )
+        try self.validateCurrentSession(components)
+        self.postChange(conversationIDs: [draft.conversationID])
         self.scheduleImmediateOutboxDrain()
         return staged.message
     }
@@ -356,16 +875,25 @@ final class ParseMessagingManager {
     @discardableResult
     func enqueue(
         _ mutation: MessagingMutation,
-        idempotencyKey: String = UUID().uuidString.lowercased()
-    ) throws -> MessagingOutboxEntry {
+        idempotencyKey: String = UUID().uuidString.lowercased(),
+        expectedStore: GRDBMessagingStore? = nil,
+        expectedUserID: MessagingUserID? = nil
+    ) async throws -> MessagingOutboxEntry {
         let components = try self.requireComponents()
-        let entry = try components.store.enqueue(
+        if let expectedStore, components.store !== expectedStore {
+            throw CancellationError()
+        }
+        if let expectedUserID, components.userID != expectedUserID {
+            throw CancellationError()
+        }
+        let entry = try await components.storage.enqueue(
             MessagingOutboxEntry(
                 idempotencyKey: idempotencyKey,
                 conversationID: mutation.conversationID,
                 mutation: mutation
             )
         )
+        try self.validateCurrentSession(components)
         self.scheduleImmediateOutboxDrain()
         return entry
     }
@@ -395,20 +923,24 @@ final class ParseMessagingManager {
     }
 
     @discardableResult
-    func retryBlockedOperation(idempotencyKey: String) throws -> MessagingOutboxEntry {
+    func retryBlockedOperation(idempotencyKey: String) async throws -> MessagingOutboxEntry {
         let components = try self.requireComponents()
-        let entry = try components.store.retryBlockedOutboxEntry(
+        let entry = try await components.storage.retryBlockedOutboxEntry(
             idempotencyKey: idempotencyKey,
             at: Date()
         )
-        self.postChange()
+        try self.validateCurrentSession(components)
+        self.postChange(conversationIDs: [entry.conversationID])
         self.scheduleImmediateOutboxDrain()
         return entry
     }
 
-    func cancelBlockedOperation(idempotencyKey: String) throws {
+    func cancelBlockedOperation(idempotencyKey: String) async throws {
         let components = try self.requireComponents()
-        try components.store.cancelBlockedOutboxEntry(idempotencyKey: idempotencyKey)
+        try await components.storage.cancelBlockedOutboxEntry(
+            idempotencyKey: idempotencyKey
+        )
+        try self.validateCurrentSession(components)
         self.postChange()
         self.scheduleImmediateOutboxDrain()
     }
@@ -417,7 +949,8 @@ final class ParseMessagingManager {
 
     func refreshConversations() async throws {
         let components = try self.requireComponents()
-        let cachedIDs = try Self.cachedConversationIDs(in: components.store)
+        let cachedIDs = try await components.storage.cachedConversationIDs()
+        try self.validateCurrentSession(components)
         var activeIDs: Set<MessagingConversationID> = []
         var cursor: MessagingCursor?
 
@@ -426,14 +959,15 @@ final class ParseMessagingManager {
                 before: cursor,
                 pageSize: 100
             )
-            try components.store.upsert(conversations: page.items)
+            try self.validateCurrentSession(components)
+            try await components.storage.upsert(conversations: page.items)
+            try self.validateCurrentSession(components)
             activeIDs.formUnion(page.items.map(\.id))
             cursor = page.hasMore ? page.nextCursor : nil
         } while cursor != nil
 
-        for removedID in cachedIDs.subtracting(activeIDs) {
-            try components.store.removeConversation(id: removedID)
-        }
+        try await components.storage.removeConversations(ids: cachedIDs.subtracting(activeIDs))
+        try self.validateCurrentSession(components)
 
         try self.replaceRealtimeSubscription(conversationIDs: activeIDs)
         self.postChange()
@@ -445,18 +979,25 @@ final class ParseMessagingManager {
         guard let realtimeClient = self.realtimeClient else {
             throw ParseMessagingManagerError.notInitialized
         }
+        guard let sessionIdentity = self.sessionIdentity else {
+            throw ParseMessagingManagerError.notInitialized
+        }
         self.realtimeSubscription?.cancel()
         self.subscribedConversationIDs = conversationIDs
         self.realtimeSubscription = try realtimeClient.subscribe(
             conversationIDs: conversationIDs
         ) { [weak self] event in
             Task { @MainActor [weak self] in
-                self?.handleRealtimeEvent(event)
+                await self?.handleRealtimeEvent(event, sessionIdentity: sessionIdentity)
             }
         }
     }
 
-    private func handleRealtimeEvent(_ event: MessagingRealtimeEvent) {
+    private func handleRealtimeEvent(
+        _ event: MessagingRealtimeEvent,
+        sessionIdentity: UUID
+    ) async {
+        guard self.sessionIdentity == sessionIdentity else { return }
         switch event {
         case .connected:
             if self.realtimeCatchUpTracker.consumeCatchUpOnConnected() {
@@ -465,11 +1006,16 @@ final class ParseMessagingManager {
         case .conversationSetInvalidated:
             self.scheduleConversationRefresh()
         case .conversationUpserted(let conversation) where conversation.isDeleted:
+            guard let processor = self.realtimeProcessor else { return }
             do {
-                try self.store?.removeConversation(id: conversation.id)
+                try await processor.removeConversation(id: conversation.id)
+                guard self.sessionIdentity == sessionIdentity,
+                      self.realtimeProcessor === processor else { return }
                 self.scheduleConversationRefresh()
-                self.postChange()
+                self.postChange(conversationIDs: [conversation.id])
             } catch {
+                guard self.sessionIdentity == sessionIdentity,
+                      self.realtimeProcessor === processor else { return }
                 self.postFailure(error)
             }
         case .disconnected(let errorDescription):
@@ -478,10 +1024,16 @@ final class ParseMessagingManager {
                 self.postFailure(ParseMessagingManagerError.realtimeDisconnected(errorDescription))
             }
         default:
+            guard let processor = self.realtimeProcessor else { return }
             do {
-                try self.realtimeReconciler?.apply(event)
-                self.postChange()
+                let conversationIDs = try await processor.apply(event)
+                guard self.sessionIdentity == sessionIdentity,
+                      self.realtimeProcessor === processor else { return }
+                guard !conversationIDs.isEmpty else { return }
+                self.postChange(conversationIDs: conversationIDs)
             } catch {
+                guard self.sessionIdentity == sessionIdentity,
+                      self.realtimeProcessor === processor else { return }
                 self.postFailure(error)
             }
         }
@@ -489,14 +1041,22 @@ final class ParseMessagingManager {
 
     private func scheduleConversationRefresh() {
         guard self.refreshTask == nil else { return }
+        let token = UUID()
+        self.refreshTaskToken = token
         self.refreshTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            defer { self.refreshTask = nil }
+            defer {
+                if self.refreshTaskToken == token {
+                    self.refreshTask = nil
+                    self.refreshTaskToken = nil
+                }
+            }
             do {
                 try await self.refreshConversations()
             } catch is CancellationError {
                 return
             } catch {
+                guard self.refreshTaskToken == token else { return }
                 if ParseMessagingErrorClassifier().isRetryableMessagingError(error) {
                     self.realtimeCatchUpTracker.disconnected()
                 }
@@ -521,23 +1081,43 @@ final class ParseMessagingManager {
     }
 
     private func scheduleImmediateOutboxDrain() {
-        Task { @MainActor [weak self] in
-            await self?.drainOutboxOnce()
+        guard self.outboxDrainTask == nil,
+              let sessionIdentity = self.sessionIdentity else { return }
+        let token = UUID()
+        self.outboxDrainToken = token
+        self.outboxDrainTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.drainOutboxOnce()
+            guard self.sessionIdentity == sessionIdentity,
+                  self.outboxDrainToken == token else { return }
+            self.outboxDrainTask = nil
+            self.outboxDrainToken = nil
         }
     }
 
     private func drainOutboxOnce() async {
-        guard !self.isDrainingOutbox, let worker = self.outboxWorker else { return }
+        guard !self.isDrainingOutbox,
+              let worker = self.outboxWorker,
+              let sessionIdentity = self.sessionIdentity else { return }
         self.isDrainingOutbox = true
-        defer { self.isDrainingOutbox = false }
+        defer {
+            if self.sessionIdentity == sessionIdentity,
+               self.outboxWorker === worker {
+                self.isDrainingOutbox = false
+            }
+        }
         do {
             let report = try await worker.drainOnce()
+            guard self.sessionIdentity == sessionIdentity,
+                  self.outboxWorker === worker else { return }
             if report.succeeded > 0 || report.blocked > 0 || report.retryScheduled > 0 {
                 self.postChange()
             }
         } catch is CancellationError {
             return
         } catch {
+            guard self.sessionIdentity == sessionIdentity,
+                  self.outboxWorker === worker else { return }
             self.postFailure(error)
         }
     }
@@ -553,23 +1133,29 @@ final class ParseMessagingManager {
         while self.typingMutationTokens[key] == token,
               !Task.isCancelled,
               let mutation = self.pendingTypingMutations.removeValue(forKey: key) {
-            guard let repository = self.repository else { return }
+            guard let components = try? self.requireComponents() else { return }
             do {
-                let result = try await repository.perform(
+                let result = try await components.repository.perform(
                     mutation,
                     idempotencyKey: UUID().uuidString.lowercased()
                 )
+                try self.validateCurrentSession(components)
                 if case .member(let member) = result {
-                    try self.store?.upsert(members: [member])
-                    self.postChange()
+                    try await components.storage.upsert(members: [member])
+                    try self.validateCurrentSession(components)
+                    self.postChange(conversationIDs: [member.conversationID])
                 }
             } catch is CancellationError {
                 return
             } catch {
+                guard self.isCurrentSession(components) else { return }
                 let classifier = ParseMessagingErrorClassifier()
                 if classifier.isMessagingAccessRevokedError(error) {
-                    try? self.store?.removeConversation(id: mutation.conversationID)
-                    self.postChange()
+                    try? await components.storage.removeConversation(
+                        id: mutation.conversationID
+                    )
+                    guard self.isCurrentSession(components) else { return }
+                    self.postChange(conversationIDs: [mutation.conversationID])
                     self.postFailure(error)
                 } else if !classifier.isRetryableMessagingError(error) {
                     self.postFailure(error)
@@ -580,26 +1166,63 @@ final class ParseMessagingManager {
 
     // MARK: - Helpers
 
-    private typealias Components = (
-        store: GRDBMessagingStore,
-        repository: ParseMessagingRepository
-    )
+    private struct Components {
+        let sessionIdentity: UUID
+        let userID: MessagingUserID
+        let store: GRDBMessagingStore
+        let storage: ParseMessagingStorage
+        let repository: ParseMessagingRepository
+    }
 
     private func requireComponents() throws -> Components {
-        guard let store = self.store, let repository = self.repository else {
+        guard let sessionIdentity = self.sessionIdentity,
+              let userID = self.authenticatedUserID,
+              let store = self.store,
+              let storage = self.storage,
+              let repository = self.repository else {
             throw ParseMessagingManagerError.notInitialized
         }
-        return (store, repository)
+        return Components(
+            sessionIdentity: sessionIdentity,
+            userID: userID,
+            store: store,
+            storage: storage,
+            repository: repository
+        )
+    }
+
+    private func isCurrentSession(_ components: Components) -> Bool {
+        self.lifecycleIdentity == components.sessionIdentity
+            && self.sessionIdentity == components.sessionIdentity
+            && self.authenticatedUserID == components.userID
+            && self.store === components.store
+            && self.storage === components.storage
+            && self.repository === components.repository
+    }
+
+    private func validateCurrentSession(_ components: Components) throws {
+        guard self.isCurrentSession(components) else {
+            throw CancellationError()
+        }
+    }
+
+    private func validateLifecycle(identity: UUID) throws {
+        guard self.lifecycleIdentity == identity else {
+            throw CancellationError()
+        }
     }
 
     private func requireRetryableCacheFallback(
         after error: Error,
-        purgeOnAccessRevoked: () throws -> Void
-    ) throws {
+        components: Components,
+        purgeOnAccessRevoked: () async throws -> Void
+    ) async throws {
+        try self.validateCurrentSession(components)
         let classifier = ParseMessagingErrorClassifier()
         guard classifier.isRetryableMessagingError(error) else {
             if classifier.isMessagingAccessRevokedError(error) {
-                try purgeOnAccessRevoked()
+                try await purgeOnAccessRevoked()
+                try self.validateCurrentSession(components)
                 self.postChange()
             }
             throw error
@@ -636,6 +1259,12 @@ final class ParseMessagingManager {
             .deletingLastPathComponent()
             .appendingPathComponent(directoryName, isDirectory: true)
             .appendingPathComponent("messaging.sqlite", isDirectory: false)
+    }
+
+    private static func makeStore(databaseURL: URL) async throws -> GRDBMessagingStore {
+        try await Task.detached(priority: .userInitiated) {
+            try GRDBMessagingStore(databaseURL: databaseURL)
+        }.value
     }
 
     private static func validate(capabilities: MessagingCapabilities) throws {
@@ -695,21 +1324,17 @@ final class ParseMessagingManager {
         return .orderedSame
     }
 
-    private static func cachedConversationIDs(
-        in store: GRDBMessagingStore
-    ) throws -> Set<MessagingConversationID> {
-        var ids: Set<MessagingConversationID> = []
-        var cursor: MessagingCursor?
-        repeat {
-            let page = try store.cachedConversations(before: cursor, pageSize: 100)
-            ids.formUnion(page.items.map(\.id))
-            cursor = page.hasMore ? page.nextCursor : nil
-        } while cursor != nil
-        return ids
-    }
-
-    private func postChange() {
-        NotificationCenter.default.post(name: .parseMessagingDidChange, object: self)
+    private func postChange(
+        conversationIDs: Set<MessagingConversationID>? = nil
+    ) {
+        let userInfo = conversationIDs.map {
+            [ParseMessagingNotificationKey.conversationIDs: $0]
+        }
+        NotificationCenter.default.post(
+            name: .parseMessagingDidChange,
+            object: self,
+            userInfo: userInfo
+        )
     }
 
     private func postFailure(_ error: Error) {

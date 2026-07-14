@@ -16,7 +16,8 @@ class RepliesSequenceCollectionViewDataSource: MessageSequenceCollectionViewData
     
     override func set(messagesController: MessageSequenceController,
                       itemsToReconfigure: [MessageSequenceCollectionViewDataSource.ItemType] = [],
-                      showLoadMore: Bool = false) {
+                      showLoadMore: Bool = false,
+                      completion: (() -> Void)? = nil) {
 
         self.messageSequenceController = messagesController
 
@@ -44,14 +45,21 @@ class RepliesSequenceCollectionViewDataSource: MessageSequenceCollectionViewData
             animateDifference = false
         }
 
-        // Clear out the sections to make way for a fresh set of messages.
-        snapshot.deleteSections(MessageSequenceSection.allCases)
-        snapshot.appendSections(MessageSequenceSection.allCases)
+        self.reconcile(allMessageItems, in: &snapshot)
 
-        snapshot.appendItems(allMessageItems, toSection: .messages)
+        let existingItemsToReconfigure = itemsToReconfigure.filter {
+            snapshot.indexOfItem($0) != nil
+        }
+        snapshot.reconfigureItems(existingItemsToReconfigure)
 
-        snapshot.reconfigureItems(itemsToReconfigure)
-
-        self.apply(snapshot, animatingDifferences: animateDifference)
+        if let completion {
+            self.apply(
+                snapshot,
+                animatingDifferences: animateDifference,
+                completion: completion
+            )
+        } else {
+            self.apply(snapshot, animatingDifferences: animateDifference)
+        }
     }
 }

@@ -20,8 +20,11 @@ final class ParseConversationListController: Hashable {
     private let listChangesSubject = PassthroughSubject<[ParseListChange<ParseConversation>], Never>()
     private var snapshots: [MessagingConversationSnapshot] = []
     private var nextCursor: MessagingCursor?
+    private var hasAuthoritativeRemotePage = false
     private var messagingChangeCancellable: AnyCancellable?
     private var refreshTask: Task<Void, Never>?
+    private var cachedStateRefreshTask: Task<Void, Never>?
+    private var isCachedStateRefreshPending = false
 
     init(
         manager: ParseMessagingManager,
@@ -55,6 +58,7 @@ final class ParseConversationListController: Hashable {
 
     deinit {
         self.refreshTask?.cancel()
+        self.cachedStateRefreshTask?.cancel()
     }
 
     var conversationsChangesPublisher: AnyPublisher<[ParseListChange<ParseConversation>], Never> {
@@ -69,13 +73,17 @@ final class ParseConversationListController: Hashable {
     }
 
     func synchronize(pageSize: Int = 50) async throws {
-        try self.applyCachedState(pageSize: pageSize)
+        try await self.applyCachedState(pageSize: pageSize)
         let page = try await self.manager.conversations(pageSize: pageSize)
         self.snapshots = self.merge(self.snapshots, with: page.items)
-        self.nextCursor = page.nextCursor
-        self.hasLoadedAllConversations = !page.hasMore
         await self.refreshMembers(for: page.items)
-        try self.applyCachedState(pageSize: max(pageSize, self.snapshots.count + 1))
+        try await self.applyCachedState(pageSize: max(pageSize, self.snapshots.count + 1))
+        if !self.hasAuthoritativeRemotePage
+            || (self.hasLoadedAllConversations && page.hasMore) {
+            self.nextCursor = page.nextCursor
+            self.hasLoadedAllConversations = !page.hasMore
+            self.hasAuthoritativeRemotePage = true
+        }
     }
 
     func loadNextConversations(limit: Int? = nil) async throws {
@@ -87,8 +95,9 @@ final class ParseConversationListController: Hashable {
         self.snapshots = self.merge(self.snapshots, with: page.items)
         self.nextCursor = page.nextCursor
         self.hasLoadedAllConversations = !page.hasMore
+        self.hasAuthoritativeRemotePage = true
         await self.refreshMembers(for: page.items)
-        try self.publishConversations()
+        try await self.publishConversations()
     }
 
     @discardableResult
@@ -108,7 +117,7 @@ final class ParseConversationListController: Hashable {
         )
         self.snapshots = self.merge(self.snapshots, with: [snapshot])
         _ = try? await self.manager.members(conversationID: snapshot.id)
-        try self.publishConversations()
+        try await self.publishConversations()
         return ParseConversationController(
             conversationID: snapshot.id,
             manager: self.manager
@@ -144,46 +153,85 @@ final class ParseConversationListController: Hashable {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 Task { @MainActor [weak self] in
-                    guard let self else { return }
-                    do {
-                        try self.applyCachedState(pageSize: max(50, self.snapshots.count + 10))
-                    } catch {
-                        logError(error)
-                    }
+                    self?.scheduleCachedStateRefresh()
                 }
             }
     }
 
-    private func applyCachedState(pageSize: Int) throws {
-        guard let store = self.manager.store else {
-            throw ParseMessagingCompatibilityError.messagingNotInitialized
+    private func scheduleCachedStateRefresh() {
+        self.isCachedStateRefreshPending = true
+        guard self.cachedStateRefreshTask == nil else { return }
+
+        self.cachedStateRefreshTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            while self.isCachedStateRefreshPending, !Task.isCancelled {
+                self.isCachedStateRefreshPending = false
+                do {
+                    try await self.applyCachedState(
+                        pageSize: max(50, self.snapshots.count + 10)
+                    )
+                } catch is CancellationError {
+                    break
+                } catch {
+                    logError(error)
+                }
+            }
+            self.cachedStateRefreshTask = nil
+            if self.isCachedStateRefreshPending {
+                self.scheduleCachedStateRefresh()
+            }
         }
-        let page = try store.cachedConversations(before: nil, pageSize: pageSize)
-        self.snapshots = page.items
-        self.nextCursor = page.nextCursor
-        self.hasLoadedAllConversations = !page.hasMore
-        try self.publishConversations()
     }
 
-    private func publishConversations() throws {
+    private func applyCachedState(pageSize: Int) async throws {
         guard let store = self.manager.store else {
             throw ParseMessagingCompatibilityError.messagingNotInitialized
         }
+        let state = try await store.cachedConversationListState(pageSize: pageSize)
+        try Task.checkCancellation()
+        guard self.manager.store === store else { throw CancellationError() }
+        self.snapshots = state.page.items
+        if !self.hasAuthoritativeRemotePage || state.page.hasMore {
+            self.nextCursor = state.page.nextCursor
+            self.hasLoadedAllConversations = !state.page.hasMore
+        }
+        self.publishConversations(entries: state.entries)
+    }
+
+    private func publishConversations() async throws {
+        guard let store = self.manager.store else {
+            throw ParseMessagingCompatibilityError.messagingNotInitialized
+        }
+        let state = try await store.cachedConversationListState(
+            pageSize: max(1, self.snapshots.count)
+        )
+        try Task.checkCancellation()
+        guard self.manager.store === store else { throw CancellationError() }
+        self.snapshots = state.page.items
+        if !self.hasAuthoritativeRemotePage || state.page.hasMore {
+            self.nextCursor = state.page.nextCursor
+            self.hasLoadedAllConversations = !state.page.hasMore
+        }
+        self.publishConversations(entries: state.entries)
+    }
+
+    private func publishConversations(
+        entries: [MessagingConversationListCacheEntry]
+    ) {
         var values: [ParseConversation] = []
-        for snapshot in self.snapshots where !snapshot.isDeleted {
-            let members = try store.cachedMembers(conversationID: snapshot.id)
-                .map(ParseConversationMember.init)
+        for entry in entries where !entry.conversation.isDeleted {
+            let members = entry.members.map(ParseConversationMember.init)
             if !self.includesHiddenConversations,
                members.first(where: \.isCurrentUser)?.isHidden == true {
                 continue
             }
-            let latest = try store.cachedMessages(
-                conversationID: snapshot.id,
-                before: nil,
-                pageSize: 1
-            ).items.map { ParseMessage(snapshot: $0) }
+            let latest = entry.latestMessage.map { [ParseMessage(snapshot: $0)] } ?? []
             values.append(
-                ParseConversation(snapshot: snapshot, members: members, messages: latest)
+                ParseConversation(
+                    snapshot: entry.conversation,
+                    members: members,
+                    messages: latest
+                )
             )
         }
         values.sort {

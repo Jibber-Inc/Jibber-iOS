@@ -158,7 +158,7 @@ extension Objectable where Self: PFObject {
             throw ClientError.apiError(detail: "No objectId found for query")
         }
 
-        let object = try await self.getFirstObject(where: "objectId", contains: objectId)
+        let object = try await self.getFirstObject(with: ["objectId": objectId])
         return object
     }
 

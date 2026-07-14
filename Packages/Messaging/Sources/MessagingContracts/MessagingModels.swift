@@ -187,6 +187,10 @@ public struct MessagingReactionSnapshot: Codable, Hashable, Sendable {
     public var userID: MessagingUserID
     public var type: String
     public var createdAt: Date
+    /// Parse's authoritative update time. Related-state reconciliation uses
+    /// this independently from the parent message's update time because
+    /// LiveQuery and paginated message hydration can arrive out of order.
+    public var serverUpdatedAt: Date?
     public var isDeleted: Bool
     public var deletedAt: Date?
 
@@ -196,6 +200,7 @@ public struct MessagingReactionSnapshot: Codable, Hashable, Sendable {
         userID: MessagingUserID,
         type: String,
         createdAt: Date,
+        serverUpdatedAt: Date? = nil,
         isDeleted: Bool? = nil,
         deletedAt: Date? = nil
     ) {
@@ -204,6 +209,7 @@ public struct MessagingReactionSnapshot: Codable, Hashable, Sendable {
         self.userID = userID
         self.type = type
         self.createdAt = createdAt
+        self.serverUpdatedAt = serverUpdatedAt
         self.isDeleted = isDeleted ?? (deletedAt != nil)
         self.deletedAt = deletedAt
     }
@@ -215,19 +221,24 @@ public struct MessagingReceiptSnapshot: Codable, Hashable, Sendable {
     public var userID: MessagingUserID
     public var state: MessagingReceiptState
     public var occurredAt: Date
+    /// Parse's authoritative update time. This orders state changes even when
+    /// a newer operation intentionally moves a receipt from read to delivered.
+    public var serverUpdatedAt: Date?
 
     public init(
         objectID: String? = nil,
         messageID: MessagingMessageID,
         userID: MessagingUserID,
         state: MessagingReceiptState,
-        occurredAt: Date
+        occurredAt: Date,
+        serverUpdatedAt: Date? = nil
     ) {
         self.objectID = objectID
         self.messageID = messageID
         self.userID = userID
         self.state = state
         self.occurredAt = occurredAt
+        self.serverUpdatedAt = serverUpdatedAt
     }
 }
 
@@ -381,6 +392,7 @@ public struct MessagingMemberSnapshot: Codable, Hashable, Identifiable, Sendable
     public var lastReadMessageID: MessagingMessageID?
     public var lastReadAt: Date?
     public var typingExpiresAt: Date?
+    public var serverUpdatedAt: Date?
 
     public init(
         objectID: String,
@@ -396,7 +408,8 @@ public struct MessagingMemberSnapshot: Codable, Hashable, Identifiable, Sendable
         unreadCount: Int = 0,
         lastReadMessageID: MessagingMessageID? = nil,
         lastReadAt: Date? = nil,
-        typingExpiresAt: Date? = nil
+        typingExpiresAt: Date? = nil,
+        serverUpdatedAt: Date? = nil
     ) {
         self.objectID = objectID
         self.conversationID = conversationID
@@ -412,6 +425,7 @@ public struct MessagingMemberSnapshot: Codable, Hashable, Identifiable, Sendable
         self.lastReadMessageID = lastReadMessageID
         self.lastReadAt = lastReadAt
         self.typingExpiresAt = typingExpiresAt
+        self.serverUpdatedAt = serverUpdatedAt
     }
 
     public var id: String { objectID }
@@ -436,6 +450,7 @@ public struct MessagingMemberSnapshot: Codable, Hashable, Identifiable, Sendable
         case lastReadMessageID
         case lastReadAt
         case typingExpiresAt
+        case serverUpdatedAt
     }
 
     public init(from decoder: Decoder) throws {
@@ -460,6 +475,7 @@ public struct MessagingMemberSnapshot: Codable, Hashable, Identifiable, Sendable
         )
         lastReadAt = try container.decodeIfPresent(Date.self, forKey: .lastReadAt)
         typingExpiresAt = try container.decodeIfPresent(Date.self, forKey: .typingExpiresAt)
+        serverUpdatedAt = try container.decodeIfPresent(Date.self, forKey: .serverUpdatedAt)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -478,6 +494,7 @@ public struct MessagingMemberSnapshot: Codable, Hashable, Identifiable, Sendable
         try container.encodeIfPresent(lastReadMessageID, forKey: .lastReadMessageID)
         try container.encodeIfPresent(lastReadAt, forKey: .lastReadAt)
         try container.encodeIfPresent(typingExpiresAt, forKey: .typingExpiresAt)
+        try container.encodeIfPresent(serverUpdatedAt, forKey: .serverUpdatedAt)
     }
 }
 

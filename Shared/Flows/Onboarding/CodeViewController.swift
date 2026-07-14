@@ -46,8 +46,9 @@ class CodeViewController: TextInputViewController<String?> {
     private var verifying: Bool = false
     private func verify(code: String) async {
         guard !self.verifying, let phoneNumber = self.phoneNumber else { return }
-        
+
         self.verifying = true
+        defer { self.verifying = false }
         await self.button.handleEvent(status: .loading)
 
         do {
@@ -58,7 +59,9 @@ class CodeViewController: TextInputViewController<String?> {
                 .makeRequest()
 
             self.textField.resignResponder()
-            guard let token = dict["sessionToken"] else { return }
+            guard let token = dict["sessionToken"], !token.isEmpty else {
+                throw ClientError.apiError(detail: "Verification did not return a session.")
+            }
             
             try await User.become(withSessionToken: token)
             await self.button.handleEvent(status: .complete)
@@ -67,7 +70,5 @@ class CodeViewController: TextInputViewController<String?> {
             await self.button.handleEvent(status: .error(error.localizedDescription))
             self.complete(with: .failure(ClientError.message(detail: "Verification failed.")))
         }
-
-        self.verifying = false
     }
 }

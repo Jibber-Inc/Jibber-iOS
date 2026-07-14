@@ -92,14 +92,14 @@ extension ConversationCoordinator {
         let members = acceptedConnections.compactMap { connection in
             return connection.nonMeUser?.objectId
         }
-        do {
-            try controller.addMembers(userIDs: Set(members))
-            self.showPeopleAddedToast(for: acceptedConnections)
-            Task {
+        Task { @MainActor [weak self] in
+            do {
+                try await controller.addMembers(userIDs: Set(members))
+                self?.showPeopleAddedToast(for: acceptedConnections)
                 try? await controller.synchronize()
+            } catch {
+                logError(error)
             }
-        } catch {
-            logError(error)
         }
     }
     
@@ -129,10 +129,12 @@ extension ConversationCoordinator {
         
         let deleteAction = UIAlertAction(title: "Delete Conversation", style: .destructive, handler: {
             (action : UIAlertAction!) -> Void in
-            do {
-                try controller.deleteConversation()
-            } catch {
-                logError(error)
+            Task { @MainActor in
+                do {
+                    try await controller.deleteConversation()
+                } catch {
+                    logError(error)
+                }
             }
             self.conversationVC.becomeFirstResponder()
         })

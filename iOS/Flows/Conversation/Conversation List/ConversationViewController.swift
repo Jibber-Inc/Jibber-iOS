@@ -52,6 +52,8 @@ class ConversationViewController: InputHandlerViewContoller,
     var conversationUpdateCancellable: AnyCancellable?
     var typingInputCancellable: AnyCancellable?
     var typingHeartbeatTask: Task<Void, Never>?
+    private var conversationInitializationTask: Task<Void, Never>?
+    private var conversationInitializationToken: UUID?
 
     var swipeableVC: SwipeableInputAccessoryViewController {
         return self.messageInputController
@@ -153,41 +155,85 @@ class ConversationViewController: InputHandlerViewContoller,
             self.$conversationId
                 .removeDuplicates()
                 .mainSink { [unowned self] conversationId in
-                
+                    self.cancelConversationInitialization()
+                    self.conversationUpdateCancellable = nil
+                    self.typingInputCancellable = nil
+
                     if let conversationId = conversationId {
-                        
+                        // Capture every value that belongs to this selection. A later selection cancels this
+                        // task and replaces its token so suspended work cannot apply stale state when it resumes.
+                        guard !conversationId.isEmpty,
+                              let controller = JibberMessagingClient.shared.conversationController(
+                                for: conversationId
+                              ) else { return }
+
+                        let startingMessageId = self.startingMessageId
+                        let initializationToken = UUID()
+                        self.conversationController = controller
+                        self.conversationInitializationToken = initializationToken
+                        self.collectionView.animationView.play()
+
                         if self.selectionViewController.parent.exists {
-                            Task {
-                                await UIView.awaitAnimation(with: .fast, animations: {
+                            UIView.animate(
+                                withDuration: Theme.animationDurationFast,
+                                animations: {
                                     self.selectionViewController.view.alpha = 0
-                                })
-                                
-                                self.selectionViewController.removeFromParent()
-                                self.selectionViewController.view.removeFromSuperview()
-                            }
+                                },
+                                completion: { [weak self] _ in
+                                    guard let self,
+                                          self.conversationId == conversationId else { return }
+
+                                    self.selectionViewController.removeFromParent()
+                                    self.selectionViewController.view.removeFromSuperview()
+                                }
+                            )
                         }
 
-                        Task {
-                            // Initialize the datasource before listening for updates to ensure that the sections
-                            // are set up.
-                            guard !conversationId.isEmpty,
-                                  let controller = JibberMessagingClient.shared.conversationController(for: conversationId) else {
-                                return
-                            }
+                        self.conversationInitializationTask = Task { @MainActor [weak self] in
+                            // Do not retain the presented controller while a shared
+                            // network/cache synchronization is still in flight.
+                            try? await controller.synchronize()
 
-                            self.conversationController = controller
-                            await self.initializeDataSource()
+                            guard let self,
+                                  self.isCurrentConversationInitialization(
+                                    conversationId: conversationId,
+                                    controller: controller,
+                                    initializationToken: initializationToken
+                                  ) else { return }
+
+                            await self.finishDataSourceInitialization(
+                                for: conversationId,
+                                controller: controller,
+                                startingMessageId: startingMessageId,
+                                initializationToken: initializationToken
+                            )
+
+                            guard self.isCurrentConversationInitialization(
+                                conversationId: conversationId,
+                                controller: controller,
+                                initializationToken: initializationToken
+                            ) else { return }
+
                             self.subscribeToConversationUpdates()
                         }
                     } else {
+                        self.conversationController = nil
                         self.selectionViewController.view.alpha = 1.0 
                         self.addChild(self.selectionViewController)
                         self.view.insertSubview(self.selectionViewController.view, aboveSubview: self.headerVC.view)
                         self.view.layoutNow()
-                        
-                        Task {
+
+                        let initializationToken = UUID()
+                        self.conversationInitializationToken = initializationToken
+                        self.conversationInitializationTask = Task { @MainActor [weak self] in
                             // Hack to get the input text view to layout correctly
                             await Task.sleep(seconds:0.1)
+
+                            guard !Task.isCancelled,
+                                  let self,
+                                  self.conversationInitializationToken == initializationToken,
+                                  self.conversationId == nil else { return }
+
                             self.messageInputController.swipeInputView.textView.becomeResponder()
                         }
                     }
@@ -206,7 +252,8 @@ class ConversationViewController: InputHandlerViewContoller,
     
     override func viewWasDismissed() {
         super.viewWasDismissed()
-        
+
+        self.cancelConversationInitialization()
         ConversationsManager.shared.activeConversation = nil
     }
 
@@ -222,14 +269,17 @@ class ConversationViewController: InputHandlerViewContoller,
     // MARK: - Message Loading and Updates
 
     @MainActor
-    func initializeDataSource() async {
-        guard let controller = self.conversationController else {
-            return
-        }
-
-        self.collectionView.animationView.play()
-        
-        try? await controller.synchronize()
+    private func finishDataSourceInitialization(
+        for conversationId: String,
+        controller: ParseConversationController,
+        startingMessageId: String?,
+        initializationToken: UUID
+    ) async {
+        guard self.isCurrentConversationInitialization(
+            conversationId: conversationId,
+            controller: controller,
+            initializationToken: initializationToken
+        ) else { return }
 
         let snapshot = self.dataSource.updatedSnapshot(with: controller)
 
@@ -241,15 +291,31 @@ class ConversationViewController: InputHandlerViewContoller,
                                     collectionView: self.collectionView,
                                     animationCycle: animationCycle)
 
-        self.collectionView.animationView.stop()
+        guard self.isCurrentConversationInitialization(
+            conversationId: conversationId,
+            controller: controller,
+            initializationToken: initializationToken
+        ) else { return }
 
-        Task {
-            if let conversationId = conversationId {
-                await self.scrollToConversation(with: conversationId,
-                                                messageId: self.startingMessageId,
-                                                viewReplies: self.openReplies)
-            }
-        }.add(to: self.autocancelTaskPool)
+        await self.scrollToConversation(
+            with: conversationId,
+            messageId: startingMessageId,
+            viewReplies: self.openReplies,
+            animateScroll: false,
+            animateSelection: false,
+            initializationToken: initializationToken,
+            expectedController: controller
+        )
+
+        guard self.isCurrentConversationInitialization(
+            conversationId: conversationId,
+            controller: controller,
+            initializationToken: initializationToken
+        ) else { return }
+
+        // Keep intermediate collection offsets covered. Only the selection
+        // that successfully completed positioning may dismiss its loader.
+        self.collectionView.animationView.stop()
     }
 
     @MainActor
@@ -258,30 +324,111 @@ class ConversationViewController: InputHandlerViewContoller,
                               viewReplies: Bool = false,
                               animateScroll: Bool = true,
                               animateSelection: Bool = true) async {
-        
-        guard let conversationIndexPath = self.dataSource.indexPath(for: .conversation(conversationId)) else { return }
-        self.collectionView.scrollToItem(at: conversationIndexPath,
-                                         at: .centeredHorizontally,
-                                         animated: true)
-        
-        guard let cell = self.collectionView.cellForItem(at: conversationIndexPath),
-              let messagesCell = cell as? ConversationMessagesCell else {
-            return
+        // Message navigation depends on the initial snapshot and the update
+        // subscriptions installed by the initialization task. Wait for that
+        // work instead of canceling it and potentially returning on a missing
+        // index path with a permanently stale screen.
+        if let conversationInitializationTask {
+            await conversationInitializationTask.value
         }
 
-        guard let messageId = messageId else {
-            self.collectionView.scrollToItem(at: conversationIndexPath,
-                                             at: .centeredHorizontally,
-                                             animated: false)
-            return
+        await self.scrollToConversation(
+            with: conversationId,
+            messageId: messageId,
+            viewReplies: viewReplies,
+            animateScroll: animateScroll,
+            animateSelection: animateSelection,
+            initializationToken: nil,
+            expectedController: nil
+        )
+    }
+
+    @MainActor
+    private func scrollToConversation(with conversationId: String,
+                                      messageId: String?,
+                                      viewReplies: Bool,
+                                      animateScroll: Bool,
+                                      animateSelection: Bool,
+                                      initializationToken: UUID?,
+                                      expectedController: ParseConversationController?) async {
+
+        guard self.canContinueScrolling(
+            to: conversationId,
+            initializationToken: initializationToken,
+            expectedController: expectedController
+        ) else { return }
+
+        guard let conversationIndexPath = self.dataSource.indexPath(
+            for: .conversation(conversationId)
+        ) else { return }
+
+        self.collectionView.layoutIfNeeded()
+        if let attributes = self.collectionView.layoutAttributesForItem(at: conversationIndexPath) {
+            let targetOffset = CGPoint(
+                x: attributes.center.x - self.collectionView.bounds.width.half,
+                y: self.collectionView.contentOffset.y
+            )
+            if animateScroll,
+               abs(targetOffset.x - self.collectionView.contentOffset.x) > 1 {
+                await UIView.awaitAnimation(with: .standard) {
+                    self.collectionView.setContentOffset(targetOffset, animated: false)
+                }
+
+                guard self.canContinueScrolling(
+                    to: conversationId,
+                    initializationToken: initializationToken,
+                    expectedController: expectedController
+                ) else { return }
+            } else {
+                self.collectionView.setContentOffset(targetOffset, animated: false)
+            }
+        } else {
+            self.collectionView.scrollToItem(
+                at: conversationIndexPath,
+                at: .centeredHorizontally,
+                animated: false
+            )
         }
+        self.collectionView.layoutIfNeeded()
+
+        guard let messagesCell = self.collectionView.cellForItem(
+            at: conversationIndexPath
+        ) as? ConversationMessagesCell else { return }
+
+        await messagesCell.prepareForScrolling(scrollToLatest: messageId == nil)
+
+        guard self.canContinueScrolling(
+            to: conversationId,
+            initializationToken: initializationToken,
+            expectedController: expectedController
+        ) else { return }
+
+        guard let messageId else { return }
 
         guard let conversationController = JibberMessagingClient.shared.conversationController(for: conversationId) else {
             return
         }
-        let messageController = conversationController.messageController(for: messageId)
-        try? await messageController.synchronize()
-        guard let message = messageController.message else { return }
+        let message: ParseMessage?
+        if let loadedMessage = conversationController.messages.lazy
+            .flatMap({ [$0] + $0.replies })
+            .first(where: { $0.id == messageId || $0.serverID == messageId }) {
+            message = loadedMessage
+        } else {
+            let messageController = conversationController.messageController(
+                for: messageId,
+                automaticallySynchronize: false
+            )
+            try? await messageController.synchronize()
+
+            guard self.canContinueScrolling(
+                to: conversationId,
+                initializationToken: initializationToken,
+                expectedController: expectedController
+            ) else { return }
+
+            message = messageController.message
+        }
+        guard let message else { return }
 
         // Determine if this is a reply message or regular message.
         if let parentMessageId = message.parentMessageId {
@@ -289,6 +436,12 @@ class ConversationViewController: InputHandlerViewContoller,
             await messagesCell.scrollToMessage(with: parentMessageId,
                                                animateScroll: animateScroll,
                                                animateSelection: animateSelection)
+
+            guard self.canContinueScrolling(
+                to: conversationId,
+                initializationToken: initializationToken,
+                expectedController: expectedController
+            ) else { return }
 
             if let messageCell = messagesCell.getFrontmostCell() {
                 self.messageContentDelegate?.messageContent(messageCell.content,
@@ -300,6 +453,12 @@ class ConversationViewController: InputHandlerViewContoller,
                                                animateScroll: animateScroll,
                                                animateSelection: animateSelection)
 
+            guard self.canContinueScrolling(
+                to: conversationId,
+                initializationToken: initializationToken,
+                expectedController: expectedController
+            ) else { return }
+
             if let messageCell = messagesCell.getFrontmostCell() {
                 self.messageContentDelegate?.messageContent(messageCell.content,
                                                             didTapViewReplies: message)
@@ -308,7 +467,49 @@ class ConversationViewController: InputHandlerViewContoller,
             await messagesCell.scrollToMessage(with: messageId,
                                                animateScroll: animateScroll,
                                                animateSelection: animateSelection)
+
+            guard self.canContinueScrolling(
+                to: conversationId,
+                initializationToken: initializationToken,
+                expectedController: expectedController
+            ) else { return }
         }
+    }
+
+    @MainActor
+    private func cancelConversationInitialization() {
+        self.conversationInitializationTask?.cancel()
+        self.conversationInitializationTask = nil
+        self.conversationInitializationToken = nil
+        self.collectionView.animationView.stop()
+    }
+
+    @MainActor
+    private func isCurrentConversationInitialization(
+        conversationId: String,
+        controller: ParseConversationController,
+        initializationToken: UUID
+    ) -> Bool {
+        !Task.isCancelled
+            && self.conversationInitializationToken == initializationToken
+            && self.conversationId == conversationId
+            && self.conversationController === controller
+    }
+
+    @MainActor
+    private func canContinueScrolling(
+        to conversationId: String,
+        initializationToken: UUID?,
+        expectedController: ParseConversationController?
+    ) -> Bool {
+        guard !Task.isCancelled else { return false }
+        guard let initializationToken, let expectedController else { return true }
+
+        return self.isCurrentConversationInitialization(
+            conversationId: conversationId,
+            controller: expectedController,
+            initializationToken: initializationToken
+        )
     }
 
     func getCurrentConversationController() -> ParseConversationController? {

@@ -44,8 +44,12 @@ class ConversationDetailCoordinator: PresentableCoordinator<DetailCoordinatorRes
             switch first {
             case .pinnedMessage(let model):
                 guard let conversationId = model.conversationId,
-                        let messageId = model.messageId,
-                        let message = JibberMessagingClient.shared.message(conversationId: conversationId, id: messageId) else { return }
+                      conversationId == self.conversationId,
+                      let messageId = model.messageId,
+                      let message = self.detailVC.conversationController.conversation?
+                        .pinnedMessages.first(where: {
+                            $0.id == messageId || $0.serverID == messageId
+                        }) else { return }
                 self.finishFlow(with: .message(message))
             case .member(let member):
                 guard let person = PeopleStore.shared.people.first(where: { person in
@@ -176,7 +180,11 @@ class ConversationDetailCoordinator: PresentableCoordinator<DetailCoordinatorRes
     }
     
     func presentPeoplePicker() {
-        guard let conversation = JibberMessagingClient.shared.conversation(for: self.conversationId) else { return }
+        // The detail screen already retains the fully assembled controller
+        // state. Reusing it avoids decoding the conversation, members, and up
+        // to 100 messages synchronously on the main actor just to invite a
+        // person.
+        guard let conversation = self.detailVC.conversationController.conversation else { return }
         
         self.removeChild()
         
