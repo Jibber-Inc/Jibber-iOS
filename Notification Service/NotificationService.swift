@@ -30,6 +30,7 @@ private nonisolated struct NotificationRequestContext: @unchecked Sendable {
     var conversationID: String?
     var conversationTitle: String?
     var messageID: String?
+    var threadRootMessageID: String?
     var firstPhotoURL: URL?
     var messageDeliveryType: MessageDeliveryType?
 }
@@ -213,6 +214,9 @@ class NotificationService: UNNotificationServiceExtension {
         context.messageID = messaging?["id"] as? String
             ?? data?["messageId"] as? String
             ?? content.messageId
+        context.threadRootMessageID = messaging?["threadRootId"] as? String
+            ?? data?["threadRootId"] as? String
+            ?? content.threadRootId
 
         let deliveryType = messaging?["deliveryType"] as? String
             ?? data?["deliveryType"] as? String
@@ -236,6 +240,11 @@ class NotificationService: UNNotificationServiceExtension {
             context.conversationTitle = conversation["title"] as? String
         }
 
+        if let replyTo = message["replyTo"] as? PFObject {
+            context.threadRootMessageID = replyTo.objectId
+                ?? context.threadRootMessageID
+        }
+
         if let author = message["author"] as? PFUser,
            let authorID = author.objectId,
            !Task.isCancelled,
@@ -253,6 +262,7 @@ class NotificationService: UNNotificationServiceExtension {
         let query = PFQuery(className: "Message")
         query.includeKey("author")
         query.includeKey("conversation")
+        query.includeKey("replyTo")
 
         let transfer: UncheckedSendableTransfer<PFObject> = try await withCheckedThrowingContinuation { continuation in
             query.getObjectInBackground(withId: id) { object, error in
@@ -357,7 +367,13 @@ class NotificationService: UNNotificationServiceExtension {
         if let messageID = context.messageID {
             content.setData(value: messageID, for: .messageId)
         }
-        content.setData(value: DeepLinkTarget.conversation.rawValue, for: .target)
+        if let threadRootMessageID = context.threadRootMessageID {
+            content.setData(value: threadRootMessageID, for: .threadRootId)
+        }
+        let isReply = context.threadRootMessageID != nil
+            && context.threadRootMessageID != context.messageID
+        let target: DeepLinkTarget = isReply ? .thread : .conversation
+        content.setData(value: target.rawValue, for: .target)
     }
 
     private func donateIncomingIntent(for content: UNMutableNotificationContent,

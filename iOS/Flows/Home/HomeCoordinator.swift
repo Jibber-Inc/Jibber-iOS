@@ -9,6 +9,7 @@
 import Foundation
 import Coordinator
 import Combine
+import MessagingContracts
 
 
 class HomeCoordinator: PresentableCoordinator<Void>, DeepLinkHandler {
@@ -40,9 +41,17 @@ class HomeCoordinator: PresentableCoordinator<Void>, DeepLinkHandler {
 
         switch target {
         case .conversation, .thread:
-            let messageID = deepLink.messageId
             guard let conversationId = deepLink.conversationId else { break }
-            self.presentConversation(with: conversationId, messageId: messageID, openReplies: target == .thread)
+            let route = MessagingNotificationRoute(
+                messageID: deepLink.messageId,
+                threadRootMessageID: deepLink.threadRootId
+            )
+            let openReplies = target == .thread || route.isThreadReply
+            self.presentConversation(
+                with: conversationId,
+                messageId: openReplies ? route.navigationMessageID : deepLink.messageId,
+                openReplies: openReplies
+            )
         case .wallet:
             self.homeVC.tabView.state = .wallet
         case .profile:

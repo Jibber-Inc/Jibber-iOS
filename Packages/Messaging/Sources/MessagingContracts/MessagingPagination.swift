@@ -86,6 +86,18 @@ public enum MessagingPaginationError: Error, Equatable, Sendable {
     case invalidEncodedCursor
 }
 
+public enum MessagingReplyPaginationState {
+    /// A nonempty reply list may be only the root's recent-reply preview. It
+    /// is exhausted without a cursor only after an authoritative page says so.
+    public static func shouldFetchPreviousPage(
+        hasCachedReplies: Bool,
+        hasCursor: Bool,
+        hasAuthoritativePage: Bool
+    ) -> Bool {
+        hasCursor || !hasCachedReplies || !hasAuthoritativePage
+    }
+}
+
 public enum MessagingCursorCodec {
     public static func encode(_ cursor: MessagingCursor) throws -> String {
         let encoder = JSONEncoder()

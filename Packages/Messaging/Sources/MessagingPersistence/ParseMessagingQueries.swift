@@ -98,6 +98,17 @@ public enum ParseMessagingQueryFactory {
             .limit(pageSize + 1)
     }
 
+    /// Resolves every root's `latestReply` pointer with one object-id batch.
+    /// The caller de-duplicates and bounds the ids to the root page size.
+    public static func latestReplies(
+        messageIDs: [MessagingMessageID]
+    ) -> Query<MessagingParseMessage> {
+        MessagingParseMessage.query(
+            containedIn(key: "objectId", array: messageIDs)
+        )
+        .limit(min(messageIDs.count, maximumPageSize))
+    }
+
     public static func pinnedMessages(
         conversationID: MessagingConversationID
     ) -> Query<MessagingParseMessage> {

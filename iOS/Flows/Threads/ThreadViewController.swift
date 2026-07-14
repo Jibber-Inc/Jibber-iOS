@@ -26,6 +26,10 @@ class ThreadViewController: DiffableCollectionViewController<MessageSequenceSect
     
     var blurView = DarkBlurView()
     let parentMessageView = MessageContentView()
+    private lazy var parentMessageContextMenuDelegate = MessageContentContextMenuDelegate(
+        content: self.parentMessageView,
+        allowsThreadNavigation: false
+    )
     
     var isPresentingImage: Bool = false
     
@@ -40,7 +44,10 @@ class ThreadViewController: DiffableCollectionViewController<MessageSequenceSect
 
     weak var messageContentDelegate: MessageContentDelegate? {
         get { return self.dataSource.messageContentDelegate }
-        set { self.dataSource.messageContentDelegate = newValue }
+        set {
+            self.dataSource.messageContentDelegate = newValue
+            self.parentMessageView.delegate = newValue
+        }
     }
 
     /// If true we should scroll to the last item in the collection in layout subviews.
@@ -55,6 +62,7 @@ class ThreadViewController: DiffableCollectionViewController<MessageSequenceSect
     }
     /// The reply to show when this view controller initially loads its data.
     private let startingReplyId: String?
+    private var resolvedStartingReplyId: String?
 
     private(set) var conversationController: ParseConversationController?
     let pullView = PullView()
@@ -98,6 +106,7 @@ class ThreadViewController: DiffableCollectionViewController<MessageSequenceSect
         self.conversationController = ParseConversationController.controller(for: message.conversationId)
 
         self.startingReplyId = startingReplyId
+        self.resolvedStartingReplyId = nil
         
         super.init(with: self.threadCollectionView)
 
@@ -116,6 +125,9 @@ class ThreadViewController: DiffableCollectionViewController<MessageSequenceSect
 
         self.view.insertSubview(self.blurView, belowSubview: self.collectionView)
         self.view.addSubview(self.parentMessageView)
+        self.parentMessageView.bubbleView.addInteraction(
+            UIContextMenuInteraction(delegate: self.parentMessageContextMenuDelegate)
+        )
         
         self.view.addSubview(self.pullView)
 
@@ -181,29 +193,28 @@ class ThreadViewController: DiffableCollectionViewController<MessageSequenceSect
                               animateScroll: Bool,
                               animateSelection: Bool) async {
         guard let messageId = messageId else { return }
-        
-        Task {
-            try? await self.messageController.loadNextReplies(including: messageId)
 
-            let messageItem = MessageSequenceItem.message(messageId: messageId)
+        try? await self.messageController.loadPreviousReplies(including: messageId)
+        guard let resolvedMessageID = self.messageController
+            .getMessage(withId: messageId)?.id else { return }
+        let messageItem = MessageSequenceItem.message(messageId: resolvedMessageID)
 
-            guard let messageIndexPath = self.dataSource.indexPath(for: messageItem) else { return }
+        guard let messageIndexPath = self.dataSource.indexPath(for: messageItem) else { return }
 
-            let threadLayout = self.threadCollectionView.threadLayout
-            let yOffset = threadLayout.focusPosition(for: messageIndexPath)
+        let threadLayout = self.threadCollectionView.threadLayout
+        let yOffset = threadLayout.focusPosition(for: messageIndexPath)
 
-            self.collectionView.setContentOffset(CGPoint(x: 0, y: yOffset), animated: animateScroll)
+        self.collectionView.setContentOffset(CGPoint(x: 0, y: yOffset), animated: animateScroll)
 
-            if animateSelection, let cell = self.collectionView.cellForItem(at: messageIndexPath) {
-                await UIView.awaitAnimation(with: .fast, animations: {
-                    cell.transform = CGAffineTransform.init(scaleX: 1.05, y: 1.05)
-                })
+        if animateSelection, let cell = self.collectionView.cellForItem(at: messageIndexPath) {
+            await UIView.awaitAnimation(with: .fast, animations: {
+                cell.transform = CGAffineTransform.init(scaleX: 1.05, y: 1.05)
+            })
 
-                await UIView.awaitAnimation(with: .fast, animations: {
-                    cell.transform = .identity
-                })
-            }
-        }.add(to: self.autocancelTaskPool)
+            await UIView.awaitAnimation(with: .fast, animations: {
+                cell.transform = .identity
+            })
+        }
     }
     
     func updateUI(for state: ConversationUIState, forceLayout: Bool) {
@@ -265,8 +276,16 @@ class ThreadViewController: DiffableCollectionViewController<MessageSequenceSect
             try await self.messageController.loadPreviousReplies()
 
             if let startingReplyId = self.startingReplyId {
-                try await self.messageController.loadNextReplies(including: startingReplyId)
+                try await self.messageController.loadPreviousReplies(including: startingReplyId)
+                self.resolvedStartingReplyId = self.messageController
+                    .getMessage(withId: startingReplyId)?.id
             }
+
+            // Thread replies are loaded after the data source is constructed.
+            // Refresh its message index before applying the initial diffable
+            // snapshot so every item identifier can synchronously resolve a
+            // cell when UICollectionView asks for it.
+            self.dataSource.messageSequenceController = self.messageController
 
             let messages = self.messageController.replies.map { message in
                 return MessageSequenceItem.message(messageId: message.id)
@@ -285,7 +304,7 @@ class ThreadViewController: DiffableCollectionViewController<MessageSequenceSect
 
         self.subscribeToUpdates()
         
-        if let replyId = self.startingReplyId {
+        if let replyId = self.resolvedStartingReplyId {
             Task {
                 await self.scrollToConversation(with: self.messageController.conversation!.id,
                                                 messageId: replyId,
@@ -294,7 +313,7 @@ class ThreadViewController: DiffableCollectionViewController<MessageSequenceSect
             }
         }
         
-        self.scrollToLastItemOnLayout = true
+        self.scrollToLastItemOnLayout = self.resolvedStartingReplyId == nil
         self.view.layoutNow()
     }
 
@@ -302,7 +321,7 @@ class ThreadViewController: DiffableCollectionViewController<MessageSequenceSect
                                     MessageSequenceItem>) -> AnimationCycle? {
 
         let startMessageIndex: Int
-        if let startingReplyId = self.startingReplyId {
+        if let startingReplyId = self.resolvedStartingReplyId {
             startMessageIndex
             = snapshot.indexOfItem(.message(messageId: startingReplyId)) ?? 0
         } else {

@@ -269,35 +269,12 @@ final class ParseMessageController: Hashable {
         }
     }
 
-    /// Hydrates only the small reply preview needed by a visible root cell.
-    /// This deliberately avoids synchronizing the entire conversation for each
-    /// reused cell while preserving the existing reply summary and unread badge.
+    /// Rebuilds the small reply preview needed by a visible root cell from the
+    /// durable cache. Root-page synchronization performs the one remote batch;
+    /// reused cells must never fan out per-root Parse queries.
     func synchronizeReplyPreview(pageSize: Int = 3) async throws {
         precondition(pageSize > 0)
-        guard let message, message.totalReplyCount > 0 else { return }
-
-        try await self.applyCachedRepliesAsync(
-            pageSize: pageSize,
-            preservingExisting: true
-        )
-        try Task.checkCancellation()
-        guard let rootID = self.rootServerID else { return }
-
-        // Always refresh the preview from Parse. A non-empty cache can be
-        // incomplete or stale and must not suppress a newer reply or unread
-        // receipt state indefinitely.
-        let replyPage = try await self.manager.replies(
-            messageID: rootID,
-            pageSize: pageSize
-        )
-        try Task.checkCancellation()
-        try await self.applyCachedRepliesAsync(pageSize: pageSize)
-        if !self.hasAuthoritativeRemoteReplyPage
-            || (self.hasLoadedAllPreviousReplies && replyPage.hasMore) {
-            self.nextReplyCursor = replyPage.nextCursor
-            self.hasLoadedAllPreviousReplies = !replyPage.hasMore
-            self.hasAuthoritativeRemoteReplyPage = true
-        }
+        try await self.applyCachedReplyPreviewAsync()
     }
 
     /// Re-applies the small visible-cell preview after LiveQuery has already
@@ -305,8 +282,7 @@ final class ParseMessageController: Hashable {
     /// event cannot fan out redundant Parse requests across visible cells.
     func refreshCachedReplyPreview(pageSize: Int = 3) async throws {
         precondition(pageSize > 0)
-        guard self.message?.totalReplyCount ?? 0 > 0 else { return }
-        try await self.applyCachedRepliesAsync(pageSize: pageSize)
+        try await self.applyCachedReplyPreviewAsync()
     }
 
     /// Refreshes the root snapshot without discarding replies already hydrated
@@ -314,9 +290,13 @@ final class ParseMessageController: Hashable {
     /// otherwise replace a rich root with a root-only value of the same ID.
     func updateReplyPreviewRoot(with root: ParseMessage) {
         guard root.id == self.messageID || root.serverID == self.messageID else { return }
-        self.replySnapshots = ParseMessagingControllerSupport.merge(
+        let candidates = ParseMessagingControllerSupport.merge(
             self.replySnapshots,
             with: root.replies.map(\.snapshot)
+        )
+        self.replySnapshots = MessagingReplyPreviewResolver.replies(
+            for: root.snapshot,
+            from: candidates
         )
         self.publishReplies()
         self.updateRoot(with: root.snapshot)
@@ -340,7 +320,11 @@ final class ParseMessageController: Hashable {
             cursor = self.nextReplyCursor
         }
 
-        guard cursor != nil || self.replySnapshots.isEmpty else {
+        guard MessagingReplyPaginationState.shouldFetchPreviousPage(
+            hasCachedReplies: !self.replySnapshots.isEmpty,
+            hasCursor: cursor != nil,
+            hasAuthoritativePage: self.hasAuthoritativeRemoteReplyPage
+        ) else {
             self.hasLoadedAllPreviousReplies = true
             return
         }
@@ -383,7 +367,7 @@ final class ParseMessageController: Hashable {
     }
 
     func loadNextReplies(including messageID: String, limit: Int = 25) async throws {
-        try await self.loadNextReplies(after: messageID, limit: limit)
+        try await self.loadPreviousReplies(including: messageID, limit: limit)
     }
 
     /// Reactions and receipts are included with every Parse message snapshot.
@@ -458,10 +442,60 @@ final class ParseMessageController: Hashable {
     }
 
     func setReaction(_ type: String, selected: Bool) async throws {
-        try await self.conversationController.setReaction(
-            type,
-            selected: selected,
-            messageID: self.messageID
+        guard let type = MessagingReactionType(rawValue: type) else {
+            throw ParseMessagingCompatibilityError.unsupportedReactionType(type)
+        }
+        try await self.queueReaction(type, selected: selected)
+    }
+
+    /// Applies Jibber's historical single-selection reaction behavior. Parse
+    /// keeps one canonical record per message/user, so switching reactions is
+    /// a deterministic tombstone followed by the new selection.
+    func toggleReaction(_ type: MessagingReactionType) async throws {
+        guard let message else {
+            throw ParseMessagingCompatibilityError.messageNotFound(self.messageID)
+        }
+
+        guard let userID = self.manager.authenticatedUserID else {
+            throw ParseMessagingCompatibilityError.messagingNotInitialized
+        }
+        if let operationID = message.snapshot.failedReactionMutationID(
+            type: type,
+            for: userID
+        ) {
+            _ = try await self.manager.retryBlockedOperation(
+                idempotencyKey: operationID
+            )
+            return
+        }
+        for change in message.snapshot.reactionSelectionChanges(
+            toggling: type,
+            for: userID
+        ) {
+            try await self.queueReaction(change.type, selected: change.isSelected)
+        }
+    }
+
+    private func queueReaction(
+        _ type: MessagingReactionType,
+        selected: Bool
+    ) async throws {
+        guard let messageID = self.message?.serverID else {
+            throw ParseMessagingCompatibilityError.messageHasNotReachedServer(self.messageID)
+        }
+        guard let expectedStore = self.manager.store,
+              let userID = self.manager.authenticatedUserID else {
+            throw ParseMessagingCompatibilityError.messagingNotInitialized
+        }
+        try await self.manager.enqueue(
+            .setReaction(
+                conversationID: self.conversationID.rawValue,
+                messageID: messageID,
+                type: type,
+                isSelected: selected
+            ),
+            expectedStore: expectedStore,
+            expectedUserID: userID
         )
     }
 
@@ -625,6 +659,31 @@ final class ParseMessageController: Hashable {
         try Task.checkCancellation()
         guard self.manager.store === store else { throw CancellationError() }
         self.applyCachedRepliesPage(page, preservingExisting: preservingExisting)
+    }
+
+    private func applyCachedReplyPreviewAsync() async throws {
+        guard let root = self.message?.snapshot else {
+            self.replySnapshots = []
+            self.publishReplies()
+            return
+        }
+
+        let cachedReplies = try await self.manager.cachedReplyPreview(
+            conversationID: root.conversationID,
+            messageID: root.canonicalMessageID,
+            latestReplyID: root.latestReplyID
+        )
+        try Task.checkCancellation()
+
+        let candidates = ParseMessagingControllerSupport.merge(
+            self.replySnapshots,
+            with: cachedReplies
+        )
+        self.replySnapshots = MessagingReplyPreviewResolver.replies(
+            for: root,
+            from: candidates
+        )
+        self.publishReplies()
     }
 
     private func applyCachedRepliesPage(

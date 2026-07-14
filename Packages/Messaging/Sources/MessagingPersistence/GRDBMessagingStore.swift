@@ -291,6 +291,43 @@ public final class GRDBMessagingStore: MessagingLocalStore, @unchecked Sendable 
         }
     }
 
+    /// Reads the authoritative latest-reply row and any not-yet-confirmed
+    /// local replies in one transaction. Confirmed historical replies remain
+    /// in the thread cache but cannot crowd the selected preview out.
+    public func cachedReplyPreview(
+        messageID: MessagingMessageID,
+        latestReplyID: MessagingMessageID?
+    ) throws -> [MessagingMessageSnapshot] {
+        try databaseQueue.read { db in
+            let rows: [Row]
+            if let latestReplyID {
+                rows = try Row.fetchAll(
+                    db,
+                    sql: """
+                        SELECT payload FROM messaging_message_cache
+                        WHERE (object_id = ? AND reply_to_id = ?)
+                           OR (reply_to_id = ? AND object_id IS NULL)
+                        ORDER BY sort_date DESC, sort_id DESC
+                        """,
+                    arguments: [latestReplyID, messageID, messageID]
+                )
+            } else {
+                rows = try Row.fetchAll(
+                    db,
+                    sql: """
+                        SELECT payload FROM messaging_message_cache
+                        WHERE reply_to_id = ? AND object_id IS NULL
+                        ORDER BY sort_date DESC, sort_id DESC
+                        """,
+                    arguments: [messageID]
+                )
+            }
+            return try rows.map {
+                try Self.decode(MessagingMessageSnapshot.self, from: $0["payload"])
+            }
+        }
+    }
+
     public func cachedPinnedMessages(
         conversationID: MessagingConversationID
     ) throws -> [MessagingMessageSnapshot] {
@@ -509,6 +546,7 @@ public final class GRDBMessagingStore: MessagingLocalStore, @unchecked Sendable 
             stored.sequence = try Self.nextSequence(in: db)
             stored = try Self.roundTrip(stored)
             try Self.insert(outbox: stored, in: db)
+            try Self.applyOptimisticReaction(for: stored, in: db)
             return stored
         }
     }
@@ -559,6 +597,7 @@ public final class GRDBMessagingStore: MessagingLocalStore, @unchecked Sendable 
                 throw MessagingPersistenceError.outboxEntryNotFound(entry.id)
             }
             try Self.insert(outbox: entry, in: db)
+            try Self.updateOptimisticReactionState(for: entry, in: db)
         }
     }
 
@@ -596,6 +635,7 @@ public final class GRDBMessagingStore: MessagingLocalStore, @unchecked Sendable 
             entry.nextAttemptAt = date
             entry.lastErrorDescription = nil
             try Self.insert(outbox: entry, in: db)
+            try Self.updateOptimisticReactionState(for: entry, in: db)
             try Self.updateOptimisticSend(
                 for: entry,
                 state: .queued,
@@ -1020,6 +1060,94 @@ public final class GRDBMessagingStore: MessagingLocalStore, @unchecked Sendable 
         message.localState = state
         message.lastFailureDescription = failureDescription
         try upsert(message: message, in: db)
+    }
+
+    /// Applies the user's requested reaction and inserts the outbox row in the
+    /// same transaction. This makes the optimistic value relaunch-safe.
+    private static func applyOptimisticReaction(
+        for entry: MessagingOutboxEntry,
+        in db: Database
+    ) throws {
+        guard case .setReaction(
+            _, let messageID, let type, let isSelected
+        ) = entry.mutation,
+              let actorID = entry.actorID,
+              var message = try fetchMessage(objectID: messageID, in: db) else {
+            return
+        }
+
+        let state: MessagingLocalReactionState = isSelected ? .selecting : .removing
+        let existingIndex = isSelected
+            ? message.reactions.firstIndex(where: { $0.userID == actorID })
+            : message.reactions.firstIndex(where: {
+                $0.userID == actorID && $0.type == type
+            })
+        if let index = existingIndex {
+            if isSelected {
+                message.reactions[index].type = type
+                // The backend's unique (message,user) index makes every other
+                // cached row for this actor legacy/duplicate state.
+                let selected = message.reactions[index]
+                message.reactions.removeAll { $0.userID == actorID }
+                message.reactions.append(selected)
+            }
+            let selectedIndex = isSelected ? message.reactions.endIndex - 1 : index
+            message.reactions[selectedIndex].isDeleted = !isSelected
+            message.reactions[selectedIndex].deletedAt = isSelected ? nil : entry.createdAt
+            message.reactions[selectedIndex].localMutationID = entry.idempotencyKey
+            message.reactions[selectedIndex].localMutationState = state
+            message.reactions[selectedIndex].lastFailureDescription = nil
+        } else {
+            message.reactions.append(MessagingReactionSnapshot(
+                messageID: messageID,
+                userID: actorID,
+                type: type,
+                createdAt: entry.createdAt,
+                isDeleted: !isSelected,
+                deletedAt: isSelected ? nil : entry.createdAt,
+                localMutationID: entry.idempotencyKey,
+                localMutationState: state
+            ))
+        }
+        try write(message: message, in: db)
+    }
+
+    /// Keeps pending and terminal failure state explicit without allowing an
+    /// older queued operation to overwrite a newer optimistic choice.
+    private static func updateOptimisticReactionState(
+        for entry: MessagingOutboxEntry,
+        in db: Database
+    ) throws {
+        guard case .setReaction(
+            _, let messageID, let type, let isSelected
+        ) = entry.mutation,
+              let actorID = entry.actorID,
+              var message = try fetchMessage(objectID: messageID, in: db),
+              let index = message.reactions.firstIndex(where: {
+                  $0.userID == actorID
+                      && $0.type == type
+                      && $0.localMutationID == entry.idempotencyKey
+              }) else {
+            return
+        }
+
+        switch entry.state {
+        case .queued, .inFlight, .retryScheduled:
+            message.reactions[index].isDeleted = !isSelected
+            message.reactions[index].deletedAt = isSelected ? nil : entry.createdAt
+            message.reactions[index].localMutationState = isSelected ? .selecting : .removing
+        case .blocked:
+            // A terminal failure is not authoritative. Keep the chip visible
+            // in its last server-backed selected state so the failure styling
+            // and exact-operation retry remain reachable.
+            message.reactions[index].isDeleted = false
+            message.reactions[index].deletedAt = nil
+            message.reactions[index].localMutationState = isSelected
+                ? .selectionFailed
+                : .removalFailed
+        }
+        message.reactions[index].lastFailureDescription = entry.lastErrorDescription
+        try write(message: message, in: db)
     }
 
     private static func nextSequence(in db: Database) throws -> Int64 {

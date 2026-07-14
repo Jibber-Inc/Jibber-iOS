@@ -7,6 +7,32 @@ import Foundation
 import MessagingContracts
 import ParseSwift
 
+public enum ParseMessagingReplyPreviewBatch {
+    typealias Loader = @Sendable (
+        [MessagingMessageID]
+    ) async throws -> [MessagingParseMessage]
+
+    public static func latestReplyIDs(
+        in roots: [MessagingMessageSnapshot]
+    ) -> [MessagingMessageID] {
+        var seen: Set<MessagingMessageID> = []
+        return roots.compactMap { root in
+            guard let latestReplyID = root.latestReplyID,
+                  seen.insert(latestReplyID).inserted else { return nil }
+            return latestReplyID
+        }
+    }
+
+    static func loadObjects(
+        for roots: [MessagingMessageSnapshot],
+        using loader: Loader
+    ) async throws -> [MessagingParseMessage] {
+        let messageIDs = latestReplyIDs(in: roots)
+        guard !messageIDs.isEmpty else { return [] }
+        return try await loader(messageIDs)
+    }
+}
+
 /// Parse-native repository used after authentication has been bridged into
 /// ParseSwift. Server triggers remain authoritative for membership, actor
 /// identity, ACLs, field allow-lists, and derived timestamps.
@@ -129,6 +155,22 @@ public final class ParseMessagingRepository:
             messageID: messageID,
             pageSize: pageSize
         )
+    }
+
+    /// Fetches full latest-reply objects once per root page. These snapshots
+    /// are cached as ordinary reply rows so media/link/text rendering survives
+    /// relaunch and LiveQuery can continue reconciling the same records.
+    public func latestReplies(
+        for roots: [MessagingMessageSnapshot]
+    ) async throws -> [MessagingMessageSnapshot] {
+        let objects = try await ParseMessagingReplyPreviewBatch.loadObjects(
+            for: roots
+        ) { messageIDs in
+            try await ParseMessagingQueryFactory
+                .latestReplies(messageIDs: messageIDs)
+                .find()
+        }
+        return try await hydrate(objects)
     }
 
     public func pinnedMessages(

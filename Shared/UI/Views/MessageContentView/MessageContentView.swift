@@ -9,6 +9,7 @@
 import Foundation
 import Combine
 import LinkPresentation
+import MessagingContracts
 
 /// Transfers the provider-owned metadata into the main-actor presentation view.
 private struct LinkMetadataTransfer: @unchecked Sendable {
@@ -28,6 +29,9 @@ protocol MessageContentDelegate: AnyObject {
     func messageContent(_ content: MessageContentView,
                         didTapExpression expression: ExpressionInfo,
                         forMessage message: Messageable)
+    func messageContent(_ content: MessageContentView,
+                        didTapReaction reaction: ReactionType,
+                        forMessage message: Messageable)
 }
 
 extension MessageContentDelegate {
@@ -41,6 +45,9 @@ extension MessageContentDelegate {
                         toMessage message: Messageable) {}
     func messageContent(_ content: MessageContentView,
                         didTapExpression expression: ExpressionInfo,
+                        forMessage message: Messageable) {}
+    func messageContent(_ content: MessageContentView,
+                        didTapReaction reaction: ReactionType,
                         forMessage message: Messageable) {}
 }
 
@@ -89,6 +96,7 @@ class MessageContentView: BaseView {
     let deliveryView = SymbolImageView()
     /// Text view for displaying the text of the message.
     let textView = MessageTextView(font: .regular, textColor: .white)
+    let reactionsView = MessageReactionsView()
     let imageView = DisplayableImageView()
     let countCircle = CircleCountView()
     let videoImageView = SymbolImageView(symbol: .videoFill)
@@ -153,6 +161,8 @@ class MessageContentView: BaseView {
         self.mainContentArea.addSubview(self.dateView)
         self.dateView.alpha = 0.6
 
+        self.mainContentArea.addSubview(self.reactionsView)
+
         self.setupHandlers()
     }
     
@@ -170,6 +180,15 @@ class MessageContentView: BaseView {
         self.imageView.didSelect { [unowned self] in
             guard let message = self.message else { return }
             self.delegate?.messageContent(self, didTapAttachmentForMessage: message)
+        }
+
+        self.reactionsView.didSelectReaction = { [unowned self] reaction in
+            guard let message = self.message else { return }
+            self.delegate?.messageContent(
+                self,
+                didTapReaction: reaction,
+                forMessage: message
+            )
         }
     }
 
@@ -196,10 +215,19 @@ class MessageContentView: BaseView {
         self.deliveryView.squaredSize = 11
         self.deliveryView.match(.left, to: .right, of: self.authorView, offset: MessageContentView.padding)
 
+        // Reactions keep their historical top-right position while using a
+        // compact grouped representation that can show all supported types.
+        self.reactionsView.height = 30
+        self.reactionsView.pin(.top)
+        self.reactionsView.pin(.right)
+
         // Date view
         self.dateView.match(.left, to: .right, of: self.deliveryView, offset: .short)
         self.dateView.pin(.top)
-        self.dateView.setSize(withWidth: self.mainContentArea.width - self.dateView.left)
+        let dateRight = self.reactionsView.isVisible
+            ? self.reactionsView.left - Theme.ContentOffset.short.value
+            : self.mainContentArea.width
+        self.dateView.setSize(withWidth: max(0, dateRight - self.dateView.left))
         
         self.deliveryView.centerY = self.dateView.centerY
         
@@ -311,6 +339,8 @@ class MessageContentView: BaseView {
 
         self.dateView.configure(with: message)
         self.deliveryView.set(symbol: message.deliveryType.symbol)
+        self.reactionsView.configure(with: message.reactionGroups)
+        self.setNeedsLayout()
 
         if message.isDeleted {
             self.textView.text = "DELETED"
@@ -469,6 +499,94 @@ class MessageContentView: BaseView {
             }
         }
         return size
+    }
+}
+
+/// Compact, provider-neutral reaction groups shown in the message's
+/// established top-right presentation position.
+final class MessageReactionsView: BaseView {
+
+    var didSelectReaction: ((ReactionType) -> Void)?
+
+    private let stackView = UIStackView()
+
+    override func initializeSubviews() {
+        super.initializeSubviews()
+
+        self.stackView.axis = .horizontal
+        self.stackView.alignment = .fill
+        self.stackView.distribution = .fill
+        self.stackView.spacing = 4
+        self.addSubview(self.stackView)
+    }
+
+    func configure(with groups: [MessagingReactionGroup]) {
+        self.stackView.arrangedSubviews.forEach { view in
+            self.stackView.removeArrangedSubview(view)
+            view.removeFromSuperview()
+        }
+
+        var totalWidth: CGFloat = 0
+        for group in groups {
+            let button = UIButton(type: .system)
+            let countSuffix = group.count > 1 ? "\(group.count)" : ""
+            let titleText = "\(group.type.emoji)\(countSuffix)"
+            var title = Foundation.AttributedString(titleText)
+            title.font = FontType.small.font
+
+            var configuration = UIButton.Configuration.plain()
+            configuration.attributedTitle = title
+            configuration.baseForegroundColor = group.isSelectedByCurrentUser
+                ? ThemeColor.B0.color
+                : ThemeColor.white.color
+            configuration.background.backgroundColor = group.isSelectedByCurrentUser
+                ? ThemeColor.white.color
+                : ThemeColor.B1withAlpha.color
+            configuration.background.cornerRadius = 14
+            if group.currentUserMutationState?.hasFailed == true {
+                configuration.background.strokeColor = ThemeColor.red.color
+                configuration.background.strokeWidth = 2
+            }
+            configuration.contentInsets = NSDirectionalEdgeInsets(
+                top: 0,
+                leading: 8,
+                bottom: 0,
+                trailing: 8
+            )
+            button.configuration = configuration
+            button.alpha = group.currentUserMutationState?.isPending == true ? 0.65 : 1
+            button.accessibilityLabel = "\(group.type.displayName), \(group.count) reaction\(group.count == 1 ? "" : "s")"
+            if group.currentUserMutationState?.hasFailed == true {
+                button.accessibilityValue = "Update failed"
+            } else if group.currentUserMutationState?.isPending == true {
+                button.accessibilityValue = "Updating"
+            } else {
+                button.accessibilityValue = group.isSelectedByCurrentUser ? "Selected by you" : nil
+            }
+            button.addAction(UIAction { [weak self] _ in
+                self?.didSelectReaction?(group.type)
+            }, for: .touchUpInside)
+
+            let titleWidth = (titleText as NSString).size(
+                withAttributes: [.font: FontType.small.font]
+            ).width
+            let buttonWidth = max(32, ceil(titleWidth) + 16)
+            button.widthAnchor.constraint(equalToConstant: buttonWidth).isActive = true
+            self.stackView.addArrangedSubview(button)
+            totalWidth += buttonWidth
+        }
+
+        if groups.count > 1 {
+            totalWidth += CGFloat(groups.count - 1) * self.stackView.spacing
+        }
+        self.width = totalWidth
+        self.isVisible = !groups.isEmpty
+        self.setNeedsLayout()
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        self.stackView.expandToSuperviewSize()
     }
 }
 

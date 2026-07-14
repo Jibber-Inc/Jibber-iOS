@@ -9,6 +9,17 @@ import MessagingContracts
 import MessagingPersistence
 import ParseCore
 
+private enum ParseMessagingThreadTargetError: LocalizedError {
+    case nestedReply(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .nestedReply(let messageID):
+            return "Message \(messageID) is already a reply. Parse threads cannot be nested."
+        }
+    }
+}
+
 @MainActor
 enum ParseMessagingControllerSupport {
 
@@ -81,6 +92,31 @@ enum ParseMessagingControllerSupport {
             throw ParseMessagingCompatibilityError.messageHasNotReachedServer(identifier)
         }
         return objectID
+    }
+
+    static func serverThreadRootMessageID(
+        for identifier: String,
+        in snapshots: [MessagingMessageSnapshot]
+    ) throws -> String {
+        let resolution = MessagingThreadTargetResolver.resolve(
+            messageID: identifier,
+            in: snapshots
+        )
+        switch resolution {
+        case .targetNotFound:
+            throw ParseMessagingCompatibilityError.messageNotFound(identifier)
+        case .nestedReply(let parentMessageID):
+            throw ParseMessagingThreadTargetError.nestedReply(parentMessageID)
+        case .rootMessageID(let rootMessageID):
+            guard snapshots.contains(where: {
+                $0.stableID == rootMessageID || $0.objectID == rootMessageID
+            }) else {
+                // A reply's Parse pointer is authoritative even when its root
+                // is outside the currently loaded page.
+                return rootMessageID
+            }
+            return try self.serverMessageID(for: rootMessageID, in: snapshots)
+        }
     }
 
     static func currentMember(

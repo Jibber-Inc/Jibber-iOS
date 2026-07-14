@@ -135,6 +135,68 @@ final class ParseMessagingModelsTests: XCTestCase {
         XCTAssertEqual(try member.snapshot().serverUpdatedAt, updatedAt)
     }
 
+    func testMessageSnapshotMapsLatestReplySummaryFields() throws {
+        var object = MessagingParseMessage()
+        object.objectId = "root-1"
+        object.createdAt = Date(timeIntervalSince1970: 100)
+        object.updatedAt = Date(timeIntervalSince1970: 300)
+        object.conversation = Pointer<MessagingParseConversation>(objectId: "conversation-1")
+        object.author = Pointer<MessagingParseUser>(objectId: "user-1")
+        object.clientMessageId = "client-root-1"
+        object.clientCreatedAt = Date(timeIntervalSince1970: 100)
+        object.contentType = .text
+        object.text = "Root"
+        object.replyCount = 1
+        object.latestReply = Pointer<MessagingParseMessage>(objectId: "reply-1")
+        object.latestReplyAt = Date(timeIntervalSince1970: 250)
+        object.latestReplyAuthor = Pointer<MessagingParseUser>(objectId: "maya")
+        object.latestReplyText = "Generated this for you"
+        object.deliveryType = .conversational
+
+        let snapshot = try object.snapshot()
+
+        XCTAssertEqual(snapshot.latestReplyID, "reply-1")
+        XCTAssertEqual(snapshot.latestReplyAt, Date(timeIntervalSince1970: 250))
+        XCTAssertEqual(snapshot.latestReplyAuthorID, "maya")
+        XCTAssertEqual(snapshot.latestReplyText, "Generated this for you")
+    }
+
+    func testLatestReplyHydrationInvokesOneLoaderWithUniquePageIDs() async throws {
+        let recorder = ReplyPreviewBatchRecorder()
+        let roots = [
+            makeRoot(objectID: "root-1", latestReplyID: "reply-1"),
+            makeRoot(objectID: "root-2", latestReplyID: "reply-2"),
+            makeRoot(objectID: "root-3", latestReplyID: "reply-1"),
+            makeRoot(objectID: "root-4", latestReplyID: nil)
+        ]
+
+        let objects = try await ParseMessagingReplyPreviewBatch.loadObjects(
+            for: roots
+        ) { messageIDs in
+            await recorder.load(messageIDs)
+        }
+        let recordedCalls = await recorder.recordedCalls()
+
+        XCTAssertTrue(objects.isEmpty)
+        XCTAssertEqual(recordedCalls, [["reply-1", "reply-2"]])
+    }
+
+    func testLatestReplyQueryUsesSingleObjectIDContainedInConstraint() throws {
+        let query = ParseMessagingQueryFactory.latestReplies(
+            messageIDs: ["reply-1", "reply-2"]
+        )
+        let payload = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: JSONEncoder().encode(query))
+                as? [String: Any]
+        )
+        let wherePayload = try XCTUnwrap(payload["where"] as? [String: Any])
+        let objectIDPayload = try XCTUnwrap(wherePayload["objectId"] as? [String: Any])
+        let ids = try XCTUnwrap(objectIDPayload["$in"] as? [String])
+
+        XCTAssertEqual(Set(ids), Set(["reply-1", "reply-2"]))
+        XCTAssertEqual(payload["limit"] as? Int, 2)
+    }
+
     func testCacheFallbackAndReactionAbsenceUseNarrowParseErrorClasses() throws {
         let objectNotFound = try parseError(code: 101)
         let permissionDenied = try parseError(code: 119)
@@ -160,5 +222,36 @@ final class ParseMessagingModelsTests: XCTestCase {
             ParseError.self,
             from: Data("{\"code\":\(code),\"error\":\"test\"}".utf8)
         )
+    }
+
+    private func makeRoot(
+        objectID: String,
+        latestReplyID: String?
+    ) -> MessagingMessageSnapshot {
+        MessagingMessageSnapshot(
+            objectID: objectID,
+            clientMessageID: "client-\(objectID)",
+            conversationID: "conversation-1",
+            authorID: "user-1",
+            clientCreatedAt: Date(timeIntervalSince1970: 100),
+            content: MessagingMessageContent(kind: .text, text: objectID),
+            replyCount: latestReplyID == nil ? 0 : 1,
+            latestReplyID: latestReplyID,
+            deliveryKind: .conversational,
+            localState: .confirmed
+        )
+    }
+}
+
+private actor ReplyPreviewBatchRecorder {
+    private var calls: [[MessagingMessageID]] = []
+
+    func load(_ messageIDs: [MessagingMessageID]) -> [MessagingParseMessage] {
+        self.calls.append(messageIDs)
+        return []
+    }
+
+    func recordedCalls() -> [[MessagingMessageID]] {
+        self.calls
     }
 }

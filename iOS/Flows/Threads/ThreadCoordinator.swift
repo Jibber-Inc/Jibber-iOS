@@ -115,7 +115,7 @@ class ThreadCoordinator: InputHandlerCoordinator<ThreadResult>, DeepLinkHandler 
                       let person = await PeopleStore.shared.getPerson(withPersonId: personId) else { return }
                 self.presentProfile(for: person)
             }
-        case .conversation:
+        case .conversation, .thread:
             self.finishFlow(with: .deeplink(deepLink))
         default:
             break

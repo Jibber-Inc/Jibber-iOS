@@ -116,6 +116,15 @@ public enum MessagingMessageReconciler {
         _ existing: MessagingReactionSnapshot,
         with incoming: MessagingReactionSnapshot
     ) -> Bool {
+        // A contradictory LiveQuery event or hydrated page may have been sent
+        // before the user's durable mutation. Keep the optimistic value until
+        // Parse returns the requested active/tombstoned state. The matching
+        // authoritative value then replaces it and clears all local markers.
+        if let localState = existing.localMutationState,
+           incoming.localMutationState == nil {
+            return incoming.type == existing.type
+                && incoming.isActive == localState.intendsSelection
+        }
         switch (existing.serverUpdatedAt, incoming.serverUpdatedAt) {
         case let (existingUpdated?, incomingUpdated?):
             if incomingUpdated != existingUpdated {

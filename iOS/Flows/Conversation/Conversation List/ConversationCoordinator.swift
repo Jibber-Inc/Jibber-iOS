@@ -13,6 +13,7 @@ import Combine
 import Localization
 import Intents
 import Coordinator
+import MessagingContracts
 
 /// A coordinator for displaying a single conversation.
 class ConversationCoordinator: InputHandlerCoordinator<Void>, DeepLinkHandler {
@@ -64,19 +65,30 @@ class ConversationCoordinator: InputHandlerCoordinator<Void>, DeepLinkHandler {
         guard let target = deepLink.deepLinkTarget else { return }
         
         switch target {
-        case .conversation:
-            let messageID = deepLink.messageId
+        case .conversation, .thread:
             guard let conversationId = deepLink.conversationId else { break }
-            
+            let route = MessagingNotificationRoute(
+                messageID: deepLink.messageId,
+                threadRootMessageID: deepLink.threadRootId
+            )
+            let openReplies = target == .thread || route.isThreadReply
+            let messageID = openReplies
+                ? route.navigationMessageID
+                : deepLink.messageId
+
             if conversationId == self.conversationVC.conversationId {
                 Task {
                     await self.conversationVC.scrollToConversation(with: conversationId,
                                                                    messageId: messageID,
+                                                                   viewReplies: openReplies,
                                                                    animateScroll: false,
                                                                    animateSelection: true)
                 }.add(to: self.taskPool)
             } else {
-                self.conversationVC.startingMessageId = deepLink.messageId
+                self.conversationVC.setStartingNavigation(
+                    messageID: messageID,
+                    openReplies: openReplies
+                )
                 self.conversationVC.conversationId = conversationId 
             }
             
@@ -140,7 +152,19 @@ class ConversationCoordinator: InputHandlerCoordinator<Void>, DeepLinkHandler {
     }
     
     override func messageContent(_ content: MessageContentView, didTapViewReplies message: Messageable) {
-        self.presentThread(for: message, startingReplyId: nil)
+        let route = MessagingNotificationRoute(
+            messageID: self.deepLink?.messageId,
+            threadRootMessageID: self.deepLink?.threadRootId
+        )
+        let isMatchingRoot = route.navigationMessageID == message.id
+            || route.navigationMessageID == (message as? ParseMessage)?.serverID
+        let startingReplyID = isMatchingRoot
+            ? route.startingReplyMessageID
+            : nil
+        if isMatchingRoot {
+            self.deepLink = nil
+        }
+        self.presentThread(for: message, startingReplyId: startingReplyID)
     }
     
     override func presentThread(for message: Messageable, startingReplyId: String?) {

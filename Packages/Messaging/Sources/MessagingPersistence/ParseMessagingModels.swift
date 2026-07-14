@@ -142,6 +142,10 @@ public struct MessagingParseMessage: ParseObject, @unchecked Sendable {
     public var metadata: [String: String]?
     public var replyTo: Pointer<MessagingParseMessage>?
     public var replyCount: Int?
+    public var latestReply: Pointer<MessagingParseMessage>?
+    public var latestReplyAt: Date?
+    public var latestReplyAuthor: Pointer<MessagingParseUser>?
+    public var latestReplyText: String?
     public var deliveryType: MessagingDeliveryKind?
     public var editedAt: Date?
     public var expressions: [MessagingExpressionReference]?
@@ -307,6 +311,10 @@ public extension MessagingParseMessage {
             content: content,
             replyToMessageID: replyTo?.objectId,
             replyCount: replyCount,
+            latestReplyID: latestReply?.objectId,
+            latestReplyAt: latestReplyAt,
+            latestReplyAuthorID: latestReplyAuthor?.objectId,
+            latestReplyText: latestReplyText,
             deliveryKind: deliveryType,
             editedAt: editedAt,
             isPinned: isPinned,

@@ -83,7 +83,7 @@ class ConversationViewController: InputHandlerViewContoller,
     /// The id of the conversation this VC will display.
     @Published var conversationId: String?
     var startingMessageId: String?
-    private let openReplies: Bool
+    private var openReplies: Bool
 
     init(conversationId: String?,
          startingMessageId: String?,
@@ -94,6 +94,11 @@ class ConversationViewController: InputHandlerViewContoller,
         self.openReplies = openReplies
 
         super.init()
+    }
+
+    func setStartingNavigation(messageID: String?, openReplies: Bool) {
+        self.startingMessageId = messageID
+        self.openReplies = openReplies
     }
 
     required init?(coder aDecoder: NSCoder) {

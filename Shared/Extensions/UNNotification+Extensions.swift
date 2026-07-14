@@ -23,6 +23,10 @@ extension UNNotification {
         return self.request.content.conversationId
     }
 
+    var threadRootId: String? {
+        return self.request.content.threadRootId
+    }
+
     var connectionId: String? {
         return self.request.content.connectionId
     }

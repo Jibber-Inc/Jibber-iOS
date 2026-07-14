@@ -193,6 +193,11 @@ public struct MessagingReactionSnapshot: Codable, Hashable, Sendable {
     public var serverUpdatedAt: Date?
     public var isDeleted: Bool
     public var deletedAt: Date?
+    /// Identifies the durable outbox operation whose requested state is
+    /// reflected by this cached snapshot. Nil means Parse-authoritative state.
+    public var localMutationID: String?
+    public var localMutationState: MessagingLocalReactionState?
+    public var lastFailureDescription: String?
 
     public init(
         objectID: String? = nil,
@@ -202,7 +207,10 @@ public struct MessagingReactionSnapshot: Codable, Hashable, Sendable {
         createdAt: Date,
         serverUpdatedAt: Date? = nil,
         isDeleted: Bool? = nil,
-        deletedAt: Date? = nil
+        deletedAt: Date? = nil,
+        localMutationID: String? = nil,
+        localMutationState: MessagingLocalReactionState? = nil,
+        lastFailureDescription: String? = nil
     ) {
         self.objectID = objectID
         self.messageID = messageID
@@ -212,6 +220,9 @@ public struct MessagingReactionSnapshot: Codable, Hashable, Sendable {
         self.serverUpdatedAt = serverUpdatedAt
         self.isDeleted = isDeleted ?? (deletedAt != nil)
         self.deletedAt = deletedAt
+        self.localMutationID = localMutationID
+        self.localMutationState = localMutationState
+        self.lastFailureDescription = lastFailureDescription
     }
 }
 
@@ -253,6 +264,10 @@ public struct MessagingMessageSnapshot: Codable, Hashable, Identifiable, Sendabl
     public var content: MessagingMessageContent
     public var replyToMessageID: MessagingMessageID?
     public var replyCount: Int?
+    public var latestReplyID: MessagingMessageID?
+    public var latestReplyAt: Date?
+    public var latestReplyAuthorID: MessagingUserID?
+    public var latestReplyText: String?
     public var deliveryKind: MessagingDeliveryKind
     public var editedAt: Date?
     public var isPinned: Bool
@@ -277,6 +292,10 @@ public struct MessagingMessageSnapshot: Codable, Hashable, Identifiable, Sendabl
         content: MessagingMessageContent,
         replyToMessageID: MessagingMessageID? = nil,
         replyCount: Int? = nil,
+        latestReplyID: MessagingMessageID? = nil,
+        latestReplyAt: Date? = nil,
+        latestReplyAuthorID: MessagingUserID? = nil,
+        latestReplyText: String? = nil,
         deliveryKind: MessagingDeliveryKind,
         editedAt: Date? = nil,
         isPinned: Bool? = nil,
@@ -300,6 +319,10 @@ public struct MessagingMessageSnapshot: Codable, Hashable, Identifiable, Sendabl
         self.content = content
         self.replyToMessageID = replyToMessageID
         self.replyCount = replyCount
+        self.latestReplyID = latestReplyID
+        self.latestReplyAt = latestReplyAt
+        self.latestReplyAuthorID = latestReplyAuthorID
+        self.latestReplyText = latestReplyText
         self.deliveryKind = deliveryKind
         self.editedAt = editedAt
         self.isPinned = isPinned ?? (pinnedAt != nil)
@@ -321,8 +344,91 @@ public struct MessagingMessageSnapshot: Codable, Hashable, Identifiable, Sendabl
 
     public var canonicalMessageID: String { objectID ?? clientMessageID }
 
+    /// Parse threads are one level deep. When this snapshot is already a
+    /// reply, new replies must continue targeting its root instead of creating
+    /// a nested thread.
+    public var threadRootMessageID: MessagingMessageID {
+        replyToMessageID ?? canonicalMessageID
+    }
+
+    /// Soft-deleted replies stay in the thread cache so the thread can render
+    /// its tombstone, but they must not contribute to a root's reply badge or
+    /// latest-reply preview.
+    public var isActiveForReplySummary: Bool {
+        !isDeleted && deletedAt == nil
+    }
+
     public var sortDate: Date { serverCreatedAt ?? clientCreatedAt }
 
+}
+
+public enum MessagingReplySummary {
+    /// Uses the authoritative server count while allowing an optimistic active
+    /// reply to appear before the corresponding root summary update arrives.
+    public static func totalCount(
+        authoritativeCount: Int?,
+        loadedReplies: [MessagingMessageSnapshot]
+    ) -> Int {
+        max(0, max(authoritativeCount ?? 0, loadedReplies.count(where: \.isActiveForReplySummary)))
+    }
+
+    /// Returns the newest non-tombstoned reply regardless of input order.
+    public static func latestActiveReply(
+        in loadedReplies: [MessagingMessageSnapshot]
+    ) -> MessagingMessageSnapshot? {
+        loadedReplies
+            .filter(\.isActiveForReplySummary)
+            .max { lhs, rhs in
+                if lhs.sortDate == rhs.sortDate {
+                    return lhs.stableID < rhs.stableID
+                }
+                return lhs.sortDate < rhs.sortDate
+            }
+    }
+}
+
+public enum MessagingReplyPreviewResolver {
+    /// Selects the server-authoritative latest reply while retaining any
+    /// optimistic replies that have not reached Parse yet. Confirmed cached
+    /// replies that no longer match the root pointer are intentionally
+    /// excluded: they remain available to the full thread without allowing a
+    /// deleted or superseded reply to reappear in the conversation preview.
+    public static func replies(
+        for root: MessagingMessageSnapshot,
+        from candidates: [MessagingMessageSnapshot]
+    ) -> [MessagingMessageSnapshot] {
+        let belongsToRoot: (MessagingMessageSnapshot) -> Bool = { candidate in
+            candidate.replyToMessageID == root.objectID
+                || candidate.replyToMessageID == root.stableID
+        }
+        var selected: [MessagingMessageSnapshot] = []
+        var selectedIDs: Set<MessagingMessageID> = []
+
+        if let latestReplyID = root.latestReplyID,
+           let latestReply = candidates.first(where: {
+               ($0.objectID == latestReplyID || $0.stableID == latestReplyID)
+                   && belongsToRoot($0)
+                   && $0.isActiveForReplySummary
+           }) {
+            selected.append(latestReply)
+            selectedIDs.insert(latestReply.canonicalMessageID)
+        }
+
+        for candidate in candidates where candidate.objectID == nil
+            && candidate.localState != .confirmed
+            && belongsToRoot(candidate)
+            && candidate.isActiveForReplySummary {
+            guard selectedIDs.insert(candidate.canonicalMessageID).inserted else { continue }
+            selected.append(candidate)
+        }
+
+        return selected.sorted { lhs, rhs in
+            if lhs.sortDate == rhs.sortDate {
+                return lhs.stableID > rhs.stableID
+            }
+            return lhs.sortDate > rhs.sortDate
+        }
+    }
 }
 
 public struct MessagingConversationSnapshot: Codable, Hashable, Identifiable, Sendable {

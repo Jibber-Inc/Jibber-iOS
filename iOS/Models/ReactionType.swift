@@ -7,29 +7,34 @@
 //
 
 import Foundation
+import MessagingContracts
 
-enum ReactionType {
+/// The product-level reaction type is owned by the provider-neutral messaging
+/// contract. This alias keeps the historical Jibber name at presentation call
+/// sites without leaking emoji into Parse's stable wire values.
+typealias ReactionType = MessagingReactionType
 
-    case read
-    
-    var rawValue: String {
+extension MessagingReactionType {
+
+    var emoji: String {
         switch self {
-        case .read:
-            return "read"
+        case .like:
+            return "👍"
+        case .love:
+            return "😍"
+        case .dislike:
+            return "👎"
         }
     }
 
-    var reaction: String { self.rawValue }
-    
-    init?(rawValue: String) {
-        if rawValue == "read" {
-            self = .read
-        } else {
-            return nil
+    var displayName: String {
+        switch self {
+        case .like:
+            return "Like"
+        case .love:
+            return "Love"
+        case .dislike:
+            return "Dislike"
         }
     }
-}
-
-func == (lhs: ReactionType, rhs: ReactionType) -> Bool {
-    return lhs.rawValue == rhs.rawValue
 }

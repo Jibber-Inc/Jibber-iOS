@@ -118,6 +118,83 @@ final class MessagingRealtimeReconcilerTests: XCTestCase {
         XCTAssertTrue(try XCTUnwrap(cached.reactions.first).isDeleted)
     }
 
+    func testContradictoryReactionEventCannotUndoPendingSelection() throws {
+        let store = try GRDBMessagingStore(inMemory: .init())
+        var message = makeMessage(text: "Hello", updatedAt: 100)
+        message.reactions = [MessagingReactionSnapshot(
+            objectID: "reaction-optimistic",
+            messageID: "message-1",
+            userID: "current-user",
+            type: MessagingReactionType.like.rawValue,
+            createdAt: Date(timeIntervalSince1970: 100),
+            serverUpdatedAt: Date(timeIntervalSince1970: 200),
+            isDeleted: false,
+            localMutationID: "mutation-1",
+            localMutationState: .selecting
+        )]
+        try store.upsert(messages: [message])
+        let reconciler = MessagingRealtimeReconciler(store: store)
+
+        try reconciler.apply(.reactionUpserted(MessagingReactionSnapshot(
+            objectID: "reaction-optimistic",
+            messageID: "message-1",
+            userID: "current-user",
+            type: MessagingReactionType.like.rawValue,
+            createdAt: Date(timeIntervalSince1970: 100),
+            serverUpdatedAt: Date(timeIntervalSince1970: 300),
+            isDeleted: true,
+            deletedAt: Date(timeIntervalSince1970: 299)
+        )))
+
+        var cached = try XCTUnwrap(store.cachedMessage(objectID: "message-1"))
+        XCTAssertTrue(try XCTUnwrap(cached.reactions.first).isActive)
+        XCTAssertEqual(cached.reactions.first?.localMutationState, .selecting)
+
+        let confirmed = MessagingReactionSnapshot(
+            objectID: "reaction-optimistic",
+            messageID: "message-1",
+            userID: "current-user",
+            type: MessagingReactionType.like.rawValue,
+            createdAt: Date(timeIntervalSince1970: 100),
+            serverUpdatedAt: Date(timeIntervalSince1970: 301)
+        )
+        try reconciler.apply(.reactionUpserted(confirmed))
+
+        cached = try XCTUnwrap(store.cachedMessage(objectID: "message-1"))
+        XCTAssertEqual(cached.reactions, [confirmed])
+        XCTAssertNil(cached.reactions.first?.localMutationState)
+    }
+
+    func testOutOfOrderActiveEventCannotResurrectNewerReactionTombstone() throws {
+        let store = try GRDBMessagingStore(inMemory: .init())
+        var message = makeMessage(text: "Hello", updatedAt: 100)
+        message.reactions = [MessagingReactionSnapshot(
+            objectID: "reaction-delete-order",
+            messageID: "message-1",
+            userID: "user-2",
+            type: MessagingReactionType.dislike.rawValue,
+            createdAt: Date(timeIntervalSince1970: 100),
+            serverUpdatedAt: Date(timeIntervalSince1970: 300),
+            isDeleted: true,
+            deletedAt: Date(timeIntervalSince1970: 299)
+        )]
+        try store.upsert(messages: [message])
+        let reconciler = MessagingRealtimeReconciler(store: store)
+
+        try reconciler.apply(.reactionUpserted(MessagingReactionSnapshot(
+            objectID: "reaction-delete-order",
+            messageID: "message-1",
+            userID: "user-2",
+            type: MessagingReactionType.dislike.rawValue,
+            createdAt: Date(timeIntervalSince1970: 100),
+            serverUpdatedAt: Date(timeIntervalSince1970: 200)
+        )))
+
+        let cached = try XCTUnwrap(store.cachedMessage(objectID: "message-1"))
+        XCTAssertFalse(try XCTUnwrap(cached.reactions.first).isActive)
+        XCTAssertTrue(cached.reactionGroups(currentUserID: "user-1").isEmpty)
+    }
+
     func testReconnectCatchUpIsConsumedExactlyOnce() {
         var tracker = MessagingRealtimeCatchUpTracker()
 

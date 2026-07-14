@@ -166,8 +166,17 @@ class InputHandlerCoordinator<Result>: PresentableCoordinator<Result>,
             previousFirstResponder?.becomeFirstResponder()
         }
         
-        self.addChildAndStart(coordinator) { [unowned self] result in
-            self.inputHandlerViewController.dismiss(animated: true) {
+        let childViewController = coordinator.toPresentable()
+        self.addChildAndStart(coordinator) { [unowned self, weak childViewController] result in
+            guard let childViewController else {
+                finishedHandler?(result)
+                return
+            }
+            // Dismiss the child that just finished, not this input handler.
+            // Conversation and thread controllers are themselves presented
+            // modally, so asking the parent to dismiss can remove the parent
+            // from the window before a follow-up flow is presented.
+            self.router.dismiss(source: childViewController) {
                 finishedHandler?(result)
             }
         }
@@ -337,6 +346,23 @@ class InputHandlerCoordinator<Result>: PresentableCoordinator<Result>,
                                                       startingExpression: expression,
                                                       expressions: message.expressions)
         self.present(coordinator)
+    }
+
+    func messageContent(_ content: MessageContentView,
+                        didTapReaction reaction: ReactionType,
+                        forMessage message: Messageable) {
+        Task { @MainActor in
+            guard let controller = ParseMessageController.controller(
+                for: message,
+                automaticallySynchronize: false
+            ) else { return }
+            do {
+                try await controller.toggleReaction(reaction)
+            } catch {
+                await ToastScheduler.shared.schedule(toastType: .error(error))
+                logError(error)
+            }
+        }
     }
     
     func presentMediaFlow(for mediaItems: [MediaItem],

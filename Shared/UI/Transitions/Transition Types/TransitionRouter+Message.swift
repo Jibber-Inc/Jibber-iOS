@@ -70,7 +70,15 @@ extension TransitionRouter {
         let toVCFinalFrame = transitionContext.finalFrame(for: self.toVC)
         self.toVC.view.frame = toVCFinalFrame
 
-        containerView.addSubview(self.toVC.view)
+        // For over-current-context dismissals UIKit keeps the presenting
+        // controller's view in its existing hierarchy. Moving that view into
+        // the temporary transition container detaches it when the container is
+        // torn down, leaving the conversation or thread controller blank.
+        // Full-screen transitions may remove the destination view, so only add
+        // it when UIKit has not already installed it.
+        if self.toVC.view.superview == nil {
+            containerView.addSubview(self.toVC.view)
+        }
         self.toVC.view.layoutIfNeeded()
 
         containerView.addSubview(snapshot)

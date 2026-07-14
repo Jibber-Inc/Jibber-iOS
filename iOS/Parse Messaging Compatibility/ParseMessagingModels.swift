@@ -187,11 +187,20 @@ struct ParseMessage: @MainActor Messageable, Identifiable, Hashable {
     }
     var localState: MessagingLocalMessageState { self.snapshot.localState }
     var lastFailureDescription: String? { self.snapshot.lastFailureDescription }
-    var totalReplyCount: Int { max(self.snapshot.replyCount ?? 0, self.loadedReplies.count) }
+    private var activeLoadedReplies: [ParseMessage] {
+        self.loadedReplies.filter { $0.snapshot.isActiveForReplySummary }
+    }
+
+    var totalReplyCount: Int {
+        MessagingReplySummary.totalCount(
+            authoritativeCount: self.snapshot.replyCount,
+            loadedReplies: self.loadedReplies.map(\.snapshot)
+        )
+    }
     var replyCount: Int { self.totalReplyCount }
-    @MainActor var recentReplies: [Messageable] { self.loadedReplies }
+    @MainActor var recentReplies: [Messageable] { self.activeLoadedReplies }
     var replies: [ParseMessage] { self.loadedReplies }
-    var latestReplies: [ParseMessage] { self.loadedReplies }
+    var latestReplies: [ParseMessage] { self.activeLoadedReplies }
 
     @MainActor var threadParticipants: [PersonType] {
         ParsePeopleResolver.people(withIDs: [self.authorId] + self.loadedReplies.map(\.authorId))
@@ -202,6 +211,15 @@ struct ParseMessage: @MainActor Messageable, Identifiable, Hashable {
         return [latestReceipt, self.snapshot.serverUpdatedAt, self.snapshot.editedAt, self.createdAt]
             .compactMap { $0 }
             .max()
+    }
+
+    var reactionGroups: [MessagingReactionGroup] {
+        self.snapshot.reactionGroups(currentUserID: User.current()?.objectId ?? "")
+    }
+
+    var selectedReactionType: MessagingReactionType? {
+        guard let currentUserID = User.current()?.objectId else { return nil }
+        return self.snapshot.selectedReactionType(for: currentUserID)
     }
 
     var expressions: [ExpressionInfo] {
@@ -363,6 +381,7 @@ enum ParseMessagingCompatibilityError: Error, LocalizedError {
     case messagingNotInitialized
     case unsupportedAttributeMutation
     case unsupportedMessageKind(String)
+    case unsupportedReactionType(String)
 
     var errorDescription: String? {
         switch self {
@@ -386,6 +405,8 @@ enum ParseMessagingCompatibilityError: Error, LocalizedError {
             return "Arbitrary message attribute updates are not supported by Parse messaging."
         case .unsupportedMessageKind(let kind):
             return "Parse messaging does not support \(kind) messages."
+        case .unsupportedReactionType(let type):
+            return "Parse messaging does not support the \(type) reaction."
         }
     }
 }

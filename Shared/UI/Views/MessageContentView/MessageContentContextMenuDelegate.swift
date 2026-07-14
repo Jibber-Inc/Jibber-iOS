@@ -8,14 +8,18 @@
 
 import Foundation
 import KeyboardManager
+import MessagingContracts
 import ParseCore
 
 class MessageContentContextMenuDelegate: NSObject, UIContextMenuInteractionDelegate {
 
     unowned let content: MessageContentView
+    private let allowsThreadNavigation: Bool
+    private var pendingThreadNavigationMessage: Messageable?
 
-    init(content: MessageContentView) {
+    init(content: MessageContentView, allowsThreadNavigation: Bool = true) {
         self.content = content
+        self.allowsThreadNavigation = allowsThreadNavigation
     }
 
     func contextMenuInteraction(_ interaction: UIContextMenuInteraction,
@@ -57,8 +61,12 @@ class MessageContentContextMenuDelegate: NSObject, UIContextMenuInteractionDeleg
                                 options: .destructive,
                                 children: [confirmDelete, neverMind])
 
-        let viewReplies = UIAction(title: "View Thread") { [unowned self] action in
-            self.content.delegate?.messageContent(self.content, didTapViewReplies: message)
+        let viewReplies = UIAction(title: "View Thread") { [unowned self] _ in
+            // UIKit is still dismissing the context-menu preview here. Trying
+            // to present the thread immediately can use a conversation view
+            // controller that is temporarily outside the window hierarchy.
+            // Defer navigation until `willEndFor`'s transition completes.
+            self.pendingThreadNavigationMessage = message
         }
 
         let edit = UIAction(title: "Edit",
@@ -78,6 +86,8 @@ class MessageContentContextMenuDelegate: NSObject, UIContextMenuInteractionDeleg
 
         var menuElements: [UIMenuElement] = []
 
+        menuElements.append(self.reactionMenu(for: message))
+
         if !isRelease, message.isFromCurrentUser {
             menuElements.append(deleteMenu)
         }
@@ -92,7 +102,7 @@ class MessageContentContextMenuDelegate: NSObject, UIContextMenuInteractionDeleg
             menuElements.append(read)
         }
 
-        if message.parentMessageId.isNil {
+        if self.allowsThreadNavigation, message.parentMessageId.isNil {
             menuElements.append(self.addReplyMenu())
             menuElements.append(viewReplies)
         }
@@ -102,6 +112,28 @@ class MessageContentContextMenuDelegate: NSObject, UIContextMenuInteractionDeleg
                            identifier: nil,
                            options: [],
                            children: menuElements)
+    }
+
+    private func reactionMenu(for message: Messageable) -> UIMenu {
+        let actions = ReactionType.allCases.map { reaction in
+            UIAction(
+                title: "\(reaction.emoji) \(reaction.displayName)",
+                state: message.selectedReactionType == reaction ? .on : .off
+            ) { [unowned self] _ in
+                self.content.delegate?.messageContent(
+                    self.content,
+                    didTapReaction: reaction,
+                    forMessage: message
+                )
+            }
+        }
+
+        return UIMenu(
+            title: "React",
+            image: ImageSymbol.faceSmiling.image,
+            options: .singleSelection,
+            children: actions
+        )
     }
     
     private func addReplyMenu() -> UIMenu {
@@ -159,6 +191,23 @@ class MessageContentContextMenuDelegate: NSObject, UIContextMenuInteractionDeleg
         self.inputHandlerBeforeDisplay?.becomeFirstResponder()
 
         self.firstResponderBeforeDisplay?.becomeFirstResponder()
+
+        guard let message = self.pendingThreadNavigationMessage else { return }
+        self.pendingThreadNavigationMessage = nil
+
+        let navigate = { [weak self] in
+            guard let self else { return }
+            self.content.delegate?.messageContent(
+                self.content,
+                didTapViewReplies: message
+            )
+        }
+
+        if let animator {
+            animator.addCompletion(navigate)
+        } else {
+            navigate()
+        }
     }
 
     // MARK: - Message Consumption

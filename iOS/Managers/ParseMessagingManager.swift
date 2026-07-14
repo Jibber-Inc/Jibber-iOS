@@ -178,6 +178,17 @@ private actor ParseMessagingStorage {
         )
     }
 
+    func cachedReplyPreview(
+        messageID: MessagingMessageID,
+        latestReplyID: MessagingMessageID?
+    ) throws -> [MessagingMessageSnapshot] {
+        try self.requireValid()
+        return try self.store.cachedReplyPreview(
+            messageID: messageID,
+            latestReplyID: latestReplyID
+        )
+    }
+
     func cachedPinnedMessages(
         conversationID: MessagingConversationID
     ) throws -> [MessagingMessageSnapshot] {
@@ -333,8 +344,12 @@ final class ParseMessagingManager {
     private var outboxPumpTask: Task<Void, Never>?
     private var outboxDrainTask: Task<Void, Never>?
     private var outboxDrainToken: UUID?
+    private var isOutboxDrainRequested = false
     private var refreshTask: Task<Void, Never>?
     private var refreshTaskToken: UUID?
+    private var latestReplyHydrationTask: Task<Void, Never>?
+    private var latestReplyHydrationToken: UUID?
+    private var pendingLatestReplyRoots: [MessagingMessageID: MessagingMessageSnapshot] = [:]
     private var isDrainingOutbox = false
     private var subscribedConversationIDs: Set<MessagingConversationID> = []
     private var realtimeCatchUpTracker = MessagingRealtimeCatchUpTracker()
@@ -466,12 +481,14 @@ final class ParseMessagingManager {
         let realtimeProcessor = self.realtimeProcessor
         let outboxWorker = self.outboxWorker
         let refreshTask = self.refreshTask
+        let latestReplyHydrationTask = self.latestReplyHydrationTask
         let outboxPumpTask = self.outboxPumpTask
         let outboxDrainTask = self.outboxDrainTask
         let typingMutationTasks = Array(self.typingMutationTasks.values)
         self.sessionIdentity = nil
         outboxWorker?.invalidate()
         refreshTask?.cancel()
+        latestReplyHydrationTask?.cancel()
         outboxPumpTask?.cancel()
         outboxDrainTask?.cancel()
         typingMutationTasks.forEach { $0.cancel() }
@@ -479,9 +496,13 @@ final class ParseMessagingManager {
 
         self.refreshTask = nil
         self.refreshTaskToken = nil
+        self.latestReplyHydrationTask = nil
+        self.latestReplyHydrationToken = nil
+        self.pendingLatestReplyRoots.removeAll()
         self.outboxPumpTask = nil
         self.outboxDrainTask = nil
         self.outboxDrainToken = nil
+        self.isOutboxDrainRequested = false
         self.realtimeSubscription = nil
         self.subscribedConversationIDs.removeAll()
         self.typingMutationTasks.removeAll()
@@ -569,6 +590,23 @@ final class ParseMessagingManager {
             )
             try self.validateCurrentSession(components)
             try await components.storage.upsert(messages: page.items)
+            try self.validateCurrentSession(components)
+            do {
+                let latestReplies = try await components.repository.latestReplies(
+                    for: page.items
+                )
+                try self.validateCurrentSession(components)
+                try await components.storage.upsert(messages: latestReplies)
+                try self.validateCurrentSession(components)
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                // Full preview objects are supplemental to an otherwise valid
+                // root page. Keep the page usable and retry hydration on the
+                // next page/root LiveQuery refresh.
+                try self.validateCurrentSession(components)
+                self.postFailure(error)
+            }
             try self.validateCurrentSession(components)
             let reconciled = try await components.storage.cachedMessages(
                 ids: page.items.map { $0.objectID ?? $0.stableID }
@@ -772,6 +810,22 @@ final class ParseMessagingManager {
         return message
     }
 
+    /// Cache-only visible-cell input: the exact server-selected reply plus
+    /// any optimistic replies staged by another controller.
+    func cachedReplyPreview(
+        conversationID: MessagingConversationID,
+        messageID: MessagingMessageID,
+        latestReplyID: MessagingMessageID?
+    ) async throws -> [MessagingMessageSnapshot] {
+        let components = try self.requireComponents()
+        let messages = try await components.storage.cachedReplyPreview(
+            messageID: messageID,
+            latestReplyID: latestReplyID
+        )
+        try self.validateCurrentSession(components)
+        return messages.filter { $0.conversationID == conversationID }
+    }
+
     /// Preserve the exact remote page cardinality/cursor contract while using
     /// freshness-reconciled cache values wherever retained. An incoming page
     /// older than the local 2,000-message retention window is pruned during
@@ -890,10 +944,12 @@ final class ParseMessagingManager {
             MessagingOutboxEntry(
                 idempotencyKey: idempotencyKey,
                 conversationID: mutation.conversationID,
-                mutation: mutation
+                mutation: mutation,
+                actorID: components.userID
             )
         )
         try self.validateCurrentSession(components)
+        self.postChange(conversationIDs: [mutation.conversationID])
         self.scheduleImmediateOutboxDrain()
         return entry
     }
@@ -1030,6 +1086,17 @@ final class ParseMessagingManager {
                 guard self.sessionIdentity == sessionIdentity,
                       self.realtimeProcessor === processor else { return }
                 guard !conversationIDs.isEmpty else { return }
+                if case .messageUpserted(let message) = event,
+                   message.replyToMessageID == nil {
+                    let components = try self.requireComponents()
+                    let reconciledRoot = try await components.storage.cachedMessage(
+                        id: message.canonicalMessageID
+                    )
+                    try self.validateCurrentSession(components)
+                    if let reconciledRoot, reconciledRoot.replyToMessageID == nil {
+                        self.scheduleLatestReplyHydration(for: reconciledRoot)
+                    }
+                }
                 self.postChange(conversationIDs: conversationIDs)
             } catch {
                 guard self.sessionIdentity == sessionIdentity,
@@ -1065,11 +1132,85 @@ final class ParseMessagingManager {
         }
     }
 
+    /// Root summary pointers can move backward when the newest reply is
+    /// deleted. The newly selected older object emits no LiveQuery event of
+    /// its own, so coalesce root updates into one background pointer batch and
+    /// persist any missing replies before notifying cache consumers again.
+    private func scheduleLatestReplyHydration(
+        for root: MessagingMessageSnapshot
+    ) {
+        guard root.replyToMessageID == nil,
+              root.latestReplyID != nil,
+              self.sessionIdentity != nil else { return }
+
+        self.pendingLatestReplyRoots[root.canonicalMessageID] = root
+        guard self.latestReplyHydrationTask == nil else { return }
+
+        let token = UUID()
+        self.latestReplyHydrationToken = token
+        self.latestReplyHydrationTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer {
+                if self.latestReplyHydrationToken == token {
+                    self.latestReplyHydrationTask = nil
+                    self.latestReplyHydrationToken = nil
+                }
+            }
+
+            while !Task.isCancelled,
+                  self.latestReplyHydrationToken == token,
+                  !self.pendingLatestReplyRoots.isEmpty {
+                await Task.yield()
+                let roots = Array(self.pendingLatestReplyRoots.values)
+                self.pendingLatestReplyRoots.removeAll(keepingCapacity: true)
+
+                do {
+                    let components = try self.requireComponents()
+                    let latestReplyIDs = ParseMessagingReplyPreviewBatch
+                        .latestReplyIDs(in: roots)
+                    let cachedReplies = try await components.storage.cachedMessages(
+                        ids: latestReplyIDs
+                    )
+                    try self.validateCurrentSession(components)
+                    let cachedRepliesByID = Dictionary(
+                        uniqueKeysWithValues: cachedReplies.compactMap { reply in
+                            reply.objectID.map { ($0, reply) }
+                        }
+                    )
+                    let rootsNeedingHydration = roots.filter { root in
+                        guard let latestReplyID = root.latestReplyID,
+                              let reply = cachedRepliesByID[latestReplyID] else { return true }
+                        let belongsToRoot = reply.replyToMessageID == root.objectID
+                            || reply.replyToMessageID == root.stableID
+                        return !belongsToRoot
+                            || reply.conversationID != root.conversationID
+                            || !reply.isActiveForReplySummary
+                    }
+                    guard !rootsNeedingHydration.isEmpty else { continue }
+
+                    let latestReplies = try await components.repository.latestReplies(
+                        for: rootsNeedingHydration
+                    )
+                    try self.validateCurrentSession(components)
+                    try await components.storage.upsert(messages: latestReplies)
+                    try self.validateCurrentSession(components)
+                    self.postChange(
+                        conversationIDs: Set(rootsNeedingHydration.map(\.conversationID))
+                    )
+                } catch is CancellationError {
+                    return
+                } catch {
+                    self.postFailure(error)
+                }
+            }
+        }
+    }
+
     private func startOutboxPump() {
         self.outboxPumpTask?.cancel()
         self.outboxPumpTask = Task { @MainActor [weak self] in
             while !Task.isCancelled {
-                await self?.drainOutboxOnce()
+                self?.scheduleImmediateOutboxDrain()
                 do {
                     try await Task.sleep(nanoseconds: 15_000_000_000)
                 } catch {
@@ -1081,13 +1222,25 @@ final class ParseMessagingManager {
     }
 
     private func scheduleImmediateOutboxDrain() {
+        self.isOutboxDrainRequested = true
         guard self.outboxDrainTask == nil,
               let sessionIdentity = self.sessionIdentity else { return }
         let token = UUID()
         self.outboxDrainToken = token
         self.outboxDrainTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            await self.drainOutboxOnce()
+            repeat {
+                self.isOutboxDrainRequested = false
+                let report = await self.drainOutboxOnce()
+                if report.succeeded > 0 || report.blocked > 0 {
+                    // The store exposes one FIFO head per conversation. A
+                    // successful or quarantined head may reveal the next one.
+                    self.isOutboxDrainRequested = true
+                }
+            } while self.isOutboxDrainRequested
+                && !Task.isCancelled
+                && self.sessionIdentity == sessionIdentity
+                && self.outboxDrainToken == token
             guard self.sessionIdentity == sessionIdentity,
                   self.outboxDrainToken == token else { return }
             self.outboxDrainTask = nil
@@ -1095,10 +1248,10 @@ final class ParseMessagingManager {
         }
     }
 
-    private func drainOutboxOnce() async {
+    private func drainOutboxOnce() async -> MessagingOutboxDrainReport {
         guard !self.isDrainingOutbox,
               let worker = self.outboxWorker,
-              let sessionIdentity = self.sessionIdentity else { return }
+              let sessionIdentity = self.sessionIdentity else { return .init() }
         self.isDrainingOutbox = true
         defer {
             if self.sessionIdentity == sessionIdentity,
@@ -1109,16 +1262,18 @@ final class ParseMessagingManager {
         do {
             let report = try await worker.drainOnce()
             guard self.sessionIdentity == sessionIdentity,
-                  self.outboxWorker === worker else { return }
+                  self.outboxWorker === worker else { return .init() }
             if report.succeeded > 0 || report.blocked > 0 || report.retryScheduled > 0 {
                 self.postChange()
             }
+            return report
         } catch is CancellationError {
-            return
+            return .init()
         } catch {
             guard self.sessionIdentity == sessionIdentity,
-                  self.outboxWorker === worker else { return }
+                  self.outboxWorker === worker else { return .init() }
             self.postFailure(error)
+            return .init()
         }
     }
 

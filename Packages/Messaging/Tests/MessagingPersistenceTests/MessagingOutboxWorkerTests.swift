@@ -75,6 +75,238 @@ final class MessagingOutboxWorkerTests: XCTestCase {
         )
     }
 
+    func testSuccessfulReactionDrainReplacesOptimisticStateWithAuthoritativeSnapshot() async throws {
+        let store = try GRDBMessagingStore(inMemory: .init())
+        let message = makeMessage(objectID: "message-reaction-success")
+        try store.upsert(messages: [message])
+        let entry = try store.enqueue(MessagingOutboxEntry(
+            idempotencyKey: "reaction-success-1",
+            conversationID: message.conversationID,
+            mutation: .setReaction(
+                conversationID: message.conversationID,
+                messageID: "message-reaction-success",
+                type: MessagingReactionType.like,
+                isSelected: true
+            ),
+            actorID: "current-user"
+        ))
+        var authoritative = message
+        authoritative.serverUpdatedAt = Date(timeIntervalSince1970: 300)
+        authoritative.reactions = [MessagingReactionSnapshot(
+            objectID: "reaction-server-1",
+            messageID: "message-reaction-success",
+            userID: "current-user",
+            type: MessagingReactionType.like.rawValue,
+            createdAt: Date(timeIntervalSince1970: 200),
+            serverUpdatedAt: Date(timeIntervalSince1970: 300)
+        )]
+        let worker = MessagingOutboxWorker(
+            store: store,
+            remote: StubMessageRepository(result: .message(authoritative)),
+            errorClassifier: StubErrorClassifier(isRetryable: false)
+        )
+
+        let report = try await worker.drainOnce()
+
+        XCTAssertEqual(report.succeeded, 1)
+        let cached = try XCTUnwrap(
+            store.cachedMessage(objectID: "message-reaction-success")
+        )
+        XCTAssertEqual(cached.reactions, authoritative.reactions)
+        XCTAssertNil(cached.reactions.first?.localMutationID)
+        XCTAssertNil(cached.reactions.first?.localMutationState)
+        XCTAssertNil(try store.outboxEntry(idempotencyKey: entry.idempotencyKey))
+    }
+
+    func testReactionResultMismatchBlocksAndMarksOptimisticValueFailed() async throws {
+        let store = try GRDBMessagingStore(inMemory: .init())
+        let message = makeMessage(objectID: "message-reaction-mismatch")
+        try store.upsert(messages: [message])
+        let entry = try store.enqueue(MessagingOutboxEntry(
+            idempotencyKey: "reaction-mismatch-1",
+            conversationID: message.conversationID,
+            mutation: .setReaction(
+                conversationID: message.conversationID,
+                messageID: "message-reaction-mismatch",
+                type: MessagingReactionType.love,
+                isSelected: true
+            ),
+            actorID: "current-user"
+        ))
+        let worker = MessagingOutboxWorker(
+            store: store,
+            remote: StubMessageRepository(result: .message(message)),
+            errorClassifier: StubErrorClassifier(isRetryable: false)
+        )
+
+        let report = try await worker.drainOnce()
+
+        XCTAssertEqual(report.blocked, 1)
+        XCTAssertEqual(
+            try store.outboxEntry(idempotencyKey: entry.idempotencyKey)?.state,
+            .blocked
+        )
+        let reaction = try XCTUnwrap(
+            store.cachedMessage(objectID: "message-reaction-mismatch")?.reactions.first
+        )
+        XCTAssertEqual(reaction.localMutationState, .selectionFailed)
+        XCTAssertTrue(try XCTUnwrap(reaction.lastFailureDescription).contains(
+            "reactionResultMismatch"
+        ))
+    }
+
+    func testReactionSwitchReusesServerObjectThenRemovesCleanly() async throws {
+        let store = try GRDBMessagingStore(inMemory: .init())
+        var message = makeMessage(objectID: "message-reaction-switch")
+        message.reactions = [MessagingReactionSnapshot(
+            objectID: "reaction-like",
+            messageID: "message-reaction-switch",
+            userID: "current-user",
+            type: MessagingReactionType.like.rawValue,
+            createdAt: Date(timeIntervalSince1970: 150),
+            serverUpdatedAt: Date(timeIntervalSince1970: 150)
+        )]
+        try store.upsert(messages: [message])
+        let select = try store.enqueue(MessagingOutboxEntry(
+            idempotencyKey: "reaction-switch-select",
+            conversationID: message.conversationID,
+            mutation: .setReaction(
+                conversationID: message.conversationID,
+                messageID: "message-reaction-switch",
+                type: .love,
+                isSelected: true
+            ),
+            actorID: "current-user"
+        ))
+        let optimisticSwitch = try XCTUnwrap(
+            store.cachedMessage(objectID: "message-reaction-switch")
+        )
+        XCTAssertEqual(optimisticSwitch.reactions.count, 1)
+        XCTAssertEqual(optimisticSwitch.reactions[0].objectID, "reaction-like")
+        XCTAssertEqual(optimisticSwitch.reactions[0].reactionType, .love)
+        XCTAssertEqual(optimisticSwitch.reactions[0].localMutationState, .selecting)
+
+        var selected = message
+        selected.serverUpdatedAt = Date(timeIntervalSince1970: 200)
+        selected.reactions[0].type = MessagingReactionType.love.rawValue
+        selected.reactions[0].serverUpdatedAt = Date(timeIntervalSince1970: 200)
+        var removed = selected
+        removed.serverUpdatedAt = Date(timeIntervalSince1970: 250)
+        removed.reactions[0].isDeleted = true
+        removed.reactions[0].deletedAt = Date(timeIntervalSince1970: 250)
+        removed.reactions[0].serverUpdatedAt = Date(timeIntervalSince1970: 250)
+        let worker = MessagingOutboxWorker(
+            store: store,
+            remote: SequencedMessageRepository(results: [
+                .message(selected),
+                .message(removed),
+            ]),
+            errorClassifier: StubErrorClassifier(isRetryable: false)
+        )
+
+        let firstReport = try await worker.drainOnce()
+        XCTAssertEqual(firstReport.succeeded, 1)
+        XCTAssertNil(try store.outboxEntry(idempotencyKey: select.idempotencyKey))
+        let authoritativeSwitch = try XCTUnwrap(
+            store.cachedMessage(objectID: "message-reaction-switch")
+        )
+        XCTAssertEqual(authoritativeSwitch.reactions.count, 1)
+        XCTAssertEqual(authoritativeSwitch.reactions[0].objectID, "reaction-like")
+        XCTAssertEqual(authoritativeSwitch.reactions[0].reactionType, .love)
+        XCTAssertNil(authoritativeSwitch.reactions[0].localMutationState)
+
+        let remove = try store.enqueue(MessagingOutboxEntry(
+            idempotencyKey: "reaction-switch-remove",
+            conversationID: message.conversationID,
+            mutation: .setReaction(
+                conversationID: message.conversationID,
+                messageID: "message-reaction-switch",
+                type: .love,
+                isSelected: false
+            ),
+            actorID: "current-user"
+        ))
+
+        let secondReport = try await worker.drainOnce()
+        XCTAssertEqual(secondReport.succeeded, 1)
+        XCTAssertNil(try store.outboxEntry(idempotencyKey: remove.idempotencyKey))
+        let authoritativeRemoval = try XCTUnwrap(
+            store.cachedMessage(objectID: "message-reaction-switch")
+        )
+        XCTAssertEqual(authoritativeRemoval.reactions.count, 1)
+        XCTAssertFalse(authoritativeRemoval.reactions[0].isActive)
+        XCTAssertNil(authoritativeRemoval.reactions[0].localMutationState)
+    }
+
+    func testOlderSelectionConfirmationCannotClearNewerTypeFailureState() async throws {
+        let store = try GRDBMessagingStore(inMemory: .init())
+        var message = makeMessage(objectID: "message-reaction-rapid-switch")
+        message.reactions = [MessagingReactionSnapshot(
+            objectID: "reaction-selection",
+            messageID: "message-reaction-rapid-switch",
+            userID: "current-user",
+            type: MessagingReactionType.like.rawValue,
+            createdAt: Date(timeIntervalSince1970: 150),
+            serverUpdatedAt: Date(timeIntervalSince1970: 150)
+        )]
+        try store.upsert(messages: [message])
+        _ = try store.enqueue(MessagingOutboxEntry(
+            idempotencyKey: "reaction-rapid-love",
+            conversationID: message.conversationID,
+            mutation: .setReaction(
+                conversationID: message.conversationID,
+                messageID: "message-reaction-rapid-switch",
+                type: .love,
+                isSelected: true
+            ),
+            actorID: "current-user"
+        ))
+        let latest = try store.enqueue(MessagingOutboxEntry(
+            idempotencyKey: "reaction-rapid-dislike",
+            conversationID: message.conversationID,
+            mutation: .setReaction(
+                conversationID: message.conversationID,
+                messageID: "message-reaction-rapid-switch",
+                type: .dislike,
+                isSelected: true
+            ),
+            actorID: "current-user"
+        ))
+
+        var authoritativeLove = message
+        authoritativeLove.serverUpdatedAt = Date(timeIntervalSince1970: 200)
+        authoritativeLove.reactions[0].type = MessagingReactionType.love.rawValue
+        authoritativeLove.reactions[0].serverUpdatedAt = Date(timeIntervalSince1970: 200)
+        let worker = MessagingOutboxWorker(
+            store: store,
+            remote: SequencedMessageRepository(results: [
+                .message(authoritativeLove),
+                .message(authoritativeLove),
+            ]),
+            errorClassifier: StubErrorClassifier(isRetryable: false)
+        )
+
+        let firstReport = try await worker.drainOnce()
+        XCTAssertEqual(firstReport.succeeded, 1)
+        var cached = try XCTUnwrap(
+            store.cachedMessage(objectID: "message-reaction-rapid-switch")
+        )
+        XCTAssertEqual(cached.reactions.count, 1)
+        XCTAssertEqual(cached.reactions[0].reactionType, .dislike)
+        XCTAssertEqual(cached.reactions[0].localMutationID, latest.idempotencyKey)
+        XCTAssertEqual(cached.reactions[0].localMutationState, .selecting)
+
+        let secondReport = try await worker.drainOnce()
+        XCTAssertEqual(secondReport.blocked, 1)
+        cached = try XCTUnwrap(
+            store.cachedMessage(objectID: "message-reaction-rapid-switch")
+        )
+        XCTAssertEqual(cached.reactions.count, 1)
+        XCTAssertEqual(cached.reactions[0].reactionType, .dislike)
+        XCTAssertEqual(cached.reactions[0].localMutationID, latest.idempotencyKey)
+        XCTAssertEqual(cached.reactions[0].localMutationState, .selectionFailed)
+    }
+
     func testInvalidationPreventsLateTransportCallbackFromWritingCache() async throws {
         let store = try GRDBMessagingStore(inMemory: .init())
         let draft = MessagingMessageDraft(
@@ -141,6 +373,21 @@ final class MessagingOutboxWorkerTests: XCTestCase {
 
         XCTAssertEqual(clock.wasAccessedOnMainThread, false)
     }
+
+    private func makeMessage(objectID: MessagingMessageID) -> MessagingMessageSnapshot {
+        MessagingMessageSnapshot(
+            objectID: objectID,
+            clientMessageID: "client-\(objectID)",
+            conversationID: "conversation-1",
+            authorID: "author-1",
+            clientCreatedAt: Date(timeIntervalSince1970: 100),
+            serverCreatedAt: Date(timeIntervalSince1970: 100),
+            serverUpdatedAt: Date(timeIntervalSince1970: 100),
+            content: MessagingMessageContent(kind: .text, text: "Hello"),
+            deliveryKind: .conversational,
+            localState: .confirmed
+        )
+    }
 }
 
 private actor SuspendedMessageRepository: MessagingMessageRepository {
@@ -188,6 +435,44 @@ private actor SuspendedMessageRepository: MessagingMessageRepository {
     func finish(with result: MessagingMutationResult) {
         self.continuation?.resume(returning: result)
         self.continuation = nil
+    }
+}
+
+private actor SequencedMessageRepository: MessagingMessageRepository {
+    private var results: [MessagingMutationResult]
+
+    init(results: [MessagingMutationResult]) {
+        self.results = results
+    }
+
+    func messages(
+        conversationID: MessagingConversationID,
+        before cursor: MessagingCursor?,
+        pageSize: Int
+    ) async throws -> MessagingPage<MessagingMessageSnapshot> {
+        MessagingPage(items: [], nextCursor: nil, hasMore: false)
+    }
+
+    func replies(
+        messageID: MessagingMessageID,
+        before cursor: MessagingCursor?,
+        pageSize: Int
+    ) async throws -> MessagingPage<MessagingMessageSnapshot> {
+        MessagingPage(items: [], nextCursor: nil, hasMore: false)
+    }
+
+    func pinnedMessages(
+        conversationID: MessagingConversationID
+    ) async throws -> [MessagingMessageSnapshot] {
+        []
+    }
+
+    func perform(
+        _ mutation: MessagingMutation,
+        idempotencyKey: String
+    ) async throws -> MessagingMutationResult {
+        guard !results.isEmpty else { return .acknowledged }
+        return results.removeFirst()
     }
 }
 

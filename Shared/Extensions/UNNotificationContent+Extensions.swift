@@ -30,6 +30,7 @@ enum NotificationContentKey: String {
     case thread = "threadIdentifier"
     case conversationId = "conversationId"
     case messageId = "messageId"
+    case threadRootId = "threadRootId"
     case connectionId = "connectionId"
     case momentId = "momentId"
 }
@@ -52,6 +53,10 @@ extension UNNotificationContent {
         } else {
             return nil
         }
+    }
+
+    var threadRootId: String? {
+        self.value(for: .threadRootId)
     }
 
     var connectionId: String? {
@@ -166,4 +171,3 @@ extension UNNotificationAttachment {
      }
 
 }
-

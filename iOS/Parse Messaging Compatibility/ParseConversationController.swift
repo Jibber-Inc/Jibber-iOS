@@ -621,9 +621,21 @@ final class ParseConversationController: Hashable {
               let authorID = self.manager.authenticatedUserID else {
             throw ParseMessagingCompatibilityError.messagingNotInitialized
         }
-        let rootID = try ParseMessagingControllerSupport.serverMessageID(
+        var threadTargetSnapshots = self.allSnapshots
+        if !threadTargetSnapshots.contains(where: {
+            $0.stableID == messageID || $0.objectID == messageID
+        }), let cachedTarget = try await self.manager.cachedMessage(
+            conversationID: self.conversationID.rawValue,
+            id: messageID
+        ) {
+            threadTargetSnapshots = ParseMessagingControllerSupport.merge(
+                threadTargetSnapshots,
+                with: [cachedTarget]
+            )
+        }
+        let rootID = try ParseMessagingControllerSupport.serverThreadRootMessageID(
             for: messageID,
-            in: self.allSnapshots
+            in: threadTargetSnapshots
         )
         let draft = try await ParseMessageDraftTranslator.draft(
             from: sendable,

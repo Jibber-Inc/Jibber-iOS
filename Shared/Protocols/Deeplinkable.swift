@@ -71,6 +71,15 @@ extension DeepLinkable {
         }
     }
 
+    var threadRootId: String? {
+        get {
+            return self.customMetadata.value(forKey: "threadRootId") as? String
+        }
+        set {
+            self.customMetadata.setValue(newValue, forKey: "threadRootId")
+        }
+    }
+
     var reservationId: String? {
         get {
             return self.customMetadata.value(forKey: "reservationId") as? String

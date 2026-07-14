@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import MessagingContracts
 import ParseCore
 
 enum DeliveryStatus {
@@ -43,6 +44,8 @@ protocol Messageable {
     var recentReplies: [Messageable] { get }
     var lastUpdatedAt: Date? { get }
 
+    var reactionGroups: [MessagingReactionGroup] { get }
+    var selectedReactionType: MessagingReactionType? { get }
     var expressions: [ExpressionInfo] { get }
 
     func setToConsumed() async
@@ -61,6 +64,9 @@ func ==(lhs: Messageable, rhs: Messageable) -> Bool {
 }
 
 extension Messageable {
+
+    var reactionGroups: [MessagingReactionGroup] { [] }
+    var selectedReactionType: MessagingReactionType? { nil }
     
     var parentMessageId: String? {
         return nil 

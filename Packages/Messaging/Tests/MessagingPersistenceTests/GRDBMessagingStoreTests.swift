@@ -331,6 +331,178 @@ final class GRDBMessagingStoreTests: XCTestCase {
         )
     }
 
+    func testReactionEnqueueAtomicallyPersistsOptimisticSelection() throws {
+        let store = try GRDBMessagingStore(inMemory: .init())
+        let message = makeMessage(
+            objectID: "message-reaction-select",
+            clientMessageID: "client-reaction-select"
+        )
+        try store.upsert(messages: [message])
+        let entry = MessagingOutboxEntry(
+            idempotencyKey: "reaction-select-1",
+            conversationID: message.conversationID,
+            mutation: .setReaction(
+                conversationID: message.conversationID,
+                messageID: try XCTUnwrap(message.objectID),
+                type: MessagingReactionType.like,
+                isSelected: true
+            ),
+            actorID: "current-user",
+            createdAt: Date(timeIntervalSince1970: 200)
+        )
+
+        let first = try store.enqueue(entry)
+        let duplicate = try store.enqueue(entry)
+        let cached = try XCTUnwrap(store.cachedMessage(objectID: "message-reaction-select"))
+        let reaction = try XCTUnwrap(cached.reactions.first)
+
+        XCTAssertEqual(first, duplicate)
+        XCTAssertEqual(reaction.userID, "current-user")
+        XCTAssertEqual(reaction.reactionType, .like)
+        XCTAssertTrue(reaction.isActive)
+        XCTAssertEqual(reaction.localMutationID, entry.idempotencyKey)
+        XCTAssertEqual(reaction.localMutationState, .selecting)
+        XCTAssertTrue(cached.reactionGroups(currentUserID: "current-user")[0].isSelectedByCurrentUser)
+        XCTAssertEqual(try store.readyOutboxEntries(at: Date(), limit: 10).count, 1)
+    }
+
+    func testOptimisticReactionRemovalAndOutboxSurviveReopen() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let databaseURL = directory.appendingPathComponent("messaging.sqlite")
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        do {
+            let store = try GRDBMessagingStore(databaseURL: databaseURL)
+            var message = makeMessage(
+                objectID: "message-reaction-remove",
+                clientMessageID: "client-reaction-remove"
+            )
+            message.reactions = [MessagingReactionSnapshot(
+                objectID: "reaction-remove",
+                messageID: "message-reaction-remove",
+                userID: "current-user",
+                type: MessagingReactionType.love.rawValue,
+                createdAt: Date(timeIntervalSince1970: 100),
+                serverUpdatedAt: Date(timeIntervalSince1970: 150)
+            )]
+            try store.upsert(messages: [message])
+            _ = try store.enqueue(MessagingOutboxEntry(
+                idempotencyKey: "reaction-remove-1",
+                conversationID: message.conversationID,
+                mutation: .setReaction(
+                    conversationID: message.conversationID,
+                    messageID: "message-reaction-remove",
+                    type: MessagingReactionType.love,
+                    isSelected: false
+                ),
+                actorID: "current-user",
+                createdAt: Date(timeIntervalSince1970: 200)
+            ))
+        }
+
+        let reopened = try GRDBMessagingStore(databaseURL: databaseURL)
+        let cached = try XCTUnwrap(
+            reopened.cachedMessage(objectID: "message-reaction-remove")
+        )
+        let reaction = try XCTUnwrap(cached.reactions.first)
+        XCTAssertFalse(reaction.isActive)
+        XCTAssertEqual(reaction.localMutationState, .removing)
+        XCTAssertEqual(reaction.deletedAt, Date(timeIntervalSince1970: 200))
+        XCTAssertNil(cached.selectedReactionType(for: "current-user"))
+        XCTAssertEqual(
+            try reopened.outboxEntry(idempotencyKey: "reaction-remove-1")?.actorID,
+            "current-user"
+        )
+    }
+
+    func testBlockedReactionIsMarkedFailedAndExplicitRetryRestoresPendingState() throws {
+        let store = try GRDBMessagingStore(inMemory: .init())
+        let message = makeMessage(
+            objectID: "message-reaction-failure",
+            clientMessageID: "client-reaction-failure"
+        )
+        try store.upsert(messages: [message])
+        var entry = try store.enqueue(MessagingOutboxEntry(
+            idempotencyKey: "reaction-failure-1",
+            conversationID: message.conversationID,
+            mutation: .setReaction(
+                conversationID: message.conversationID,
+                messageID: "message-reaction-failure",
+                type: MessagingReactionType.dislike,
+                isSelected: true
+            ),
+            actorID: "current-user"
+        ))
+        entry.state = .blocked
+        entry.lastErrorDescription = "permission denied"
+        try store.updateOutboxEntry(entry)
+
+        var reaction = try XCTUnwrap(
+            store.cachedMessage(objectID: "message-reaction-failure")?.reactions.first
+        )
+        XCTAssertEqual(reaction.localMutationState, .selectionFailed)
+        XCTAssertEqual(reaction.lastFailureDescription, "permission denied")
+
+        _ = try store.retryBlockedOutboxEntry(
+            idempotencyKey: entry.idempotencyKey,
+            at: Date(timeIntervalSince1970: 300)
+        )
+
+        reaction = try XCTUnwrap(
+            store.cachedMessage(objectID: "message-reaction-failure")?.reactions.first
+        )
+        XCTAssertEqual(reaction.localMutationState, .selecting)
+        XCTAssertNil(reaction.lastFailureDescription)
+    }
+
+    func testBlockedReactionRemovalRollsBackVisibleAndRetryRestoresTombstone() throws {
+        let store = try GRDBMessagingStore(inMemory: .init())
+        var message = makeMessage(
+            objectID: "message-reaction-removal-failure",
+            clientMessageID: "client-reaction-removal-failure"
+        )
+        message.reactions = [MessagingReactionSnapshot(
+            objectID: "reaction-removal-failure",
+            messageID: "message-reaction-removal-failure",
+            userID: "current-user",
+            type: MessagingReactionType.like.rawValue,
+            createdAt: Date(timeIntervalSince1970: 100)
+        )]
+        try store.upsert(messages: [message])
+        var entry = try store.enqueue(MessagingOutboxEntry(
+            idempotencyKey: "reaction-removal-failure-1",
+            conversationID: message.conversationID,
+            mutation: .setReaction(
+                conversationID: message.conversationID,
+                messageID: "message-reaction-removal-failure",
+                type: .like,
+                isSelected: false
+            ),
+            actorID: "current-user"
+        ))
+        entry.state = .blocked
+        entry.lastErrorDescription = "offline terminal"
+        try store.updateOutboxEntry(entry)
+
+        var reaction = try XCTUnwrap(
+            store.cachedMessage(objectID: "message-reaction-removal-failure")?.reactions.first
+        )
+        XCTAssertTrue(reaction.isActive)
+        XCTAssertEqual(reaction.localMutationState, .removalFailed)
+
+        _ = try store.retryBlockedOutboxEntry(
+            idempotencyKey: entry.idempotencyKey,
+            at: Date(timeIntervalSince1970: 300)
+        )
+
+        reaction = try XCTUnwrap(
+            store.cachedMessage(objectID: "message-reaction-removal-failure")?.reactions.first
+        )
+        XCTAssertFalse(reaction.isActive)
+        XCTAssertEqual(reaction.localMutationState, .removing)
+    }
+
     func testOutboxPreservesPerConversationOrder() throws {
         let store = try GRDBMessagingStore(inMemory: .init())
         let first = try store.enqueue(MessagingOutboxEntry(
@@ -727,6 +899,243 @@ final class GRDBMessagingStoreTests: XCTestCase {
 
         XCTAssertEqual(roots.items.map(\.objectID), [root.objectID])
         XCTAssertEqual(replies.items.map(\.objectID), [reply.objectID])
+    }
+
+    func testLatestReplyPreviewPreservesRichContentAcrossReopen() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let databaseURL = directory.appendingPathComponent("messaging.sqlite")
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        var root = makeMessage(
+            objectID: "message-preview-root",
+            clientMessageID: "client-preview-root"
+        )
+        root.replyCount = 1
+        root.latestReplyID = "message-preview-reply"
+        root.latestReplyAt = Date(timeIntervalSince1970: 200)
+        root.latestReplyAuthorID = "maya"
+        root.latestReplyText = "Generated this for you"
+
+        var reply = makeMessage(
+            objectID: "message-preview-reply",
+            clientMessageID: "client-preview-reply",
+            replyToMessageID: root.objectID
+        )
+        reply.authorID = "maya"
+        reply.content = MessagingMessageContent(
+            kind: .media,
+            text: "Generated this for you",
+            linkURL: URL(string: "https://example.com/source"),
+            attachments: [MessagingAttachmentSnapshot(
+                id: "maya-image",
+                kind: .image,
+                remoteURL: URL(string: "https://example.com/maya-image.png"),
+                thumbnailURL: URL(string: "https://example.com/maya-thumb.png"),
+                mimeType: "image/png",
+                pixelWidth: 1024,
+                pixelHeight: 1024
+            )]
+        )
+
+        do {
+            let store = try GRDBMessagingStore(databaseURL: databaseURL)
+            try store.upsert(messages: [root, reply])
+        }
+
+        let reopened = try GRDBMessagingStore(databaseURL: databaseURL)
+        let cachedRoot = try XCTUnwrap(
+            reopened.cachedMessage(objectID: "message-preview-root")
+        )
+        let cachedReply = try XCTUnwrap(
+            reopened.cachedMessage(objectID: "message-preview-reply")
+        )
+        let preview = try XCTUnwrap(
+            MessagingReplyPreviewResolver.replies(
+                for: cachedRoot,
+                from: [cachedReply]
+            ).first
+        )
+
+        XCTAssertEqual(cachedRoot.latestReplyID, reply.objectID)
+        XCTAssertEqual(cachedRoot.latestReplyAuthorID, "maya")
+        XCTAssertEqual(preview.content, reply.content)
+    }
+
+    func testReplyPreviewReadCombinesExactPointerWithCrossControllerOptimisticReply() throws {
+        let store = try GRDBMessagingStore(inMemory: .init())
+        var authoritative = makeMessage(
+            objectID: "reply-authoritative",
+            clientMessageID: "client-reply-authoritative",
+            replyToMessageID: "root-1"
+        )
+        authoritative.clientCreatedAt = Date(timeIntervalSince1970: 100)
+        authoritative.serverCreatedAt = authoritative.clientCreatedAt
+        var staleConfirmed = makeMessage(
+            objectID: "reply-stale-confirmed",
+            clientMessageID: "client-reply-stale-confirmed",
+            replyToMessageID: "root-1"
+        )
+        staleConfirmed.clientCreatedAt = Date(timeIntervalSince1970: 200)
+        staleConfirmed.serverCreatedAt = staleConfirmed.clientCreatedAt
+        let optimistic = MessagingMessageSnapshot(
+            clientMessageID: "client-reply-optimistic",
+            conversationID: "conversation-1",
+            authorID: "user-1",
+            clientCreatedAt: Date(timeIntervalSince1970: 300),
+            content: MessagingMessageContent(kind: .text, text: "Optimistic"),
+            replyToMessageID: "root-1",
+            deliveryKind: .conversational,
+            localState: .queued
+        )
+        let foreignReply = makeMessage(
+            objectID: "reply-foreign",
+            clientMessageID: "client-reply-foreign",
+            replyToMessageID: "different-root"
+        )
+        try store.upsert(messages: [
+            authoritative,
+            staleConfirmed,
+            optimistic,
+            foreignReply
+        ])
+
+        let cached = try store.cachedReplyPreview(
+            messageID: "root-1",
+            latestReplyID: "reply-authoritative"
+        )
+        XCTAssertEqual(
+            Set(cached.map(\.stableID)),
+            Set([authoritative.stableID, optimistic.stableID])
+        )
+        XCTAssertEqual(
+            try store.cachedReplyPreview(
+                messageID: "root-1",
+                latestReplyID: "reply-foreign"
+            ).map(\.stableID),
+            [optimistic.stableID]
+        )
+
+        var root = makeMessage(objectID: "root-1", clientMessageID: "client-root-1")
+        root.latestReplyID = "reply-authoritative"
+        let selected = MessagingReplyPreviewResolver.replies(for: root, from: cached)
+        XCTAssertEqual(selected.map(\.stableID), [optimistic.stableID, authoritative.stableID])
+    }
+
+    func testChangedLatestPointerUsesOlderReplyAfterBatchHydration() throws {
+        let store = try GRDBMessagingStore(inMemory: .init())
+        var root = makeMessage(
+            objectID: "root-deletion",
+            clientMessageID: "client-root-deletion"
+        )
+        root.replyCount = 2
+        root.latestReplyID = "reply-newest"
+        root.serverUpdatedAt = Date(timeIntervalSince1970: 100)
+        var newest = makeMessage(
+            objectID: "reply-newest",
+            clientMessageID: "client-reply-newest",
+            replyToMessageID: root.objectID
+        )
+        newest.clientCreatedAt = Date(timeIntervalSince1970: 300)
+        newest.serverCreatedAt = newest.clientCreatedAt
+        try store.upsert(messages: [root, newest])
+
+        root.replyCount = 1
+        root.latestReplyID = "reply-older"
+        root.serverUpdatedAt = Date(timeIntervalSince1970: 200)
+        try store.upsert(messages: [root])
+
+        XCTAssertTrue(try store.cachedReplyPreview(
+            messageID: "root-deletion",
+            latestReplyID: "reply-older"
+        ).isEmpty)
+        XCTAssertEqual(
+            ParseMessagingReplyPreviewBatch.latestReplyIDs(in: [root]),
+            ["reply-older"]
+        )
+
+        var older = makeMessage(
+            objectID: "reply-older",
+            clientMessageID: "client-reply-older",
+            replyToMessageID: root.objectID
+        )
+        older.clientCreatedAt = Date(timeIntervalSince1970: 200)
+        older.serverCreatedAt = older.clientCreatedAt
+        try store.upsert(messages: [older])
+
+        let cached = try store.cachedReplyPreview(
+            messageID: "root-deletion",
+            latestReplyID: "reply-older"
+        )
+        XCTAssertEqual(
+            MessagingReplyPreviewResolver.replies(for: root, from: cached).map(\.objectID),
+            ["reply-older"]
+        )
+    }
+
+    func testOutOfOrderRootEventPlansHydrationFromReconciledPointer() throws {
+        let store = try GRDBMessagingStore(inMemory: .init())
+        var currentRoot = makeMessage(
+            objectID: "root-out-of-order",
+            clientMessageID: "client-root-out-of-order"
+        )
+        currentRoot.replyCount = 2
+        currentRoot.latestReplyID = "reply-current"
+        currentRoot.serverUpdatedAt = Date(timeIntervalSince1970: 300)
+        try store.upsert(messages: [currentRoot])
+
+        var staleEvent = currentRoot
+        staleEvent.latestReplyID = "reply-stale"
+        staleEvent.serverUpdatedAt = Date(timeIntervalSince1970: 200)
+        try store.upsert(messages: [staleEvent])
+
+        let reconciledRoot = try XCTUnwrap(
+            store.cachedMessage(objectID: "root-out-of-order")
+        )
+        XCTAssertEqual(reconciledRoot.latestReplyID, "reply-current")
+        XCTAssertEqual(
+            ParseMessagingReplyPreviewBatch.latestReplyIDs(in: [reconciledRoot]),
+            ["reply-current"]
+        )
+    }
+
+    func testOptimisticReactionIsVisibleThroughReplyPagination() throws {
+        let store = try GRDBMessagingStore(inMemory: .init())
+        let root = makeMessage(
+            objectID: "message-reaction-root",
+            clientMessageID: "client-reaction-root"
+        )
+        let reply = makeMessage(
+            objectID: "message-reaction-reply",
+            clientMessageID: "client-reaction-reply",
+            replyToMessageID: root.objectID
+        )
+        try store.upsert(messages: [root, reply])
+        _ = try store.enqueue(MessagingOutboxEntry(
+            idempotencyKey: "reply-reaction-1",
+            conversationID: reply.conversationID,
+            mutation: .setReaction(
+                conversationID: reply.conversationID,
+                messageID: "message-reaction-reply",
+                type: MessagingReactionType.like,
+                isSelected: true
+            ),
+            actorID: "current-user"
+        ))
+
+        let page = try store.cachedReplies(
+            messageID: "message-reaction-root",
+            before: nil,
+            pageSize: 10
+        )
+
+        let cachedReply = try XCTUnwrap(page.items.first)
+        XCTAssertEqual(cachedReply.objectID, reply.objectID)
+        XCTAssertEqual(cachedReply.selectedReactionType(for: "current-user"), .like)
+        XCTAssertEqual(
+            cachedReply.reactionGroups(currentUserID: "current-user").first?.count,
+            1
+        )
     }
 
     func testPinnedCacheIncludesRootMessagesAndReplies() throws {

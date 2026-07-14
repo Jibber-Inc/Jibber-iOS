@@ -139,6 +139,21 @@ public final class MessagingOutboxWorker: @unchecked Sendable {
         switch (entry.mutation, result) {
         case (.send, .message(let message)):
             try store.confirm(message: message, idempotencyKey: entry.idempotencyKey)
+        case (
+            .setReaction(_, _, let type, let isSelected),
+            .message(let message)
+        ):
+            if let actorID = entry.actorID {
+                guard message.reactions.contains(where: {
+                    $0.userID == actorID
+                        && $0.type == type
+                        && $0.isActive == isSelected
+                }) else {
+                    throw MessagingOutboxWorkerError.reactionResultMismatch
+                }
+            }
+            try store.upsert(messages: [message])
+            try store.removeOutboxEntry(id: entry.id)
         case (_, .message(let message)):
             try store.upsert(messages: [message])
             try store.removeOutboxEntry(id: entry.id)
@@ -150,6 +165,8 @@ public final class MessagingOutboxWorker: @unchecked Sendable {
             try store.removeOutboxEntry(id: entry.id)
         case (.send, .acknowledged):
             throw MessagingOutboxWorkerError.sendDidNotReturnMessage
+        case (.setReaction, .acknowledged):
+            throw MessagingOutboxWorkerError.reactionDidNotReturnMessage
         case (_, .acknowledged):
             try store.removeOutboxEntry(id: entry.id)
         }
@@ -168,4 +185,6 @@ public final class MessagingOutboxWorker: @unchecked Sendable {
 
 public enum MessagingOutboxWorkerError: Error, Equatable {
     case sendDidNotReturnMessage
+    case reactionDidNotReturnMessage
+    case reactionResultMismatch
 }

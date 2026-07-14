@@ -117,6 +117,24 @@ public enum MessagingMutation: Codable, Hashable, Sendable {
     }
 }
 
+public extension MessagingMutation {
+    /// Typed convenience that preserves the existing String-backed wire
+    /// representation used by Parse Cloud Code and durable outbox payloads.
+    static func setReaction(
+        conversationID: MessagingConversationID,
+        messageID: MessagingMessageID,
+        type: MessagingReactionType,
+        isSelected: Bool
+    ) -> Self {
+        .setReaction(
+            conversationID: conversationID,
+            messageID: messageID,
+            type: type.rawValue,
+            isSelected: isSelected
+        )
+    }
+}
+
 public enum MessagingMutationResult: Codable, Hashable, Sendable {
     case message(MessagingMessageSnapshot)
     case conversation(MessagingConversationSnapshot)
@@ -241,6 +259,10 @@ public struct MessagingOutboxEntry: Codable, Hashable, Identifiable, Sendable {
     public var conversationID: MessagingConversationID
     public var sequence: Int64
     public var mutation: MessagingMutation
+    /// The authenticated actor that created the mutation. New clients provide
+    /// this so reaction mutations can be reflected in the durable cache before
+    /// transport completes. Optional for decoding pre-existing outbox rows.
+    public var actorID: MessagingUserID?
     public var state: MessagingOutboxState
     public var attemptCount: Int
     public var createdAt: Date
@@ -253,6 +275,7 @@ public struct MessagingOutboxEntry: Codable, Hashable, Identifiable, Sendable {
         conversationID: MessagingConversationID,
         sequence: Int64 = 0,
         mutation: MessagingMutation,
+        actorID: MessagingUserID? = nil,
         state: MessagingOutboxState = .queued,
         attemptCount: Int = 0,
         createdAt: Date = Date(),
@@ -264,6 +287,7 @@ public struct MessagingOutboxEntry: Codable, Hashable, Identifiable, Sendable {
         self.conversationID = conversationID
         self.sequence = sequence
         self.mutation = mutation
+        self.actorID = actorID
         self.state = state
         self.attemptCount = attemptCount
         self.createdAt = createdAt

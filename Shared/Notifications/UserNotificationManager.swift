@@ -393,6 +393,13 @@ extension UserNotificationManager: UNUserNotificationCenterDelegate {
                         conversationID: conversationId,
                         id: clientMessageID
                     ) != nil
+                    let notifiedMessage = try? await manager.cachedMessage(
+                        conversationID: conversationId,
+                        id: messageId
+                    )
+                    let threadRootMessageID = response.notification.threadRootId
+                        ?? notifiedMessage?.threadRootMessageID
+                        ?? messageId
                     let draft = MessagingMessageDraft(
                         conversationID: conversationId,
                         clientMessageID: clientMessageID,
@@ -400,7 +407,7 @@ extension UserNotificationManager: UNUserNotificationCenterDelegate {
                             kind: .text,
                             text: suggestion.text
                         ),
-                        replyToMessageID: messageId,
+                        replyToMessageID: threadRootMessageID,
                         deliveryKind: deliveryKind
                     )
                     try await manager.send(
@@ -416,7 +423,8 @@ extension UserNotificationManager: UNUserNotificationCenterDelegate {
                     content.body = suggestion.text
                     content.interruptionLevel = .active
                     content.setData(value: conversationId, for: .conversationId)
-                    content.setData(value: messageId, for: .messageId)
+                    content.setData(value: threadRootMessageID, for: .messageId)
+                    content.setData(value: threadRootMessageID, for: .threadRootId)
                     content.setData(value: DeepLinkTarget.thread.rawValue, for: .target)
                     content.categoryIdentifier = UserNotificationCategory.newMessage.rawValue
                     
