@@ -72,6 +72,52 @@ final class MessagingRealtimeReconcilerTests: XCTestCase {
         XCTAssertEqual(cached.receipts, [receipt])
     }
 
+    func testStaleRelatedLiveEventsCannotOverwriteNewerCachedState() throws {
+        let store = try GRDBMessagingStore(inMemory: .init())
+        var message = makeMessage(text: "Hello", updatedAt: 100)
+        message.receipts = [MessagingReceiptSnapshot(
+            objectID: "receipt-1",
+            messageID: "message-1",
+            userID: "user-2",
+            state: .read,
+            occurredAt: Date(timeIntervalSince1970: 290),
+            serverUpdatedAt: Date(timeIntervalSince1970: 300)
+        )]
+        message.reactions = [MessagingReactionSnapshot(
+            objectID: "reaction-1",
+            messageID: "message-1",
+            userID: "user-2",
+            type: "heart",
+            createdAt: Date(timeIntervalSince1970: 100),
+            serverUpdatedAt: Date(timeIntervalSince1970: 300),
+            isDeleted: true,
+            deletedAt: Date(timeIntervalSince1970: 299)
+        )]
+        try store.upsert(messages: [message])
+        let reconciler = MessagingRealtimeReconciler(store: store)
+
+        try reconciler.apply(.receiptUpserted(MessagingReceiptSnapshot(
+            objectID: "receipt-1",
+            messageID: "message-1",
+            userID: "user-2",
+            state: .delivered,
+            occurredAt: Date(timeIntervalSince1970: 190),
+            serverUpdatedAt: Date(timeIntervalSince1970: 200)
+        )))
+        try reconciler.apply(.reactionUpserted(MessagingReactionSnapshot(
+            objectID: "reaction-1",
+            messageID: "message-1",
+            userID: "user-2",
+            type: "heart",
+            createdAt: Date(timeIntervalSince1970: 100),
+            serverUpdatedAt: Date(timeIntervalSince1970: 200)
+        )))
+
+        let cached = try XCTUnwrap(store.cachedMessage(objectID: "message-1"))
+        XCTAssertEqual(cached.receipts.first?.state, .read)
+        XCTAssertTrue(try XCTUnwrap(cached.reactions.first).isDeleted)
+    }
+
     func testReconnectCatchUpIsConsumedExactlyOnce() {
         var tracker = MessagingRealtimeCatchUpTracker()
 

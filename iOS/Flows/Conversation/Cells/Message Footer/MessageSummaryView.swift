@@ -16,6 +16,7 @@ class MessageSummaryView: BaseView {
     let badgeView = RepliesBadgeView()
         
     private var replyCount = 0
+    private var loadedReplyCount = 0
     private var totalUnreadReplyCount: Int = 0
     
     override func initializeSubviews() {
@@ -30,12 +31,14 @@ class MessageSummaryView: BaseView {
 
         if self.messageID == parseMessage.id,
             self.replyCount == parseMessage.replyCount,
+            self.loadedReplyCount == parseMessage.recentReplies.count,
             self.totalUnreadReplyCount == parseMessage.totalUnreadReplyCount {
             return
         }
 
         self.messageID = parseMessage.id
         self.replyCount = parseMessage.replyCount
+        self.loadedReplyCount = parseMessage.recentReplies.count
         self.totalUnreadReplyCount = parseMessage.totalUnreadReplyCount
 
         if let reply = parseMessage.recentReplies.first {

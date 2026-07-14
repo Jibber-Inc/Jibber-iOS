@@ -28,7 +28,7 @@ public struct MessagingRetryPolicy: Hashable {
     }
 }
 
-public struct MessagingOutboxDrainReport: Hashable {
+public struct MessagingOutboxDrainReport: Hashable, Sendable {
     public var succeeded: Int
     public var retryScheduled: Int
     public var blocked: Int
@@ -42,12 +42,14 @@ public struct MessagingOutboxDrainReport: Hashable {
 
 /// Runs at most one head operation per conversation. The store query prevents
 /// later operations in a conversation from overtaking an earlier retry.
-public final class MessagingOutboxWorker {
+public final class MessagingOutboxWorker: @unchecked Sendable {
     private let store: MessagingLocalStore
     private let remote: MessagingMessageRepository
     private let errorClassifier: MessagingErrorClassifying
     private let clock: MessagingClock
     private let retryPolicy: MessagingRetryPolicy
+    private let validityLock = NSLock()
+    private var isValid = true
 
     public init(
         store: MessagingLocalStore,
@@ -63,43 +65,71 @@ public final class MessagingOutboxWorker {
         self.retryPolicy = retryPolicy
     }
 
+    /// Prevents a transport callback that resumes after logout from writing
+    /// into a cache that has already been purged or reopened for a new session.
+    /// Store mutations run under the same short lock, so invalidation either
+    /// precedes a mutation or waits for that synchronous mutation to finish.
+    public func invalidate() {
+        self.validityLock.lock()
+        self.isValid = false
+        self.validityLock.unlock()
+    }
+
     @discardableResult
+    @concurrent
     public func drainOnce(limit: Int = 8) async throws -> MessagingOutboxDrainReport {
-        let entries = try store.readyOutboxEntries(at: clock.now, limit: limit)
+        let entries = try self.withValidState {
+            try self.store.readyOutboxEntries(at: self.clock.now, limit: limit)
+        }
         var report = MessagingOutboxDrainReport()
         for entry in entries {
             var inFlight = entry
             inFlight.state = .inFlight
-            try store.updateOutboxEntry(inFlight)
+            try self.withValidState {
+                try self.store.updateOutboxEntry(inFlight)
+            }
 
             do {
                 let result = try await remote.perform(
                     inFlight.mutation,
                     idempotencyKey: inFlight.idempotencyKey
                 )
-                try apply(result: result, for: inFlight)
+                try self.withValidState {
+                    try self.apply(result: result, for: inFlight)
+                }
                 report.succeeded += 1
             } catch {
-                var failed = inFlight
-                failed.attemptCount += 1
-                failed.lastErrorDescription = String(describing: error)
-                let canRetry = errorClassifier.isRetryableMessagingError(error)
-                    && failed.attemptCount < retryPolicy.maximumAttempts
-                if canRetry {
-                    failed.state = .retryScheduled
-                    failed.nextAttemptAt = clock.now.addingTimeInterval(
-                        retryPolicy.delay(afterAttempt: failed.attemptCount)
-                    )
-                    report.retryScheduled += 1
-                } else {
-                    failed.state = .blocked
-                    report.blocked += 1
+                try self.withValidState {
+                    var failed = inFlight
+                    failed.attemptCount += 1
+                    failed.lastErrorDescription = String(describing: error)
+                    let canRetry = self.errorClassifier.isRetryableMessagingError(error)
+                        && failed.attemptCount < self.retryPolicy.maximumAttempts
+                    if canRetry {
+                        failed.state = .retryScheduled
+                        failed.nextAttemptAt = self.clock.now.addingTimeInterval(
+                            self.retryPolicy.delay(afterAttempt: failed.attemptCount)
+                        )
+                        report.retryScheduled += 1
+                    } else {
+                        failed.state = .blocked
+                        report.blocked += 1
+                    }
+                    try self.store.updateOutboxEntry(failed)
+                    try self.updateOptimisticMessage(for: failed)
                 }
-                try store.updateOutboxEntry(failed)
-                try updateOptimisticMessage(for: failed)
             }
         }
         return report
+    }
+
+    private func withValidState<Value>(
+        _ operation: () throws -> Value
+    ) throws -> Value {
+        self.validityLock.lock()
+        defer { self.validityLock.unlock() }
+        guard self.isValid else { throw CancellationError() }
+        return try operation()
     }
 
     private func apply(

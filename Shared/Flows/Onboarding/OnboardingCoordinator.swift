@@ -126,7 +126,7 @@ extension OnboardingCoordinator: OnboardingViewControllerDelegate {
         }
         let saveAction = UIAlertAction(title: "Confirm", style: .default, handler: { alert -> Void in
             if let textField = alertController.textFields?.first,
-               let text = textField.text,
+               let text = textField.text?.trimmingCharacters(in: .whitespacesAndNewlines),
                !text.isEmpty {
                 controller.handle(launchActivity: .reservation(reservationId: text))
             }

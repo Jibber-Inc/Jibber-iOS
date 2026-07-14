@@ -13,6 +13,7 @@ enum ParseMessageDraftTranslator {
     static func draft(
         from sendable: MessageSendable,
         conversationID: ParseConversationID,
+        authorID: MessagingUserID,
         replyToMessageID: String? = nil,
         clientMessageID: String = UUID().uuidString.lowercased()
     ) async throws -> MessagingMessageDraft {
@@ -24,8 +25,7 @@ enum ParseMessageDraftTranslator {
         var expressions: [MessagingExpressionReference] = []
         if let expression = sendable.expression {
             let saved = try await expression.saveToServer()
-            guard let expressionID = saved.objectId,
-                  let authorID = User.current()?.objectId else {
+            guard let expressionID = saved.objectId else {
                 throw ParseMessagingCompatibilityError.missingExpressionID
             }
             expressions.append(

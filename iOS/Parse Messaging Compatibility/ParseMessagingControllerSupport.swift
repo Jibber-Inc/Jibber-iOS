@@ -12,76 +12,6 @@ import ParseCore
 @MainActor
 enum ParseMessagingControllerSupport {
 
-    static func cachedConversation(
-        id: String,
-        manager: ParseMessagingManager
-    ) throws -> MessagingConversationSnapshot? {
-        guard let store = manager.store else {
-            throw ParseMessagingCompatibilityError.messagingNotInitialized
-        }
-        var cursor: MessagingCursor?
-        repeat {
-            let page = try store.cachedConversations(before: cursor, pageSize: 100)
-            if let match = page.items.first(where: { $0.id == id }) {
-                return match
-            }
-            cursor = page.hasMore ? page.nextCursor : nil
-        } while cursor != nil
-        return nil
-    }
-
-    static func cachedMessages(
-        conversationID: String,
-        before cursor: MessagingCursor? = nil,
-        pageSize: Int,
-        manager: ParseMessagingManager
-    ) throws -> MessagingPage<MessagingMessageSnapshot> {
-        guard let store = manager.store else {
-            throw ParseMessagingCompatibilityError.messagingNotInitialized
-        }
-        return try store.cachedMessages(
-            conversationID: conversationID,
-            before: cursor,
-            pageSize: pageSize
-        )
-    }
-
-    static func cachedReplies(
-        messageID: String,
-        before cursor: MessagingCursor? = nil,
-        pageSize: Int,
-        manager: ParseMessagingManager
-    ) throws -> MessagingPage<MessagingMessageSnapshot> {
-        guard let store = manager.store else {
-            throw ParseMessagingCompatibilityError.messagingNotInitialized
-        }
-        return try store.cachedReplies(
-            messageID: messageID,
-            before: cursor,
-            pageSize: pageSize
-        )
-    }
-
-    static func cachedMembers(
-        conversationID: String,
-        manager: ParseMessagingManager
-    ) throws -> [MessagingMemberSnapshot] {
-        guard let store = manager.store else {
-            throw ParseMessagingCompatibilityError.messagingNotInitialized
-        }
-        return try store.cachedMembers(conversationID: conversationID)
-    }
-
-    static func cachedPinnedMessages(
-        conversationID: String,
-        manager: ParseMessagingManager
-    ) throws -> [MessagingMessageSnapshot] {
-        guard let store = manager.store else {
-            throw ParseMessagingCompatibilityError.messagingNotInitialized
-        }
-        return try store.cachedPinnedMessages(conversationID: conversationID)
-    }
-
     static func merge(
         _ existing: [MessagingMessageSnapshot],
         with incoming: [MessagingMessageSnapshot]
@@ -101,20 +31,28 @@ enum ParseMessagingControllerSupport {
     static func rootMessages(
         from snapshots: [MessagingMessageSnapshot]
     ) -> [ParseMessage] {
-        let replies = snapshots.filter { $0.replyToMessageID != nil }
-        return snapshots
-            .filter { $0.replyToMessageID == nil }
-            .map { root in
-                ParseMessage(
-                    snapshot: root,
-                    replies: replies
-                        .filter { reply in
-                            reply.replyToMessageID == root.objectID
-                                || reply.replyToMessageID == root.stableID
-                        }
-                        .map { ParseMessage(snapshot: $0) }
-                )
+        var repliesByParentID: [String: [MessagingMessageSnapshot]] = [:]
+        var roots: [MessagingMessageSnapshot] = []
+        roots.reserveCapacity(snapshots.count)
+
+        for snapshot in snapshots {
+            if let parentID = snapshot.replyToMessageID {
+                repliesByParentID[parentID, default: []].append(snapshot)
+            } else {
+                roots.append(snapshot)
             }
+        }
+
+        return roots.map { root in
+            var replySnapshots = repliesByParentID[root.stableID] ?? []
+            if let objectID = root.objectID, objectID != root.stableID {
+                replySnapshots.append(contentsOf: repliesByParentID[objectID] ?? [])
+            }
+            return ParseMessage(
+                snapshot: root,
+                replies: replySnapshots.map { ParseMessage(snapshot: $0) }
+            )
+        }
             .sorted { $0.createdAt > $1.createdAt }
     }
 

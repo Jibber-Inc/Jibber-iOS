@@ -216,16 +216,18 @@ public extension MessagingParseAttachment {
     }
 
     func snapshot() throws -> MessagingAttachmentSnapshot {
-        guard let id = id else {
-            throw MessagingModelError.missingField(className: "Message.Attachment", field: "id")
-        }
         guard let kind = kind else {
             throw MessagingModelError.missingField(className: "Message.Attachment", field: "kind")
         }
+        let remoteURL = file?.url ?? linkURL.flatMap(URL.init(string:))
+        let stableID = id
+            ?? remoteURL?.absoluteString
+            ?? fileName
+            ?? "\(kind.rawValue)-attachment"
         return MessagingAttachmentSnapshot(
-            id: id,
+            id: stableID,
             kind: kind,
-            remoteURL: file?.url ?? linkURL.flatMap(URL.init(string:)),
+            remoteURL: remoteURL,
             thumbnailURL: thumbnail?.url,
             fileName: fileName,
             mimeType: mimeType,
@@ -383,7 +385,8 @@ public extension MessagingParseConversationMember {
             unreadCount: unreadCount ?? 0,
             lastReadMessageID: lastReadMessage?.objectId,
             lastReadAt: lastReadAt,
-            typingExpiresAt: typingExpiresAt
+            typingExpiresAt: typingExpiresAt,
+            serverUpdatedAt: updatedAt
         )
     }
 }
@@ -408,6 +411,7 @@ public extension MessagingParseReaction {
             userID: userID,
             type: type,
             createdAt: createdAt,
+            serverUpdatedAt: updatedAt,
             isDeleted: isDeleted,
             deletedAt: deletedAt
         )
@@ -450,7 +454,8 @@ public extension MessagingParseReceipt {
             messageID: messageID,
             userID: userID,
             state: state,
-            occurredAt: occurredAt
+            occurredAt: occurredAt,
+            serverUpdatedAt: updatedAt
         )
     }
 }

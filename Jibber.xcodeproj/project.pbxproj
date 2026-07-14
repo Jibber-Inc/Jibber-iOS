@@ -7,6 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		F90000000000000000000001 /* ParseSimulatorCompatibility.m in Sources */ = {isa = PBXBuildFile; fileRef = F80000000000000000000001 /* ParseSimulatorCompatibility.m */; };
+		F90000000000000000000002 /* ParseSimulatorCompatibility.m in Sources */ = {isa = PBXBuildFile; fileRef = F80000000000000000000001 /* ParseSimulatorCompatibility.m */; };
+		F90000000000000000000003 /* ParseSimulatorCompatibility.m in Sources */ = {isa = PBXBuildFile; fileRef = F80000000000000000000001 /* ParseSimulatorCompatibility.m */; };
+		F90000000000000000000004 /* ParseSimulatorCompatibility.m in Sources */ = {isa = PBXBuildFile; fileRef = F80000000000000000000001 /* ParseSimulatorCompatibility.m */; };
+		F90000000000000000000005 /* ParseSimulatorCompatibility.m in Sources */ = {isa = PBXBuildFile; fileRef = F80000000000000000000001 /* ParseSimulatorCompatibility.m */; };
+		F90000000000000000000006 /* ParseSimulatorCompatibility.m in Sources */ = {isa = PBXBuildFile; fileRef = F80000000000000000000001 /* ParseSimulatorCompatibility.m */; };
 		8004E3D127D7C81600E9931F /* SwipeableInputAccessoryViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8004E3D027D7C81600E9931F /* SwipeableInputAccessoryViewController.swift */; };
 		8004EE5427E8FE970086E010 /* URLSession+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8004EE5327E8FE970086E010 /* URLSession+Extension.swift */; };
 		8004EE5527E8FE970086E010 /* URLSession+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8004EE5327E8FE970086E010 /* URLSession+Extension.swift */; };
@@ -1298,6 +1304,7 @@
 		D61C1D242840409900F58F84 /* BaseCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BaseCoordinator.swift; sourceTree = "<group>"; };
 		D61C1D27284041DE00F58F84 /* PresentableCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PresentableCoordinator.swift; sourceTree = "<group>"; };
 		D61EC0BC21D3071400204BEE /* Jibber.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Jibber.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F80000000000000000000001 /* ParseSimulatorCompatibility.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ParseSimulatorCompatibility.m; sourceTree = "<group>"; };
 		D61EC0BF21D3071400204BEE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		D61EC0C121D3071400204BEE /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
 		D61EC0C621D3071500204BEE /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -2130,6 +2137,7 @@
 			children = (
 				D64C6A79232883FE00DB7257 /* CloudFunction.swift */,
 				D6DA3191259B5B6D0078E769 /* Config.swift */,
+				F80000000000000000000001 /* ParseSimulatorCompatibility.m */,
 				D6CD4F3623F3A56D004818B6 /* Onboarding+Cloud.swift */,
 				D6CD4F3C23F3A618004818B6 /* Connection+Cloud.swift */,
 			);
@@ -3511,6 +3519,7 @@
 				D611282D2804DBDA00574B96 /* PFUser+Extensions.swift in Sources */,
 				D61128242804DBD200574B96 /* CGVector+Extensions.swift in Sources */,
 				D61128912804DE8C00574B96 /* Config.swift in Sources */,
+				F90000000000000000000001 /* ParseSimulatorCompatibility.m in Sources */,
 				D611286C2804DC5400574B96 /* ClientError.swift in Sources */,
 				D6964A0028D2EAB9003C99F6 /* LocalTimeLabel.swift in Sources */,
 				D611289C2804E10F00574B96 /* VibrancyView.swift in Sources */,
@@ -4165,6 +4174,7 @@
 				D6D75C2728C6BF07009578E7 /* CalendarViewController.swift in Sources */,
 				80665BA627B2F2F3002A8F69 /* MockMessage.swift in Sources */,
 				D6DA3192259B5B6D0078E769 /* Config.swift in Sources */,
+				F90000000000000000000002 /* ParseSimulatorCompatibility.m in Sources */,
 				D63D71C125F0419D004C26F7 /* ConnectionPreference.swift in Sources */,
 				D69649FE28D2EAB9003C99F6 /* LocalTimeLabel.swift in Sources */,
 				8024B95326F278C8008ABF7F /* ConversationCollectionViewDataSource.swift in Sources */,
@@ -4302,6 +4312,7 @@
 				D6D75C1E28BE8169009578E7 /* MomentsStore.swift in Sources */,
 				D6BF814F2721EEBF006D7760 /* Toast.swift in Sources */,
 				D63DB21225E998D700F6B323 /* Config.swift in Sources */,
+				F90000000000000000000003 /* ParseSimulatorCompatibility.m in Sources */,
 				D63DB26125E9996C00F6B323 /* SystemAvatar.swift in Sources */,
 				D6792CE725FBE87600B6575C /* CAGradientLayer+Extensions.swift in Sources */,
 				D605AC9D27877F890015D800 /* MessageBubbleView.swift in Sources */,
@@ -4385,6 +4396,7 @@
 				D6AE0FF1267D2CC900C6B048 /* ClientError.swift in Sources */,
 				D6AE0FEB267D2CA900C6B048 /* ConnectionPreference.swift in Sources */,
 				D66ED456267D35E100332BA3 /* Config.swift in Sources */,
+				F90000000000000000000004 /* ParseSimulatorCompatibility.m in Sources */,
 				D68759652728A56300AF7C07 /* Character+Extensions.swift in Sources */,
 				D66ED45C267D4B3F00332BA3 /* Array+Extensions.swift in Sources */,
 				D6AE0FF4267D2CD700C6B048 /* SessionManager.swift in Sources */,
@@ -4432,6 +4444,7 @@
 				D6AE0FFE267D2D9B00C6B048 /* User+Objectable.swift in Sources */,
 				D67B00C227D2B2B400284564 /* User+Extensions.swift in Sources */,
 				D66ED457267D35E100332BA3 /* Config.swift in Sources */,
+				F90000000000000000000005 /* ParseSimulatorCompatibility.m in Sources */,
 				D6A0096B28B9AA1F0018FA98 /* EmotionCategory.swift in Sources */,
 				D61A9B5627D2B17C008D8C57 /* FontType.swift in Sources */,
 				D67B00C327D2B2C400284564 /* Optional+Extensions.swift in Sources */,
@@ -4482,6 +4495,7 @@
 				D6AE0FFF267D2D9B00C6B048 /* User+Objectable.swift in Sources */,
 				D6C82E9F28D228E2002BEC18 /* TimeAgo.swift in Sources */,
 				D66ED458267D35E200332BA3 /* Config.swift in Sources */,
+				F90000000000000000000006 /* ParseSimulatorCompatibility.m in Sources */,
 				D66ED45B267D4B1300332BA3 /* DispatchQue+Extensions.swift in Sources */,
 				D6AE0FEF267D2CBA00C6B048 /* Objectable.swift in Sources */,
 				D61A33DD27D51D4E00056242 /* ContextCue.swift in Sources */,
@@ -4575,7 +4589,7 @@
 				CODE_SIGN_ENTITLEMENTS = AppClip/AppClipStaging.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = AppClip/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Jibber;
@@ -4612,7 +4626,7 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
 				CODE_SIGN_ENTITLEMENTS = AppClip/AppClip.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = AppClip/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Jibber;
@@ -4789,7 +4803,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = "AppIcon-Dev";
 				CODE_SIGN_ENTITLEMENTS = iOS/Jibber.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				INFOPLIST_FILE = iOS/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -4816,7 +4830,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = iOS/Jibber.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				INFOPLIST_FILE = iOS/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -4841,7 +4855,7 @@
 				API_TARGET = STAGING;
 				CODE_SIGN_ENTITLEMENTS = "Notification Content/NotificationContent.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				INFOPLIST_FILE = "Notification Content/Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -4867,7 +4881,7 @@
 				API_TARGET = PRODUCTION;
 				CODE_SIGN_ENTITLEMENTS = "Notification Content/NotificationContent.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				INFOPLIST_FILE = "Notification Content/Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -4893,7 +4907,7 @@
 				API_TARGET = STAGING;
 				CODE_SIGN_ENTITLEMENTS = "Notification Service/NotificationService.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Notification Service/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Notification Service";
@@ -4925,7 +4939,7 @@
 				API_TARGET = PRODUCTION;
 				CODE_SIGN_ENTITLEMENTS = "Notification Service/NotificationService.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Notification Service/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Notification Service";
@@ -4958,7 +4972,7 @@
 				API_TARGET = STAGING;
 				CODE_SIGN_ENTITLEMENTS = "Intents ExtensionUI/Intents ExtensionUI.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Intents ExtensionUI/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Intents ExtensionUI";
@@ -4989,7 +5003,7 @@
 				API_TARGET = PRODUCTION;
 				CODE_SIGN_ENTITLEMENTS = "Intents ExtensionUI/Intents ExtensionUI.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Intents ExtensionUI/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Intents ExtensionUI";
@@ -5021,7 +5035,7 @@
 				API_TARGET = STAGING;
 				CODE_SIGN_ENTITLEMENTS = "Intents Extension/Intents Extension.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Intents Extension/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Intents Extension";
@@ -5054,7 +5068,7 @@
 				API_TARGET = PRODUCTION;
 				CODE_SIGN_ENTITLEMENTS = "Intents Extension/Intents Extension.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Intents Extension/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Intents Extension";

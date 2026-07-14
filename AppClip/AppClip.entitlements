@@ -4,16 +4,7 @@
 <dict>
 	<key>com.apple.developer.associated-domains</key>
 	<array>
-		<string>appclips:joinjibber.com/pass</string>
-		<string>appclips:joinjibber.com/reservation</string>
-		<string>appclips:joinjibber.com/onboarding</string>
-		<string>appclips:joinjibber.com</string>
-		<string>appclips:www.joinjibber.com</string>
-		<string>appclips:www.joinjibber.com/reservation</string>
-		<string>appclips:www.joinjibber.com/onboarding</string>
-		<string>appclips:www.joinjibber.com/pass</string>
-		<string>appclips:www.joinjibber.com/moment</string>
-		<string>appclips:joinjibber.com/moment</string>
+		<string>appclips:jibber.wtf</string>
 	</array>
 	<key>com.apple.developer.parent-application-identifiers</key>
 	<array>

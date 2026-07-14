@@ -15,6 +15,16 @@ class SwipeableInputAccessoryView: BaseView {
 
     typealias InputState = SwipeableInputAccessoryViewController.InputState
 
+    private struct LayoutSignature: Equatable {
+        let isExpanded: Bool
+        let inputHeight: CGFloat
+        let addViewSize: CGFloat
+        let textViewPadding: CGFloat
+        let bottomConstraint: CGFloat
+    }
+
+    private var lastLayoutSignature: LayoutSignature?
+
     // MARK:  - Views
 
     /// A view that contains and provides a background for the input view.
@@ -157,6 +167,19 @@ class SwipeableInputAccessoryView: BaseView {
             bottomConstraint = 46
         }
 
+        let signature = LayoutSignature(
+            isExpanded: {
+                if case .expanded = inputState { return true }
+                return false
+            }(),
+            inputHeight: newInputHeight,
+            addViewSize: newAddViewSize,
+            textViewPadding: textViewPadding,
+            bottomConstraint: bottomConstraint
+        )
+        guard signature != self.lastLayoutSignature else { return }
+        self.lastLayoutSignature = signature
+
         self.unreadMessagesCounter.updateVisibility(for: inputState)
         
         UIView.animate(withDuration: Theme.animationDurationStandard) {
@@ -166,7 +189,7 @@ class SwipeableInputAccessoryView: BaseView {
             self.textViewTrailingConstraint.constant = textViewPadding
             self.inputBottomConstraint.constant = bottomConstraint
             // Layout the window so that our container view also animates
-            self.window?.layoutNow()
+            self.window?.layoutIfNeeded()
         }
     }
 
@@ -179,8 +202,7 @@ class SwipeableInputAccessoryView: BaseView {
                 self.characterCountView.alpha = 0.0
             }
             
-            // Layout the window so that our container view also animates
-            self.window?.layoutNow()
+            self.layoutIfNeeded()
         }
     }
     

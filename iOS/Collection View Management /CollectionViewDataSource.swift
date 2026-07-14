@@ -76,6 +76,18 @@ extension CollectionViewDataSource {
         self.diffableDataSource.apply(snapshot, animatingDifferences: animatingDifferences, completion: nil)
     }
 
+    func apply(
+        _ snapshot: SnapshotType,
+        animatingDifferences: Bool = true,
+        completion: @escaping () -> Void
+    ) {
+        self.diffableDataSource.apply(
+            snapshot,
+            animatingDifferences: animatingDifferences,
+            completion: completion
+        )
+    }
+
     func apply(_ snapshot: SnapshotType, animatingDifferences: Bool = true) async {
         await self.diffableDataSource.apply(snapshot, animatingDifferences: animatingDifferences)
     }

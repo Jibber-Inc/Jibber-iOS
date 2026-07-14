@@ -226,14 +226,41 @@ class OnboardingViewController: SwitchableContentViewController<OnboardingConten
         case .reservation(let reservationId):
             self.showLoading()
             Task {
-                let reservation = try? await Reservation.getObject(with: reservationId)
-                self.reservationId = reservationId
-                                
-                if let from = reservation?.createdBy?.objectId {
-                    try? await self.updateInvitor(userId: from)
+                do {
+                    let reservation = try await Reservation.getObject(with: reservationId)
+
+                    guard !reservation.isClaimed else {
+                        throw ClientError.message(detail: "That invite has already been claimed.")
+                    }
+
+                    guard let from = reservation.createdBy?.objectId else {
+                        throw ClientError.message(detail: "That invite is no longer available.")
+                    }
+
+                    try await self.updateInvitor(userId: from)
+                    self.reservationId = reservationId
                     self.switchTo(.phone(self.phoneVC))
+                    await self.hideLoading()
+                } catch let inviteError as ClientError {
+                    await self.hideLoading()
+                    let displayError = NSError(
+                        domain: "com.jibber.onboarding.invite",
+                        code: 1,
+                        userInfo: [NSLocalizedDescriptionKey: inviteError.localizedDescription]
+                    )
+                    await ToastScheduler.shared.schedule(toastType: .error(displayError))
+                } catch {
+                    await self.hideLoading()
+                    let displayError = NSError(
+                        domain: "com.jibber.onboarding.invite",
+                        code: 2,
+                        userInfo: [
+                            NSLocalizedDescriptionKey:
+                                "We couldn't find that invite code. Check the code and make sure it matches this version of Jibber."
+                        ]
+                    )
+                    await ToastScheduler.shared.schedule(toastType: .error(displayError))
                 }
-                await self.hideLoading()
             }
         case .pass(passId: let passId):
             Task {

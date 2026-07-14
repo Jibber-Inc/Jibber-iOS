@@ -146,9 +146,10 @@ public enum ParseMessagingQueryFactory {
         messageIDs: [MessagingMessageID]
     ) -> Query<MessagingParseReaction> {
         let messages = messageIDs.map { Pointer<MessagingParseMessage>(objectId: $0) }
+        // Include soft-deleted rows so catch-up hydration can deliver the
+        // versioned tombstone when this client missed its LiveQuery event.
         return MessagingParseReaction.query(
-            containedIn(key: "message", array: messages),
-            "isDeleted" == false
+            containedIn(key: "message", array: messages)
         )
     }
 

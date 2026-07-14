@@ -6,9 +6,9 @@ let package = Package(
     name: "JibberParseLiveQuery",
     platforms: [
         .iOS(.v27),
-        .macOS(.v12),
-        .tvOS(.v15),
-        .watchOS(.v6)
+        .macOS(.v27),
+        .tvOS(.v27),
+        .watchOS(.v27)
     ],
     products: [
         .library(

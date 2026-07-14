@@ -193,7 +193,8 @@ class UserNotificationManager: NSObject {
     func handleRead(message: Messageable) {
         self.handleRead(
             messageIDs: [message.id],
-            clientMessageID: message.id
+            clientMessageID: message.id,
+            conversationID: message.conversationId
         )
     }
 
@@ -201,14 +202,16 @@ class UserNotificationManager: NSObject {
     func handleRead(message: MessagingMessageSnapshot) {
         self.handleRead(
             messageIDs: [message.stableID, message.canonicalMessageID],
-            clientMessageID: message.clientMessageID
+            clientMessageID: message.clientMessageID,
+            conversationID: message.conversationID
         )
     }
 
     @MainActor
     private func handleRead(
         messageIDs: Set<MessagingMessageID>,
-        clientMessageID: MessagingMessageID?
+        clientMessageID: MessagingMessageID?,
+        conversationID: MessagingConversationID
     ) {
         AchievementsManager.shared.createIfNeeded(with: .firstUnreadMessage)
         
@@ -218,8 +221,9 @@ class UserNotificationManager: NSObject {
             let delivered = await self.center.deliveredNotifications()
             var resolvedMessageIDs = messageIDs
             if let clientMessageID = clientMessageID,
-               let cached = try? ParseMessagingManager.shared.store?.cachedMessage(
-                   clientMessageID: clientMessageID
+               let cached = try? await ParseMessagingManager.shared.cachedMessage(
+                   conversationID: conversationID,
+                   id: clientMessageID
                ),
                let objectID = cached.objectID {
                 resolvedMessageIDs.insert(objectID)
@@ -369,22 +373,25 @@ extension UserNotificationManager: UNUserNotificationCenterDelegate {
 
                 do {
                     let manager = try await self.messagingManagerForNotificationAction()
-                    let deliveryKind = self.deliveryKind(
-                        from: response.notification,
-                        manager: manager,
-                        messageID: messageId
-                    )
-                    guard let userID = manager.authenticatedUserID else {
+                    guard let expectedStore = manager.store,
+                          let userID = manager.authenticatedUserID else {
                         throw ParseMessagingManagerError.notInitialized
                     }
+                    let deliveryKind = await self.deliveryKind(
+                        from: response.notification,
+                        manager: manager,
+                        conversationID: conversationId,
+                        messageID: messageId
+                    )
                     let clientMessageID = MessagingIdempotencyKey.notificationReply(
                         userID: userID,
                         conversationID: conversationId,
                         messageID: messageId,
                         actionID: suggestion.rawValue
                     )
-                    let wasAlreadyQueued = try manager.store?.cachedMessage(
-                        clientMessageID: clientMessageID
+                    let wasAlreadyQueued = try await manager.cachedMessage(
+                        conversationID: conversationId,
+                        id: clientMessageID
                     ) != nil
                     let draft = MessagingMessageDraft(
                         conversationID: conversationId,
@@ -396,7 +403,11 @@ extension UserNotificationManager: UNUserNotificationCenterDelegate {
                         replyToMessageID: messageId,
                         deliveryKind: deliveryKind
                     )
-                    try manager.send(draft)
+                    try await manager.send(
+                        draft,
+                        expectedStore: expectedStore,
+                        expectedUserID: userID
+                    )
 
                     guard !wasAlreadyQueued else { return }
 
@@ -434,8 +445,9 @@ extension UserNotificationManager: UNUserNotificationCenterDelegate {
     private func deliveryKind(
         from notification: UNNotification,
         manager: ParseMessagingManager,
+        conversationID: MessagingConversationID,
         messageID: MessagingMessageID
-    ) -> MessagingDeliveryKind {
+    ) async -> MessagingDeliveryKind {
         let messaging = notification.request.content.userInfo["messaging"] as? [String: Any]
         let data = notification.request.content.userInfo["data"] as? [String: Any]
         if let rawValue = messaging?["deliveryType"] as? String
@@ -443,7 +455,10 @@ extension UserNotificationManager: UNUserNotificationCenterDelegate {
            let kind = MessagingDeliveryKind(rawValue: rawValue) {
             return kind
         }
-        if let cached = try? manager.store?.cachedMessage(objectID: messageID) {
+        if let cached = try? await manager.cachedMessage(
+            conversationID: conversationID,
+            id: messageID
+        ) {
             return cached.deliveryKind
         }
         return .respectful

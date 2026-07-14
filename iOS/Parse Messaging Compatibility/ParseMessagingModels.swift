@@ -57,7 +57,9 @@ struct ParseConversationMember: @MainActor PersonType, Identifiable, Hashable {
     var lastReadMessageID: String? { self.snapshot.lastReadMessageID }
     var lastReadAt: Date? { self.snapshot.lastReadAt }
     var typingExpiresAt: Date? { self.snapshot.typingExpiresAt }
-    var isCurrentUser: Bool { self.userID == User.current()?.objectId }
+    var isCurrentUser: Bool {
+        self.userID == User.current()?.objectId
+    }
     @MainActor var person: PersonType? { ParsePeopleResolver.person(withID: self.userID) }
     @MainActor var name: String? { self.person?.fullName }
     var personId: String { self.userID }
@@ -80,7 +82,9 @@ struct ParsePinnedMessageAuthor {
     @MainActor var person: PersonType? {
         self.personID.flatMap(ParsePeopleResolver.person(withID:))
     }
-    var isCurrentUser: Bool { self.personID == User.current()?.objectId }
+    @MainActor var isCurrentUser: Bool {
+        self.personID == ParseMessagingManager.shared.authenticatedUserID
+    }
 }
 
 struct ParseMessagePinDetails {
@@ -107,7 +111,9 @@ struct ParseMessage: @MainActor Messageable, Identifiable, Hashable {
     var conversationId: String { self.snapshot.conversationID }
     var createdAt: Date { self.snapshot.sortDate }
     var authorId: String { self.snapshot.authorID }
-    var isFromCurrentUser: Bool { self.authorId == User.current()?.objectId }
+    var isFromCurrentUser: Bool {
+        self.authorId == User.current()?.objectId
+    }
     @MainActor var person: PersonType? { ParsePeopleResolver.person(withID: self.authorId) }
 
     var attributes: [String: Any]? {
@@ -204,23 +210,24 @@ struct ParseMessage: @MainActor Messageable, Identifiable, Hashable {
         }
     }
 
+    @MainActor
     func setToConsumed() async {
         guard let messageID = self.serverID else { return }
-        await MainActor.run {
-            do {
-                _ = try ParseMessagingManager.shared.enqueue(
-                    .markRead(
-                        conversationID: self.conversationId,
-                        messageID: messageID,
-                        messageCreatedAt: self.createdAt,
-                        readAt: Date()
-                    )
+        do {
+            _ = try await ParseMessagingManager.shared.enqueue(
+                .markRead(
+                    conversationID: self.conversationId,
+                    messageID: messageID,
+                    messageCreatedAt: self.createdAt,
+                    readAt: Date()
                 )
+            )
+            await MainActor.run {
                 UserNotificationManager.shared.handleRead(message: self.snapshot)
                 NoticeStore.shared.removeNoticeIfNeccessary(for: self)
-            } catch {
-                logError(error)
             }
+        } catch {
+            logError(error)
         }
     }
 
@@ -228,15 +235,13 @@ struct ParseMessage: @MainActor Messageable, Identifiable, Hashable {
         guard let messageID = self.serverID else {
             throw ParseMessagingCompatibilityError.messageHasNotReachedServer(self.id)
         }
-        try await MainActor.run {
-            _ = try ParseMessagingManager.shared.enqueue(
-                .markUnread(
-                    conversationID: self.conversationId,
-                    messageID: messageID,
-                    changedAt: Date()
-                )
+        _ = try await ParseMessagingManager.shared.enqueue(
+            .markUnread(
+                conversationID: self.conversationId,
+                messageID: messageID,
+                changedAt: Date()
             )
-        }
+        )
     }
 
     func appendAttributes(with attributes: [String: Any]) async throws -> Messageable {
@@ -293,7 +298,9 @@ struct ParseConversation: @MainActor MessageSequence, Identifiable, Hashable {
     var updatedAt: Date { self.snapshot.serverUpdatedAt ?? self.snapshot.lastActivityAt }
     var authorId: String { self.snapshot.creatorID }
     var kind: MessagingConversationKind { self.snapshot.kind }
-    var isOwnedByMe: Bool { self.authorId == User.current()?.objectId }
+    var isOwnedByMe: Bool {
+        self.authorId == User.current()?.objectId
+    }
     var isDeleted: Bool { self.snapshot.isDeleted }
     var activeMembers: [ParseConversationMember] { self.members.filter(\.isActive) }
     var lastActiveMembers: [ParseConversationMember] { self.activeMembers }

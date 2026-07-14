@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import Combine
 import PhotosUI
 import Photos
 import Localization
@@ -70,6 +71,12 @@ class InputHandlerCoordinator<Result>: PresentableCoordinator<Result>,
             .didSelect { [unowned self] in
                 self.scrollToUnreadMessage()
             }
+
+        ConversationsManager.shared.$activeController
+            .dropFirst()
+            .mainSink { [weak self] _ in
+                self?.loadTask?.cancel()
+            }.store(in: &self.cancellables)
         
         self.inputHandlerViewController.messageContentDelegate = self 
     }
@@ -78,21 +85,38 @@ class InputHandlerCoordinator<Result>: PresentableCoordinator<Result>,
     private var loadTask: Task<Void, Never>?
     
     func scrollToUnreadMessage() {
-        // Find the oldest unread message.
-        guard let conversation = ConversationsManager.shared.activeConversation,
-              let unreadMessage = conversation.messages.reversed().first(where: { message in
-                  return !message.isFromCurrentUser && !message.isConsumedByMe
-              }) else { return }
+        guard let controller = ConversationsManager.shared.activeController
+            as? ParseConversationController else { return }
         
         self.loadTask?.cancel()
         
-        self.loadTask = Task { [weak self] in
-            guard let self else { return }
-            await self.inputHandlerViewController.scrollToConversation(with: conversation.id,
-                                                                       messageId: unreadMessage.id,
-                                                                       viewReplies: false,
-                                                                       animateScroll: true,
-                                                                       animateSelection: true)
+        self.loadTask = Task { @MainActor [weak self, weak controller] in
+            do {
+                guard let controller else { return }
+                guard let unreadTarget = try await controller.loadOldestUnreadMessage() else {
+                    return
+                }
+                try Task.checkCancellation()
+                guard let self else { return }
+
+                guard let activeController = ConversationsManager.shared.activeController
+                        as? ParseConversationController,
+                      activeController === controller else {
+                    return
+                }
+
+                await self.inputHandlerViewController.scrollToConversation(
+                    with: controller.conversationID.rawValue,
+                    messageId: unreadTarget.unreadMessage.id,
+                    viewReplies: unreadTarget.isReply,
+                    animateScroll: true,
+                    animateSelection: true
+                )
+            } catch is CancellationError {
+                return
+            } catch {
+                logError(error)
+            }
         }
     }
     

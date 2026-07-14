@@ -16,21 +16,21 @@ enum Environment: String {
 
     var url: String {
         switch self {
-        case .staging: return "https://parseapi.back4app.com"
-        case .production: return "https://parseapi.back4app.com"
+        case .staging: return "https://jibber-staging-api.b4a.io"
+        case .production: return "https://jibber-api.b4a.io"
         }
     }
 
     var appId: String {
         switch self {
-        case .staging: return "4qvd8tYEda8zwXGWXSXcRzyQ4EShmqvdJLDJznsD"
+        case .staging: return "hePp5QCoCdRygkKOmIGqyporjgo2LIrdhMuf687m"
         case .production: return "4qvd8tYEda8zwXGWXSXcRzyQ4EShmqvdJLDJznsD"
         }
     }
 
     var clientKey: String {
         switch self {
-        case .staging: return "lcT9US7v82eAQXHGXpu6mgpu7pOtVu7fQjJAUDJA"
+        case .staging: return "SbXSsqeVf9jGoc029WauVSXWMzfDY0oOK0xSu55t"
         case .production: return "lcT9US7v82eAQXHGXpu6mgpu7pOtVu7fQjJAUDJA"
         }
     }
@@ -134,6 +134,7 @@ final class Config: NSObject, @unchecked Sendable {
                     configuration.containingApplicationBundleIdentifier = self.environment.bundleId
                 }
             }))
+            User.registerSubclass()
         }
     }
 }

@@ -53,6 +53,11 @@ class TextInputViewController<ResultType>: ViewController, Sizeable, Completable
 
     lazy var barButton: UIBarButtonItem = {
         let barButton = UIBarButtonItem.init(customView: self.button)
+        // iOS 26+ gives toolbar items a shared glass background by default.
+        // This button already supplies its own background and loading state;
+        // letting the toolbar add glass causes repeated glass updates while the
+        // loading animation starts and can leave the input accessory frozen.
+        barButton.hidesSharedBackground = true
         return barButton
     }()
 

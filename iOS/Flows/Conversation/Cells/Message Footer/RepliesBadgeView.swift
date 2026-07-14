@@ -28,6 +28,7 @@ class RepliesBadgeView: BadgeCounterView {
     enum State {
         case initial
         case unreadReplies
+        case incomplete
         case totalReplies
     }
     
@@ -44,6 +45,11 @@ class RepliesBadgeView: BadgeCounterView {
     func configure(with message: Messageable) {
         if message.totalUnreadReplyCount > 0 {
             self.state = .unreadReplies
+        } else if message.recentReplies.count < message.totalReplyCount {
+            // A three-item preview cannot prove that older replies are read.
+            // Preserve a distinct violet state until the thread is fully
+            // hydrated instead of presenting neutral styling as authoritative.
+            self.state = .incomplete
         } else {
             self.state = .totalReplies
         }
@@ -60,6 +66,9 @@ class RepliesBadgeView: BadgeCounterView {
             case .unreadReplies:
                 self.alpha = 1.0
                 self.set(backgroundColor: .D6)
+            case .incomplete:
+                self.alpha = 1.0
+                self.backgroundColor = ThemeColor.D6.color.withAlphaComponent(0.5)
             case .totalReplies:
                 self.set(backgroundColor: .B2)
             }

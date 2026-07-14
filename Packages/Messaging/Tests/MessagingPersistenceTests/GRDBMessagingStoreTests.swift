@@ -3,6 +3,318 @@ import MessagingContracts
 @testable import MessagingPersistence
 
 final class GRDBMessagingStoreTests: XCTestCase {
+    func testCachedConversationReadsOnlyRequestedConversation() throws {
+        let store = try GRDBMessagingStore(inMemory: .init())
+        let first = MessagingConversationSnapshot(
+            id: "conversation-1",
+            kind: .direct,
+            title: "First",
+            creatorID: "user-1",
+            lastActivityAt: Date(timeIntervalSince1970: 100)
+        )
+        let second = MessagingConversationSnapshot(
+            id: "conversation-2",
+            kind: .direct,
+            title: "Second",
+            creatorID: "user-1",
+            lastActivityAt: Date(timeIntervalSince1970: 200)
+        )
+        try store.upsert(conversations: [first, second])
+
+        XCTAssertEqual(try store.cachedConversation(id: first.id), first)
+        XCTAssertNil(try store.cachedConversation(id: "missing"))
+    }
+
+    func testConversationUpsertUsesServerFreshness() throws {
+        let store = try GRDBMessagingStore(inMemory: .init())
+        let current = MessagingConversationSnapshot(
+            id: "conversation-freshness",
+            kind: .group,
+            title: "Current",
+            creatorID: "user-1",
+            membershipRevision: 3,
+            latestMessageID: "message-current",
+            lastActivityAt: Date(timeIntervalSince1970: 300),
+            serverUpdatedAt: Date(timeIntervalSince1970: 300),
+            isDeleted: true,
+            deletedAt: Date(timeIntervalSince1970: 299)
+        )
+        try store.upsert(conversations: [current])
+
+        var stale = current
+        stale.title = "Stale"
+        stale.membershipRevision = 1
+        stale.latestMessageID = "message-stale"
+        stale.serverUpdatedAt = Date(timeIntervalSince1970: 200)
+        stale.isDeleted = false
+        stale.deletedAt = nil
+        try store.upsert(conversations: [stale])
+
+        XCTAssertEqual(try store.cachedConversation(id: current.id), current)
+
+        var equalVersion = stale
+        equalVersion.serverUpdatedAt = current.serverUpdatedAt
+        try store.upsert(conversations: [equalVersion])
+        XCTAssertEqual(try store.cachedConversation(id: current.id), current)
+
+        var newer = current
+        newer.title = "Newer"
+        newer.membershipRevision = 4
+        newer.serverUpdatedAt = Date(timeIntervalSince1970: 400)
+        newer.isDeleted = false
+        newer.deletedAt = nil
+        try store.upsert(conversations: [newer])
+        XCTAssertEqual(try store.cachedConversation(id: current.id), newer)
+    }
+
+    func testMemberUpsertUsesServerFreshnessForUnreadTypingAndActiveState() throws {
+        let store = try GRDBMessagingStore(inMemory: .init())
+        let current = MessagingMemberSnapshot(
+            objectID: "member-freshness",
+            conversationID: "conversation-freshness",
+            userID: "user-1",
+            role: .member,
+            joinedAt: Date(timeIntervalSince1970: 100),
+            active: false,
+            leftAt: Date(timeIntervalSince1970: 290),
+            unreadCount: 0,
+            typingExpiresAt: nil,
+            serverUpdatedAt: Date(timeIntervalSince1970: 300)
+        )
+        try store.upsert(members: [current])
+
+        var stale = current
+        stale.active = true
+        stale.leftAt = nil
+        stale.unreadCount = 12
+        stale.typingExpiresAt = Date(timeIntervalSince1970: 500)
+        stale.serverUpdatedAt = Date(timeIntervalSince1970: 200)
+        try store.upsert(members: [stale])
+
+        XCTAssertEqual(
+            try store.cachedMembers(conversationID: current.conversationID),
+            [current]
+        )
+
+        var newer = stale
+        newer.unreadCount = 2
+        newer.typingExpiresAt = Date(timeIntervalSince1970: 600)
+        newer.serverUpdatedAt = Date(timeIntervalSince1970: 400)
+        try store.upsert(members: [newer])
+        XCTAssertEqual(
+            try store.cachedMembers(conversationID: current.conversationID),
+            [newer]
+        )
+    }
+
+    func testMemberFreshnessPreservesLegacyNilTimestampCompatibility() throws {
+        let store = try GRDBMessagingStore(inMemory: .init())
+        var legacy = MessagingMemberSnapshot(
+            objectID: "member-legacy-freshness",
+            conversationID: "conversation-legacy-freshness",
+            userID: "user-1",
+            role: .member,
+            joinedAt: Date(timeIntervalSince1970: 100),
+            unreadCount: 4
+        )
+        try store.upsert(members: [legacy])
+
+        legacy.unreadCount = 3
+        try store.upsert(members: [legacy])
+        XCTAssertEqual(
+            try store.cachedMembers(conversationID: legacy.conversationID).first?.unreadCount,
+            3
+        )
+
+        var timestamped = legacy
+        timestamped.unreadCount = 0
+        timestamped.serverUpdatedAt = Date(timeIntervalSince1970: 300)
+        try store.upsert(members: [timestamped])
+
+        legacy.unreadCount = 9
+        try store.upsert(members: [legacy])
+        XCTAssertEqual(
+            try store.cachedMembers(conversationID: legacy.conversationID),
+            [timestamped]
+        )
+    }
+
+    func testCachedConversationStateReturnsConsistentAggregate() async throws {
+        let store = try GRDBMessagingStore(inMemory: .init())
+        let conversation = MessagingConversationSnapshot(
+            id: "conversation-aggregate",
+            kind: .direct,
+            creatorID: "user-1",
+            lastActivityAt: Date(timeIntervalSince1970: 100)
+        )
+        let member = MessagingMemberSnapshot(
+            objectID: "member-aggregate",
+            conversationID: conversation.id,
+            userID: "user-1",
+            role: .owner,
+            joinedAt: Date(timeIntervalSince1970: 90)
+        )
+        var message = makeMessage(
+            objectID: "message-aggregate",
+            clientMessageID: "client-aggregate"
+        )
+        message.conversationID = conversation.id
+        message.clientCreatedAt = Date(timeIntervalSince1970: 80)
+        message.serverCreatedAt = Date(timeIntervalSince1970: 80)
+        message.isPinned = true
+        try store.upsert(conversations: [conversation])
+        try store.upsert(members: [member])
+        try store.upsert(messages: [message])
+
+        let state = try await store.cachedConversationState(
+            conversationID: conversation.id,
+            pageSize: 10
+        )
+
+        XCTAssertEqual(state.conversation, conversation)
+        XCTAssertEqual(state.members, [member])
+        XCTAssertEqual(state.messages.items, [message])
+        XCTAssertEqual(state.pinnedMessages, [message])
+    }
+
+    func testLocalCacheCanReadMoreThanOneRemotePage() throws {
+        let store = try GRDBMessagingStore(inMemory: .init(messagesPerConversation: 250))
+        let messages = (0..<125).map { index in
+            var message = self.makeMessage(
+                objectID: "message-\(index)",
+                clientMessageID: "client-\(index)"
+            )
+            message.conversationID = "conversation"
+            message.clientCreatedAt = Date(timeIntervalSince1970: TimeInterval(index))
+            message.serverCreatedAt = message.clientCreatedAt
+            return message
+        }
+        try store.upsert(messages: messages)
+
+        let page = try store.cachedMessages(
+            conversationID: "conversation",
+            before: nil,
+            pageSize: 125
+        )
+
+        XCTAssertEqual(page.items.count, 125)
+        XCTAssertFalse(page.hasMore)
+    }
+
+    func testPruningRetainsOnlyBoundedNewestPinnedOverflow() throws {
+        let store = try GRDBMessagingStore(inMemory: .init(messagesPerConversation: 2))
+        let messages = (0..<7).map { index in
+            var message = self.makeMessage(
+                objectID: "message-retention-\(index)",
+                clientMessageID: "client-retention-\(index)"
+            )
+            message.clientCreatedAt = Date(timeIntervalSince1970: TimeInterval(index))
+            message.serverCreatedAt = message.clientCreatedAt
+            message.isPinned = index <= 2
+            return message
+        }
+
+        try store.upsert(messages: messages)
+
+        let retained = try store.cachedMessages(
+            ids: messages.map { $0.objectID ?? $0.stableID }
+        )
+        XCTAssertEqual(
+            Set(retained.map(\.stableID)),
+            Set([
+                messages[6].stableID,
+                messages[5].stableID,
+                messages[2].stableID,
+                messages[1].stableID
+            ])
+        )
+        XCTAssertEqual(
+            try store.cachedPinnedMessages(conversationID: "conversation-1")
+                .map(\.stableID),
+            [messages[2].stableID, messages[1].stableID]
+        )
+    }
+
+    func testPruningRetainsRootForRetainedReplyWithoutUnboundedOrphans() throws {
+        let store = try GRDBMessagingStore(inMemory: .init(messagesPerConversation: 2))
+        var root = makeMessage(
+            objectID: "message-retained-root",
+            clientMessageID: "client-retained-root"
+        )
+        root.clientCreatedAt = Date(timeIntervalSince1970: 0)
+        root.serverCreatedAt = root.clientCreatedAt
+        var oldOrdinary = makeMessage(
+            objectID: "message-old-ordinary",
+            clientMessageID: "client-old-ordinary"
+        )
+        oldOrdinary.clientCreatedAt = Date(timeIntervalSince1970: 1)
+        oldOrdinary.serverCreatedAt = oldOrdinary.clientCreatedAt
+        var reply = makeMessage(
+            objectID: "message-retained-reply",
+            clientMessageID: "client-retained-reply",
+            replyToMessageID: root.objectID
+        )
+        reply.clientCreatedAt = Date(timeIntervalSince1970: 3)
+        reply.serverCreatedAt = reply.clientCreatedAt
+        var newest = makeMessage(
+            objectID: "message-newest-root",
+            clientMessageID: "client-newest-root"
+        )
+        newest.clientCreatedAt = Date(timeIntervalSince1970: 4)
+        newest.serverCreatedAt = newest.clientCreatedAt
+
+        try store.upsert(messages: [root, oldOrdinary, reply, newest])
+
+        XCTAssertNotNil(try store.cachedMessage(objectID: root.objectID!))
+        XCTAssertNotNil(try store.cachedMessage(objectID: reply.objectID!))
+        XCTAssertNil(try store.cachedMessage(objectID: oldOrdinary.objectID!))
+
+        let laterMessages = (5...6).map { index in
+            var message = self.makeMessage(
+                objectID: "message-later-\(index)",
+                clientMessageID: "client-later-\(index)"
+            )
+            message.clientCreatedAt = Date(timeIntervalSince1970: TimeInterval(index))
+            message.serverCreatedAt = message.clientCreatedAt
+            return message
+        }
+        try store.upsert(messages: laterMessages)
+
+        XCTAssertNil(try store.cachedMessage(objectID: root.objectID!))
+        XCTAssertNil(try store.cachedMessage(objectID: reply.objectID!))
+        XCTAssertEqual(
+            try store.cachedMessages(
+                ids: laterMessages.map { $0.objectID ?? $0.stableID }
+            ).count,
+            2
+        )
+    }
+
+    func testCachedMessagesByIDsResolvesBothIdentitiesInRequestedOrder() throws {
+        let store = try GRDBMessagingStore(inMemory: .init())
+        let first = makeMessage(
+            objectID: "message-batch-first",
+            clientMessageID: "client-batch-first"
+        )
+        let second = makeMessage(
+            objectID: "message-batch-second",
+            clientMessageID: "client-batch-second"
+        )
+        try store.upsert(messages: [first, second])
+
+        let values = try store.cachedMessages(ids: [
+            "message-batch-second",
+            "client-batch-first",
+            "missing",
+            "client-batch-second"
+        ])
+
+        XCTAssertEqual(
+            values.map(\.stableID),
+            [second.stableID, first.stableID, second.stableID]
+        )
+    }
+
     func testStageSendIsAtomicAndIdempotent() throws {
         let store = try GRDBMessagingStore(inMemory: .init())
         let draft = makeDraft(clientMessageID: "client-idempotent-1")
@@ -175,6 +487,157 @@ final class GRDBMessagingStoreTests: XCTestCase {
             try store.cachedMessage(clientMessageID: draft.clientMessageID)?.objectID,
             "message-server-1"
         )
+        XCTAssertNil(try store.outboxEntry(idempotencyKey: draft.clientMessageID))
+    }
+
+    func testAtomicUpsertRejectsStaleCoreReceiptAndReactionSnapshots() throws {
+        let store = try GRDBMessagingStore(inMemory: .init())
+        var newest = makeMessage(
+            objectID: "message-race-stale",
+            clientMessageID: "client-race-stale"
+        )
+        newest.serverUpdatedAt = Date(timeIntervalSince1970: 300)
+        newest.content.text = "Newest core"
+        newest.receipts = [MessagingReceiptSnapshot(
+            objectID: "receipt-race-stale",
+            messageID: "message-race-stale",
+            userID: "user-2",
+            state: .read,
+            occurredAt: Date(timeIntervalSince1970: 290),
+            serverUpdatedAt: Date(timeIntervalSince1970: 300)
+        )]
+        newest.reactions = [MessagingReactionSnapshot(
+            objectID: "reaction-race-stale",
+            messageID: "message-race-stale",
+            userID: "user-2",
+            type: "heart",
+            createdAt: Date(timeIntervalSince1970: 100),
+            serverUpdatedAt: Date(timeIntervalSince1970: 300),
+            isDeleted: true,
+            deletedAt: Date(timeIntervalSince1970: 299)
+        )]
+        try store.upsert(messages: [newest])
+
+        var stalePage = newest
+        stalePage.serverUpdatedAt = Date(timeIntervalSince1970: 200)
+        stalePage.content.text = "Stale core"
+        stalePage.receipts = [MessagingReceiptSnapshot(
+            objectID: "receipt-race-stale",
+            messageID: "message-race-stale",
+            userID: "user-2",
+            state: .delivered,
+            occurredAt: Date(timeIntervalSince1970: 190),
+            serverUpdatedAt: Date(timeIntervalSince1970: 200)
+        )]
+        stalePage.reactions = [MessagingReactionSnapshot(
+            objectID: "reaction-race-stale",
+            messageID: "message-race-stale",
+            userID: "user-2",
+            type: "heart",
+            createdAt: Date(timeIntervalSince1970: 100),
+            serverUpdatedAt: Date(timeIntervalSince1970: 200)
+        )]
+        try store.upsert(messages: [stalePage])
+
+        let cached = try XCTUnwrap(store.cachedMessage(objectID: "message-race-stale"))
+        XCTAssertEqual(cached.content.text, "Newest core")
+        XCTAssertEqual(cached.serverUpdatedAt, Date(timeIntervalSince1970: 300))
+        XCTAssertEqual(cached.receipts.first?.state, .read)
+        XCTAssertEqual(cached.receipts.first?.serverUpdatedAt, Date(timeIntervalSince1970: 300))
+        XCTAssertTrue(try XCTUnwrap(cached.reactions.first).isDeleted)
+        XCTAssertEqual(cached.reactions.first?.serverUpdatedAt, Date(timeIntervalSince1970: 300))
+    }
+
+    func testAtomicUpsertAcceptsNewerReceiptReversalAndReactionDeletion() throws {
+        let store = try GRDBMessagingStore(inMemory: .init())
+        var original = makeMessage(
+            objectID: "message-race-newer",
+            clientMessageID: "client-race-newer"
+        )
+        original.serverUpdatedAt = Date(timeIntervalSince1970: 100)
+        original.receipts = [MessagingReceiptSnapshot(
+            objectID: "receipt-race-newer",
+            messageID: "message-race-newer",
+            userID: "user-2",
+            state: .read,
+            occurredAt: Date(timeIntervalSince1970: 190),
+            serverUpdatedAt: Date(timeIntervalSince1970: 200)
+        )]
+        original.reactions = [MessagingReactionSnapshot(
+            objectID: "reaction-race-newer",
+            messageID: "message-race-newer",
+            userID: "user-2",
+            type: "heart",
+            createdAt: Date(timeIntervalSince1970: 100),
+            serverUpdatedAt: Date(timeIntervalSince1970: 200)
+        )]
+        try store.upsert(messages: [original])
+
+        var newerRelatedState = original
+        newerRelatedState.receipts = [MessagingReceiptSnapshot(
+            objectID: "receipt-race-newer",
+            messageID: "message-race-newer",
+            userID: "user-2",
+            state: .delivered,
+            occurredAt: Date(timeIntervalSince1970: 150),
+            serverUpdatedAt: Date(timeIntervalSince1970: 300)
+        )]
+        newerRelatedState.reactions = [MessagingReactionSnapshot(
+            objectID: "reaction-race-newer",
+            messageID: "message-race-newer",
+            userID: "user-2",
+            type: "heart",
+            createdAt: Date(timeIntervalSince1970: 100),
+            serverUpdatedAt: Date(timeIntervalSince1970: 300),
+            isDeleted: true,
+            deletedAt: Date(timeIntervalSince1970: 299)
+        )]
+        try store.upsert(messages: [newerRelatedState])
+
+        let cached = try XCTUnwrap(store.cachedMessage(objectID: "message-race-newer"))
+        XCTAssertEqual(cached.receipts.first?.state, .delivered)
+        XCTAssertEqual(cached.receipts.first?.serverUpdatedAt, Date(timeIntervalSince1970: 300))
+        XCTAssertTrue(try XCTUnwrap(cached.reactions.first).isDeleted)
+        XCTAssertEqual(cached.reactions.first?.serverUpdatedAt, Date(timeIntervalSince1970: 300))
+    }
+
+    func testDelayedConfirmationPreservesNewerCoreAndFinishesOptimisticSend() throws {
+        let store = try GRDBMessagingStore(inMemory: .init())
+        let draft = makeDraft(clientMessageID: "client-confirm-race")
+        _ = try store.stageSend(draft: draft, authorID: "user-1")
+
+        let newerLocal = MessagingMessageSnapshot(
+            objectID: "message-confirm-race",
+            clientMessageID: draft.clientMessageID,
+            conversationID: draft.conversationID,
+            authorID: "user-1",
+            clientCreatedAt: draft.clientCreatedAt,
+            serverCreatedAt: Date(timeIntervalSince1970: 100),
+            serverUpdatedAt: Date(timeIntervalSince1970: 300),
+            content: MessagingMessageContent(kind: .text, text: "Newer edit"),
+            deliveryKind: draft.deliveryKind,
+            localState: .sending,
+            lastFailureDescription: "in flight"
+        )
+        try store.upsert(messages: [newerLocal])
+
+        var delayedConfirmation = newerLocal
+        delayedConfirmation.serverUpdatedAt = Date(timeIntervalSince1970: 200)
+        delayedConfirmation.content.text = "Original send"
+        delayedConfirmation.localState = .confirmed
+        delayedConfirmation.lastFailureDescription = nil
+        try store.confirm(
+            message: delayedConfirmation,
+            idempotencyKey: draft.clientMessageID
+        )
+
+        let cached = try XCTUnwrap(
+            store.cachedMessage(clientMessageID: draft.clientMessageID)
+        )
+        XCTAssertEqual(cached.content.text, "Newer edit")
+        XCTAssertEqual(cached.serverUpdatedAt, Date(timeIntervalSince1970: 300))
+        XCTAssertEqual(cached.localState, .confirmed)
+        XCTAssertNil(cached.lastFailureDescription)
         XCTAssertNil(try store.outboxEntry(idempotencyKey: draft.clientMessageID))
     }
 
