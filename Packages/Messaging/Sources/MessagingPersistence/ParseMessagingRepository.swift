@@ -65,7 +65,7 @@ public final class ParseMessagingRepository:
     ) async throws -> MessagingPage<MessagingConversationSnapshot> {
         let memberships = try await ParseMessagingQueryFactory
             .activeMemberships(userID: authenticatedUserID)
-            .findAll(batchLimit: 100)
+            .findAllWithoutBlocking(batchLimit: 100)
         let conversationIDs = Array(Set(memberships.compactMap { $0.conversation?.objectId }))
         guard !conversationIDs.isEmpty else {
             return MessagingPage(items: [], nextCursor: nil, hasMore: false)
@@ -114,7 +114,7 @@ public final class ParseMessagingRepository:
         guard !conversationIDs.isEmpty else { return [] }
         let objects = try await ParseMessagingQueryFactory
             .members(conversationIDs: conversationIDs)
-            .findAll(batchLimit: 100)
+            .findAllWithoutBlocking(batchLimit: 100)
         return try objects
             .map { try $0.snapshot() }
             .sorted { lhs, rhs in
@@ -604,10 +604,10 @@ public final class ParseMessagingRepository:
 
         async let reactionObjects = ParseMessagingQueryFactory
             .reactions(messageIDs: messageIDs)
-            .findAll(batchLimit: 100)
+            .findAllWithoutBlocking(batchLimit: 100)
         async let receiptObjects = ParseMessagingQueryFactory
             .receipts(messageIDs: messageIDs)
-            .findAll(batchLimit: 100)
+            .findAllWithoutBlocking(batchLimit: 100)
         let reactions = try await reactionObjects.map { try $0.snapshot() }
         let receipts = try await receiptObjects.map { try $0.snapshot() }
         let reactionsByMessage = Dictionary(grouping: reactions, by: \.messageID)
@@ -620,6 +620,35 @@ public final class ParseMessagingRepository:
                 snapshot.receipts = receiptsByMessage[objectID] ?? []
             }
             return snapshot
+        }
+    }
+}
+
+private extension Query where ResultType: Sendable {
+    /// Parse-Swift's `findAll` blocks a dispatch thread while each network page
+    /// completes. Page explicitly so awaiting the request never causes a QoS
+    /// priority inversion.
+    func findAllWithoutBlocking(batchLimit: Int) async throws -> [ResultType] {
+        var results: [ResultType] = []
+        var pageQuery = order(.ascending("objectId")).limit(batchLimit)
+
+        while true {
+            let page = try await pageQuery.find()
+            results.append(contentsOf: page)
+
+            guard page.count == batchLimit else { return results }
+            guard let lastObjectID = page.last?.objectId else {
+                throw ParseError(
+                    code: .unknownError,
+                    message: "Last paginated object should have an id."
+                )
+            }
+
+            pageQuery = ResultType.query(
+                and(queries: [self, ResultType.query("objectId" > lastObjectID)])
+            )
+            .order(.ascending("objectId"))
+            .limit(batchLimit)
         }
     }
 }
@@ -665,7 +694,7 @@ private struct SendMessageCall: ParseCloudable, Sendable {
         linkURL = message.linkURL
         attachments = message.attachments
         expressions = message.expressions
-        metadata = message.metadata
+        metadata = message.metadata?.values
         replyToId = message.replyTo?.objectId
         deliveryType = message.deliveryType
     }

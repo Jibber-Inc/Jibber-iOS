@@ -248,7 +248,6 @@ class UserNotificationManager: NSObject {
             return note.request.content.interruptionLevel == .timeSensitive
         }.count
 
-        logDebug(count)
         do {
             try await self.center.setBadgeCount(count)
         } catch {
