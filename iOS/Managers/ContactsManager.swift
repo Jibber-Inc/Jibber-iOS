@@ -54,6 +54,7 @@ final class ContactsManager: @unchecked Sendable {
         }
     }
 
+    @concurrent
     func fetchContacts() async -> [CNContact] {
 
         // 1.

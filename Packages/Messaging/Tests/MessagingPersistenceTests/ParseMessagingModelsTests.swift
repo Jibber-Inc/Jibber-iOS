@@ -52,12 +52,30 @@ final class ParseMessagingModelsTests: XCTestCase {
             uploadedAttachments: []
         )
         XCTAssertEqual(object.linkURL, "https://example.com/path")
-        XCTAssertEqual(object.metadata, ["source": "share-extension"])
+        XCTAssertEqual(object.metadata?.values, ["source": "share-extension"])
 
         let json = String(data: try JSONEncoder().encode(object), encoding: .utf8)!
         XCTAssertTrue(json.contains("\"linkURL\""))
         XCTAssertTrue(json.contains("\"metadata\""))
         XCTAssertFalse(json.contains("\"attributes\""))
+    }
+
+    func testMessageMetadataDecodesStringCompatibleServerScalars() throws {
+        let data = Data(
+            #"{"metadata":{"bot":"maya","referenceImageCount":4,"temperature":0.5,"enabled":true}}"#.utf8
+        )
+
+        let object = try JSONDecoder().decode(MessagingParseMessage.self, from: data)
+
+        XCTAssertEqual(
+            object.metadata?.values,
+            [
+                "bot": "maya",
+                "referenceImageCount": "4",
+                "temperature": "0.5",
+                "enabled": "true"
+            ]
+        )
     }
 
     func testExpressionReferenceUsesBackendCodingKeys() throws {

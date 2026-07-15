@@ -67,6 +67,63 @@ public struct MessagingParseAttachment: Codable, Hashable, @unchecked Sendable {
     }
 }
 
+public struct MessagingParseMetadata: Codable, Equatable, Sendable {
+    public let values: [String: String]
+
+    public init(_ values: [String: String]) {
+        self.values = values
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: Key.self)
+        var values: [String: String] = [:]
+
+        for key in container.allKeys {
+            if try container.decodeNil(forKey: key) {
+                continue
+            } else if let value = try? container.decode(String.self, forKey: key) {
+                values[key.stringValue] = value
+            } else if let value = try? container.decode(Int.self, forKey: key) {
+                values[key.stringValue] = String(value)
+            } else if let value = try? container.decode(Double.self, forKey: key) {
+                values[key.stringValue] = String(value)
+            } else if let value = try? container.decode(Bool.self, forKey: key) {
+                values[key.stringValue] = String(value)
+            } else {
+                throw DecodingError.typeMismatch(
+                    String.self,
+                    .init(
+                        codingPath: decoder.codingPath + [key],
+                        debugDescription: "Expected a string-compatible metadata value."
+                    )
+                )
+            }
+        }
+
+        self.values = values
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: Key.self)
+        for (key, value) in values {
+            try container.encode(value, forKey: Key(stringValue: key))
+        }
+    }
+
+    private struct Key: CodingKey {
+        let stringValue: String
+        let intValue: Int? = nil
+
+        init(stringValue: String) {
+            self.stringValue = stringValue
+        }
+
+        init?(intValue: Int) {
+            return nil
+        }
+    }
+}
+
 public struct MessagingParseConversation: ParseObject, @unchecked Sendable {
     public static var className: String { "Conversation" }
 
@@ -139,7 +196,7 @@ public struct MessagingParseMessage: ParseObject, @unchecked Sendable {
     public var text: String?
     public var linkURL: String?
     public var attachments: [MessagingParseAttachment]?
-    public var metadata: [String: String]?
+    public var metadata: MessagingParseMetadata?
     public var replyTo: Pointer<MessagingParseMessage>?
     public var replyCount: Int?
     public var latestReply: Pointer<MessagingParseMessage>?
@@ -259,7 +316,7 @@ public extension MessagingParseMessage {
         linkURL = draft.content.linkURL?.absoluteString
         attachments = uploadedAttachments.isEmpty ? nil : uploadedAttachments
         let draftMetadata = draft.content.attributes
-        metadata = draftMetadata.isEmpty ? nil : draftMetadata
+        metadata = draftMetadata.isEmpty ? nil : MessagingParseMetadata(draftMetadata)
         if let replyID = draft.replyToMessageID {
             replyTo = Pointer<MessagingParseMessage>(objectId: replyID)
         }
@@ -298,7 +355,7 @@ public extension MessagingParseMessage {
             text: text,
             linkURL: linkURL.flatMap(URL.init(string:)),
             attachments: attachmentSnapshots,
-            attributes: metadata ?? [:]
+            attributes: metadata?.values ?? [:]
         )
         return MessagingMessageSnapshot(
             objectID: objectID,
