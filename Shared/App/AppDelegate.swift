@@ -59,9 +59,24 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         
         guard let windowScene = scene as? UIWindowScene else { return }
         
-        let activity = connectionOptions.userActivities.first { activity in
+        var activity = connectionOptions.userActivities.first { activity in
             return activity.activityType == NSUserActivityTypeBrowsingWeb
         }
+
+#if APPCLIP
+        // Xcode supplies this value for local App Clip launches. Creating the
+        // matching browsing activity here also makes command-line and CI
+        // simulator launches exercise the exact universal-link route.
+        if activity.isNil,
+           let urlString = ProcessInfo.processInfo.environment["_XCAppClipURL"],
+           let url = URL(string: urlString) {
+            let localExperience = NSUserActivity(
+                activityType: NSUserActivityTypeBrowsingWeb
+            )
+            localExperience.webpageURL = url
+            activity = localExperience
+        }
+#endif
         
         var launchDeepLink: DeepLinkable?
         if let launchActivity = activity?.launchActivity,

@@ -17,6 +17,13 @@ enum ReservationKey: String {
     case isClaimed
     case contactId
     case conversationCid
+    case status
+}
+
+enum ReservationStatus: String {
+    case pending
+    case accepted
+    case declined
 }
 
 final class Reservation: PFObject, PFSubclassing, @unchecked Sendable {
@@ -41,6 +48,13 @@ final class Reservation: PFObject, PFSubclassing, @unchecked Sendable {
     var contactId: String? {
         get { return self.getObject(for: .contactId) }
         set { self.setObject(for: .contactId, with: newValue) }
+    }
+
+    var status: ReservationStatus {
+        guard let rawValue: String = self.getObject(for: .status) else {
+            return .pending
+        }
+        return ReservationStatus(rawValue: rawValue) ?? .pending
     }
 
     static func getUnclaimedReservationCount(for user: User) async -> Int {

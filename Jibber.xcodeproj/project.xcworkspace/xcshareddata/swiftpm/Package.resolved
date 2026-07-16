@@ -40,10 +40,9 @@
     {
       "identity" : "parse-sdk-ios-osx",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/parse-community/Parse-SDK-iOS-OSX.git",
+      "location" : "https://github.com/Jibber-Inc/Parse-SDK-iOS-OSX.git",
       "state" : {
-        "revision" : "af5d63cc38dc614f7017029c6f3f586a8d737ec7",
-        "version" : "6.1.1"
+        "revision" : "66944f18a7da1ec384b97e4f80ca376d199175b5"
       }
     },
     {

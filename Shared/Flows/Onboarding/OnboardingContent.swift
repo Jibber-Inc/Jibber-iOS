@@ -14,6 +14,7 @@ import ParseCore
 enum OnboardingContent: Switchable {
 
     case welcome(WelcomeViewController)
+    case invitation(WelcomeViewController)
     case phone(PhoneViewController)
     case code(CodeViewController)
     case name(NameViewController)
@@ -21,7 +22,7 @@ enum OnboardingContent: Switchable {
 
     var viewController: UIViewController & Sizeable {
         switch self {
-        case .welcome(let vc):
+        case .welcome(let vc), .invitation(let vc):
             return vc
         case .phone(let vc):
             return vc
@@ -41,6 +42,19 @@ enum OnboardingContent: Switchable {
             return LocalizedString(id: "",
                                    arguments: [],
                                    default: "Welcome! Jibber is an invite only messaging experience redesigned to encourage empathy, establish privacy and promote community ownership/participation. If you don't have an invite, you can join the waitlist below.")
+        case .invitation(_):
+            if let user {
+                return LocalizedString(
+                    id: "",
+                    arguments: [],
+                    default: "\(user.givenName.capitalized) invited you to connect on Jibber. Accept to verify your number and finish setting up your account."
+                )
+            }
+            return LocalizedString(
+                id: "",
+                arguments: [],
+                default: "You've been invited to connect on Jibber."
+            )
         case .phone(_):
             if let user = user, user.objectId != PFConfig.current().adminUserId {
                 return LocalizedString(id: "",

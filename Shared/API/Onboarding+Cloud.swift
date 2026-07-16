@@ -100,3 +100,30 @@ struct FinalizeOnboarding: CloudFunction {
     }
 
 }
+
+struct RespondToReservationInvitation: CloudFunction {
+
+    enum Decision: String {
+        case accepted
+        case declined
+    }
+
+    typealias ReturnType = Any
+
+    let reservationId: String
+    let decision: Decision
+
+    func makeRequest(andUpdate statusables: [Statusable] = [],
+                     viewsToIgnore: [UIView] = []) async throws -> Any {
+        let params = ["reservationId": self.reservationId,
+                      "decision": self.decision.rawValue]
+
+        return try await self.makeRequest(
+            andUpdate: statusables,
+            params: params,
+            callName: "respondToReservationInvitation",
+            delayInterval: 0.0,
+            viewsToIgnore: viewsToIgnore
+        )
+    }
+}

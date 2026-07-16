@@ -108,6 +108,10 @@ class OnboardingViewController: SwitchableContentViewController<OnboardingConten
                     self.delegate.onboardingViewControllerDidStartOnboarding(self)
                 case .rsvp:
                     self.delegate.onboardingViewControllerDidSelectRSVP(self)
+                case .acceptInvite:
+                    self.respondToInvitation(with: .accepted)
+                case .declineInvite:
+                    self.respondToInvitation(with: .declined)
                 }
             case .failure:
                 break
@@ -170,7 +174,7 @@ class OnboardingViewController: SwitchableContentViewController<OnboardingConten
 
     override func shouldShowLargeAvatar() -> Bool {
         switch self.currentContent {
-        case .welcome, .phone, .code:
+        case .welcome, .invitation, .phone, .code:
             return true
         case .name, .photo, .none:
             return false
@@ -198,7 +202,13 @@ class OnboardingViewController: SwitchableContentViewController<OnboardingConten
         guard let content = self.currentContent else { return }
         switch content {
         case .phone(_):
-            self.switchTo(.welcome(self.welcomeVC))
+            if self.reservationId.isEmpty {
+                self.welcomeVC.mode = .standard
+                self.switchTo(.welcome(self.welcomeVC))
+            } else {
+                self.welcomeVC.mode = .invitation
+                self.switchTo(.invitation(self.welcomeVC))
+            }
         case .code(_):
             self.switchTo(.phone(self.phoneVC))
         case .photo(_):
@@ -233,13 +243,18 @@ class OnboardingViewController: SwitchableContentViewController<OnboardingConten
                         throw ClientError.message(detail: "That invite has already been claimed.")
                     }
 
+                    guard reservation.status != .declined else {
+                        throw ClientError.message(detail: "That invite has been declined.")
+                    }
+
                     guard let from = reservation.createdBy?.objectId else {
                         throw ClientError.message(detail: "That invite is no longer available.")
                     }
 
                     try await self.updateInvitor(userId: from)
                     self.reservationId = reservationId
-                    self.switchTo(.phone(self.phoneVC))
+                    self.welcomeVC.mode = .invitation
+                    self.switchTo(.invitation(self.welcomeVC))
                     await self.hideLoading()
                 } catch let inviteError as ClientError {
                     await self.hideLoading()
@@ -279,6 +294,38 @@ class OnboardingViewController: SwitchableContentViewController<OnboardingConten
         case .deepLink(let deepLink):
             if let target = deepLink.deepLinkTarget, target == .moment {
                 
+            }
+        }
+    }
+
+    private func respondToInvitation(
+        with decision: RespondToReservationInvitation.Decision
+    ) {
+        guard !self.reservationId.isEmpty else { return }
+
+        self.showLoading()
+        Task {
+            do {
+                _ = try await RespondToReservationInvitation(
+                    reservationId: self.reservationId,
+                    decision: decision
+                ).makeRequest(andUpdate: [], viewsToIgnore: [self.view])
+                await self.hideLoading()
+
+                switch decision {
+                case .accepted:
+                    self.switchTo(.phone(self.phoneVC))
+                case .declined:
+                    self.reservationId = ""
+                    self.welcomeVC.mode = .standard
+                    self.switchTo(.welcome(self.welcomeVC))
+                    await ToastScheduler.shared.schedule(
+                        toastType: .success(.handWave, "Invitation declined")
+                    )
+                }
+            } catch {
+                await self.hideLoading()
+                await ToastScheduler.shared.schedule(toastType: .error(error))
             }
         }
     }
