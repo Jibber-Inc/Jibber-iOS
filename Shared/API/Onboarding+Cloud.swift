@@ -76,13 +76,27 @@ struct FinalizeOnboarding: CloudFunction {
     
     let reservationId: String
     let passId: String
-    var forceUpgrade: Bool = false
+    let momentId: String
+    var forceUpgrade: Bool
+
+    init(
+        reservationId: String,
+        passId: String,
+        momentId: String = "",
+        forceUpgrade: Bool = false
+    ) {
+        self.reservationId = reservationId
+        self.passId = passId
+        self.momentId = momentId
+        self.forceUpgrade = forceUpgrade
+    }
 
     @discardableResult
     func makeRequest(andUpdate statusables: [Statusable], viewsToIgnore: [UIView]) async throws -> Any {
         
         let params: [String: Any] = ["passId": self.passId,
                                      "reservationId": self.reservationId,
+                                     "momentId": self.momentId,
                                      "forceUpgrade": self.forceUpgrade]
         
         _ = try await self.makeRequest(andUpdate: statusables,
@@ -99,4 +113,119 @@ struct FinalizeOnboarding: CloudFunction {
         return try await user.fetchInBackground()
     }
 
+}
+
+struct PreparePersonInvitation: CloudFunction {
+
+    typealias ReturnType = [String: Any]
+
+    let message: String
+    let requestId: String
+    let reservationId: String?
+
+    func makeRequest(
+        andUpdate statusables: [Statusable] = [],
+        viewsToIgnore: [UIView] = []
+    ) async throws -> [String: Any] {
+        var params: [String: Any] = [
+            "message": self.message,
+            "requestId": self.requestId
+        ]
+        if let reservationId {
+            params["reservationId"] = reservationId
+        }
+
+        let result = try await self.makeRequest(
+            andUpdate: statusables,
+            params: params,
+            callName: "preparePersonInvitation",
+            delayInterval: 0.0,
+            viewsToIgnore: viewsToIgnore
+        )
+        guard let invitation = result as? [String: Any] else {
+            throw ClientError.apiError(detail: "Invalid invitation response")
+        }
+        return invitation
+    }
+}
+
+struct AcceptMomentInvitation: CloudFunction {
+
+    typealias ReturnType = [String: Any]
+
+    let momentId: String
+
+    func makeRequest(
+        andUpdate statusables: [Statusable] = [],
+        viewsToIgnore: [UIView] = []
+    ) async throws -> [String: Any] {
+        let result = try await self.makeRequest(
+            andUpdate: statusables,
+            params: ["momentId": self.momentId],
+            callName: "acceptMomentInvitation",
+            delayInterval: 0.0,
+            viewsToIgnore: viewsToIgnore
+        )
+        guard let invitation = result as? [String: Any] else {
+            throw ClientError.apiError(detail: "Invalid Moment invitation response")
+        }
+        return invitation
+    }
+}
+
+struct GetAppClipShareContext: CloudFunction {
+
+    typealias ReturnType = [String: Any]
+
+    enum Kind: String {
+        case invite
+        case moment
+    }
+
+    let kind: Kind
+    let id: String
+
+    func makeRequest(
+        andUpdate statusables: [Statusable] = [],
+        viewsToIgnore: [UIView] = []
+    ) async throws -> [String: Any] {
+        let result = try await self.makeRequest(
+            andUpdate: statusables,
+            params: ["kind": self.kind.rawValue, "id": self.id],
+            callName: "getAppClipShareContext",
+            delayInterval: 0.0,
+            viewsToIgnore: viewsToIgnore
+        )
+        guard let context = result as? [String: Any] else {
+            throw ClientError.apiError(detail: "Invalid App Clip share context")
+        }
+        return context
+    }
+}
+
+struct RespondToReservationInvitation: CloudFunction {
+
+    enum Decision: String {
+        case accepted
+        case declined
+    }
+
+    typealias ReturnType = Any
+
+    let reservationId: String
+    let decision: Decision
+
+    func makeRequest(andUpdate statusables: [Statusable] = [],
+                     viewsToIgnore: [UIView] = []) async throws -> Any {
+        let params = ["reservationId": self.reservationId,
+                      "decision": self.decision.rawValue]
+
+        return try await self.makeRequest(
+            andUpdate: statusables,
+            params: params,
+            callName: "respondToReservationInvitation",
+            delayInterval: 0.0,
+            viewsToIgnore: viewsToIgnore
+        )
+    }
 }

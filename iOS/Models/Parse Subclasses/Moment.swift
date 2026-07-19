@@ -127,6 +127,7 @@ import LinkPresentation
 
 // Stable-address token used only as an Objective-C associated-object key.
 nonisolated(unsafe) private var urlKey: UInt8 = 0
+nonisolated(unsafe) private var momentShareItemKey: UInt8 = 0
 extension Moment: UIActivityItemSource {
     
     private(set) var previewURL: URL? {
@@ -137,19 +138,63 @@ extension Moment: UIActivityItemSource {
             self.setAssociatedObject(key: &urlKey, value: newValue)
         }
     }
+
+    private(set) var shareItem: AppClipShareItem? {
+        get {
+            return self.getAssociatedObject(&momentShareItemKey)
+        }
+        set {
+            self.setAssociatedObject(key: &momentShareItemKey, value: newValue)
+        }
+    }
     
     func prepareMetadata() async {
         _ = try? await self.retrieveDataIfNeeded()
         self.previewURL = try? await self.preview?.retrieveCachedPathURL()
+
+        guard let objectId = self.objectId else { return }
+
+        var momentAuthor = self.author
+        if let authorPointer = momentAuthor {
+            momentAuthor = try? await authorPointer.retrieveDataIfNeeded()
+        }
+
+        var previewImage: UIImage?
+        if let previewFile = self.preview,
+           let data = try? await previewFile.retrieveDataInBackground() {
+            previewImage = UIImage(data: data)
+        }
+
+        let authorName = momentAuthor?.givenName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let firstName = (authorName?.isEmpty == false ? authorName : nil) ?? "Someone"
+        self.shareItem = AppClipShareItem(
+            invocationURL: AppClipInvocation.moment(momentID: objectId)
+                .url(for: Config.shared.environment),
+            firstName: firstName,
+            previewImage: previewImage
+        )
+    }
+
+    func activityItems() -> [Any] {
+        guard let shareItem else { return [] }
+        var items: [Any] = [shareItem]
+        let authorName = self.author?.givenName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let firstName = (authorName?.isEmpty == false ? authorName : nil) ?? "Someone"
+        var text = "\(firstName) shared a Moment with you on Jibber."
+        if let caption = self.caption?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !caption.isEmpty {
+            text += "\n\n\(caption)"
+        }
+        items.append(text)
+        return items
     }
     
     func activityViewControllerPlaceholderItem(_ activityViewController: UIActivityViewController) -> Any {
-        return ""
+        return self.shareItem?.invocationURL ?? URL(string: Config.domain)!
     }
     
     func activityViewController(_ activityViewController: UIActivityViewController, itemForActivityType activityType: UIActivity.ActivityType?) -> Any? {
-        let link =  Config.domain + "/moment?momentId=\(self.objectId!)"
-        return "Check out my moment 🤳\n\(link)"
+        return self.shareItem?.invocationURL
     }
     
     func activityViewController(_ activityViewController: UIActivityViewController, subjectForActivityType activityType: UIActivity.ActivityType?) -> String {
@@ -157,8 +202,6 @@ extension Moment: UIActivityItemSource {
     }
     
     func activityViewControllerLinkMetadata(_: UIActivityViewController) -> LPLinkMetadata? {
-        let metadata = LPLinkMetadata()
-        metadata.title = "Share Moment"
-        return metadata
+        return self.shareItem?.metadata
     }
 }

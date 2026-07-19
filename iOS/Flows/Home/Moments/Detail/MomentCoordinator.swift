@@ -8,6 +8,7 @@
 
 import Foundation
 import Coordinator
+import ParseCore
 import UIKit
 
 enum ProfileResult {
@@ -21,6 +22,9 @@ enum ProfileResult {
 class MomentCoordinator: PresentableCoordinator<ProfileResult?>, DeepLinkHandler {
     
     let moment: Moment
+    #if IOS
+    var didOfferContextualConnection = false
+    #endif
     
     lazy var momentVC: MomentViewController = {
         return MomentViewController(with: self.moment)
@@ -42,9 +46,7 @@ class MomentCoordinator: PresentableCoordinator<ProfileResult?>, DeepLinkHandler
     override func start() {
         super.start()
         
-        #if IOS
         self.momentVC.contentView.delegate = self
-        #endif
         
         self.momentVC.footerView.reactionsView.reactionsView.didSelect { [unowned self] in
             #if IOS
@@ -57,7 +59,7 @@ class MomentCoordinator: PresentableCoordinator<ProfileResult?>, DeepLinkHandler
                 }
             }
             #elseif APPCLIP
-            self.presentOnboardingAlert()
+            self.presentOnboardingAlert(action: "view_reactions")
             #endif
         }
         
@@ -69,7 +71,7 @@ class MomentCoordinator: PresentableCoordinator<ProfileResult?>, DeepLinkHandler
                 self.showReactionsAlert()
             }
             #elseif APPCLIP
-            self.presentOnboardingAlert()
+            self.presentOnboardingAlert(action: "add_expression")
             #endif
         }
         
@@ -81,7 +83,7 @@ class MomentCoordinator: PresentableCoordinator<ProfileResult?>, DeepLinkHandler
                 self.showCommentsAlert()
             }
             #elseif APPCLIP
-            self.presentOnboardingAlert()
+            self.presentOnboardingAlert(action: "comments")
             #endif
         }
         
@@ -89,13 +91,22 @@ class MomentCoordinator: PresentableCoordinator<ProfileResult?>, DeepLinkHandler
             #if IOS
             self.presentShareSheet()
             #elseif APPCLIP
-            self.presentOnboardingAlert()
+            self.presentOnboardingAlert(action: "reshare")
             #endif
         }
         
         if let deepLink = self.deepLink {
             self.handle(deepLink: deepLink)
         }
+
+        #if IOS
+        if self.deepLink?.deepLinkTarget == .moment {
+            Task { @MainActor [weak self] in
+                await Task.sleep(seconds: 0.5)
+                await self?.presentContextualConnectionPromptIfNeeded()
+            }
+        }
+        #endif
     }
     
     func handle(deepLink: DeepLinkable) {
@@ -141,16 +152,32 @@ class MomentCoordinator: PresentableCoordinator<ProfileResult?>, DeepLinkHandler
     }
     
     #if APPCLIP
-    func presentOnboardingAlert() {
-        let alert = UIAlertController(title: "Login Required",
-                                      message: "To interact with this Moment, simply login or signup.",
+    func presentOnboardingAlert(action: String) {
+        AnalyticsManager.shared.trackEvent(
+            type: .appClipGatedActionTapped,
+            properties: ["action": action]
+        )
+
+        let authorName = self.moment.author?.givenName
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let firstName = (authorName?.isEmpty == false ? authorName : nil) ?? "this person"
+        let isActiveUser = User.current()?.isAuthenticated == true
+            && User.current()?.status == .active
+        let alert = UIAlertController(
+            title: isActiveUser ? "Connect with \(firstName)?" : "Join \(firstName) on Jibber",
+            message: isActiveUser
+                ? "Connect to unlock authenticated Moment interactions in the full Jibber app."
+                : "Continue to connect and unlock Moment interactions. You can return to this Moment at any time.",
                                       preferredStyle: .alert)
         
-        let login = UIAlertAction(title: "Login", style: .default) { [unowned self] _ in
+        let login = UIAlertAction(
+            title: isActiveUser ? "Connect" : "Continue",
+            style: .default
+        ) { [unowned self] _ in
             self.finishFlow(with: nil)
         }
         
-        let cancel = UIAlertAction(title: "Cancel", style: .cancel) { _ in }
+        let cancel = UIAlertAction(title: "Not Now", style: .cancel) { _ in }
         
         alert.addAction(login)
         alert.addAction(cancel)
@@ -159,3 +186,15 @@ class MomentCoordinator: PresentableCoordinator<ProfileResult?>, DeepLinkHandler
     }
     #endif
 }
+
+#if APPCLIP
+extension MomentCoordinator: MomentContentViewDelegate {
+    func momentContentViewDidSelectCapture(_ view: MomentContentView) {
+        self.presentOnboardingAlert(action: "capture")
+    }
+
+    func momentContent(_ view: MomentContentView, didSelectPerson person: PersonType) {
+        self.presentOnboardingAlert(action: "profile")
+    }
+}
+#endif

@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		D6C35A282776706F00BE64DC /* AppClipTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6C35A272776706F00BE64DC /* AppClipTests.swift */; };
+		B50000000000000000000001 /* face_scan.json in Resources */ = {isa = PBXBuildFile; fileRef = D640328A25AF3CA500139396 /* face_scan.json */; };
+		B50000000000000000000002 /* loading.json in Resources */ = {isa = PBXBuildFile; fileRef = D6B00D3B2796480D00DF07B1 /* loading.json */; };
 		F90000000000000000000001 /* ParseSimulatorCompatibility.m in Sources */ = {isa = PBXBuildFile; fileRef = F80000000000000000000001 /* ParseSimulatorCompatibility.m */; };
 		F90000000000000000000002 /* ParseSimulatorCompatibility.m in Sources */ = {isa = PBXBuildFile; fileRef = F80000000000000000000001 /* ParseSimulatorCompatibility.m */; };
 		F90000000000000000000003 /* ParseSimulatorCompatibility.m in Sources */ = {isa = PBXBuildFile; fileRef = F80000000000000000000001 /* ParseSimulatorCompatibility.m */; };
@@ -1073,6 +1076,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		D6C35A2A2776706F00BE64DC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = D61EC0B421D3071400204BEE /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D61127ED2804D72C00574B96;
+			remoteInfo = AppClip;
+		};
 		D61128002804D72D00574B96 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = D61EC0B421D3071400204BEE /* Project object */;
@@ -1139,6 +1149,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		D6C35A232776706F00BE64DC /* AppClipTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppClipTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		D6C35A272776706F00BE64DC /* AppClipTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppClipTests.swift; sourceTree = "<group>"; };
 		8004E3D027D7C81600E9931F /* SwipeableInputAccessoryViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeableInputAccessoryViewController.swift; sourceTree = "<group>"; };
 		8004EE5327E8FE970086E010 /* URLSession+Extension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "URLSession+Extension.swift"; sourceTree = "<group>"; };
 		80058BBC27F657C80083AF1F /* MessageDeliveryTypeBadgeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageDeliveryTypeBadgeView.swift; sourceTree = "<group>"; };
@@ -1688,6 +1700,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		D6C35A1F2776706F00BE64DC /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D61127EB2804D72C00574B96 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -1786,6 +1805,14 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		D6C35A242776706F00BE64DC /* AppClipTests */ = {
+			isa = PBXGroup;
+			children = (
+				D6C35A272776706F00BE64DC /* AppClipTests.swift */,
+			);
+			path = AppClipTests;
+			sourceTree = "<group>";
+		};
 		8023C6A027EBCDC100FD9DB6 /* Media */ = {
 			isa = PBXGroup;
 			children = (
@@ -2030,6 +2057,7 @@
 				D6356D7E25A369F80015104F /* Shared */,
 				D6356D8425A36AC00015104F /* iOS */,
 				D61127EF2804D72D00574B96 /* AppClip */,
+				D6C35A242776706F00BE64DC /* AppClipTests */,
 				D6AE0F7F267CFA6C00C6B048 /* Intents Extension */,
 				D6AE0F8A267CFA6D00C6B048 /* Intents ExtensionUI */,
 				D63DB1FC25E968C300F6B323 /* Notification Content */,
@@ -2049,6 +2077,7 @@
 				D6AE0F7C267CFA6C00C6B048 /* Intents Extension.appex */,
 				D6AE0F87267CFA6D00C6B048 /* Intents ExtensionUI.appex */,
 				D61127EE2804D72C00574B96 /* AppClip.app */,
+				D6C35A232776706F00BE64DC /* AppClipTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -3180,6 +3209,24 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		D6C35A222776706F00BE64DC /* AppClipTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D6C35A2F2776706F00BE64DC /* Build configuration list for PBXNativeTarget "AppClipTests" */;
+			buildPhases = (
+				D6C35A212776706F00BE64DC /* Sources */,
+				D6C35A1F2776706F00BE64DC /* Frameworks */,
+				D6C35A202776706F00BE64DC /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D6C35A2B2776706F00BE64DC /* PBXTargetDependency */,
+			);
+			name = AppClipTests;
+			productName = AppClipTests;
+			productReference = D6C35A232776706F00BE64DC /* AppClipTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		D61127ED2804D72C00574B96 /* AppClip */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = D61128032804D72D00574B96 /* Build configuration list for PBXNativeTarget "AppClip" */;
@@ -3416,15 +3463,25 @@
 				D6AE0F7B267CFA6C00C6B048 /* Intents Extension */,
 				D6AE0F86267CFA6D00C6B048 /* Intents ExtensionUI */,
 				D61127ED2804D72C00574B96 /* AppClip */,
+				D6C35A222776706F00BE64DC /* AppClipTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		D6C35A202776706F00BE64DC /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D61127EC2804D72C00574B96 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B50000000000000000000001 /* face_scan.json in Resources */,
+				B50000000000000000000002 /* loading.json in Resources */,
 				D6DBC0E72851295E007312FC /* Transitions in Resources */,
 				D611288A2804DD3400574B96 /* Assets.xcassets in Resources */,
 				D611280E2804DB5E00574B96 /* LaunchScreen.storyboard in Resources */,
@@ -3494,6 +3551,14 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		D6C35A212776706F00BE64DC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D6C35A282776706F00BE64DC /* AppClipTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D61127EA2804D72C00574B96 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -4516,6 +4581,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		D6C35A2B2776706F00BE64DC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D61127ED2804D72C00574B96 /* AppClip */;
+			targetProxy = D6C35A2A2776706F00BE64DC /* PBXContainerItemProxy */;
+		};
 		D61128012804D72D00574B96 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = D61127ED2804D72C00574B96 /* AppClip */;
@@ -4580,6 +4650,55 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		D6C35A2D2776706F00BE64DC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.Jibber-Inc.iOS.AppClipTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/AppClip.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/AppClip";
+			};
+			name = Debug;
+		};
+		D6C35A2E2776706F00BE64DC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.Jibber-Inc.iOS.AppClipTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/AppClip.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/AppClip";
+			};
+			name = Release;
+		};
 		D61128042804D72D00574B96 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -4589,7 +4708,7 @@
 				CODE_SIGN_ENTITLEMENTS = AppClip/AppClipStaging.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = AppClip/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Jibber;
@@ -4626,7 +4745,7 @@
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
 				CODE_SIGN_ENTITLEMENTS = AppClip/AppClip.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = AppClip/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Jibber;
@@ -4803,7 +4922,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = "AppIcon-Dev";
 				CODE_SIGN_ENTITLEMENTS = iOS/Jibber.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				INFOPLIST_FILE = iOS/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -4830,7 +4949,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = iOS/Jibber.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				INFOPLIST_FILE = iOS/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -4855,7 +4974,7 @@
 				API_TARGET = STAGING;
 				CODE_SIGN_ENTITLEMENTS = "Notification Content/NotificationContent.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				INFOPLIST_FILE = "Notification Content/Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -4881,7 +5000,7 @@
 				API_TARGET = PRODUCTION;
 				CODE_SIGN_ENTITLEMENTS = "Notification Content/NotificationContent.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				INFOPLIST_FILE = "Notification Content/Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -4907,7 +5026,7 @@
 				API_TARGET = STAGING;
 				CODE_SIGN_ENTITLEMENTS = "Notification Service/NotificationService.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Notification Service/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Notification Service";
@@ -4939,7 +5058,7 @@
 				API_TARGET = PRODUCTION;
 				CODE_SIGN_ENTITLEMENTS = "Notification Service/NotificationService.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Notification Service/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Notification Service";
@@ -4972,7 +5091,7 @@
 				API_TARGET = STAGING;
 				CODE_SIGN_ENTITLEMENTS = "Intents ExtensionUI/Intents ExtensionUI.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Intents ExtensionUI/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Intents ExtensionUI";
@@ -5003,7 +5122,7 @@
 				API_TARGET = PRODUCTION;
 				CODE_SIGN_ENTITLEMENTS = "Intents ExtensionUI/Intents ExtensionUI.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Intents ExtensionUI/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Intents ExtensionUI";
@@ -5035,7 +5154,7 @@
 				API_TARGET = STAGING;
 				CODE_SIGN_ENTITLEMENTS = "Intents Extension/Intents Extension.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Intents Extension/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Intents Extension";
@@ -5068,7 +5187,7 @@
 				API_TARGET = PRODUCTION;
 				CODE_SIGN_ENTITLEMENTS = "Intents Extension/Intents Extension.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Intents Extension/Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "Intents Extension";
@@ -5098,6 +5217,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		D6C35A2F2776706F00BE64DC /* Build configuration list for PBXNativeTarget "AppClipTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D6C35A2D2776706F00BE64DC /* Debug */,
+				D6C35A2E2776706F00BE64DC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		D61128032804D72D00574B96 /* Build configuration list for PBXNativeTarget "AppClip" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -5166,10 +5294,10 @@
 /* Begin XCRemoteSwiftPackageReference section */
 		A10000000000000000000001 /* XCRemoteSwiftPackageReference "Parse-SDK-iOS-OSX" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/parse-community/Parse-SDK-iOS-OSX.git";
+			repositoryURL = "https://github.com/Jibber-Inc/Parse-SDK-iOS-OSX.git";
 			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 6.1.1;
+				kind = revision;
+				revision = 66944f18a7da1ec384b97e4f80ca376d199175b5;
 			};
 		};
 		A10000000000000000000002 /* XCRemoteSwiftPackageReference "ScrollCounter" */ = {

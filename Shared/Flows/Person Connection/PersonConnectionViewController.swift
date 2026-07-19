@@ -58,11 +58,10 @@ class PersonConnectionViewController: ViewController {
             }.store(in: &self.cancellables)
     }
     
-    func configure(for person: PersonType) {
+    func configure(for person: PersonType, inviteMessage: String? = nil) {
         Task { [unowned self] in
-            guard let updatedPerson = await PeopleStore.shared.getPerson(withPersonId: person.personId) else {
-                return
-            }
+            let updatedPerson = await PeopleStore.shared.getPerson(withPersonId: person.personId)
+                ?? person
 
             guard !Task.isCancelled else { return }
 
@@ -72,7 +71,13 @@ class PersonConnectionViewController: ViewController {
             
             let title = LocalizedString(id: "", arguments: [updatedPerson.fullName], default: "Connect with @(name)?")
 
-            let body = LocalizedString(id: "", arguments: [], default: "This will NOT consume one of your reservations")
+            let bodyText: String
+            if let inviteMessage, !inviteMessage.isEmpty {
+                bodyText = "“\(inviteMessage)”"
+            } else {
+                bodyText = "Accepting connects you without consuming one of your reservations."
+            }
+            let body = LocalizedString(id: "", arguments: [], default: bodyText)
             
             self.titleLabel.setText(title)
             self.descriptionLabel.setText(body)

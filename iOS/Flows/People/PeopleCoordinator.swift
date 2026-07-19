@@ -10,14 +10,15 @@ import Foundation
 import Coordinator
 import Contacts
 import ContactsUI
-import MessageUI
 import Localization
 import ParseCore
 
 class PeopleCoordinator: PresentableCoordinator<[Person]> {
 
     private lazy var peopleNavController = PeopleNavigationController(showConnections: self.selectedConversationId.exists)
-    private var messageController: MessageComposerViewController?
+    private var shareContinuation: CheckedContinuation<Void, Never>?
+    private var sharedPerson: Person?
+    private var invitationRequestIds: [String: String] = [:]
     var selectedReservation: Reservation?
 
     var peopleToInvite: [Person] {
@@ -97,11 +98,16 @@ extension PeopleCoordinator {
         // If the user already has an account, we can just connect with them directly.
         if let user = await self.findUser(withPhoneNumber: phoneNumber) {
             return await self.presentConnectionFlow(for: user)
-        } else if let contact = person.cnContact, let reservation = self.getReservation(for: contact) {
+        } else if let contact = person.cnContact {
             
-            // Get a valid reservation object that we can use to invite this person. Then prompt the user
-            // to send them a text
-            await self.sendText(to: contact, with: reservation)
+            // Allocate or reuse an invitation idempotently, then present the
+            // rich system share sheet so Messages can render our contextual
+            // LinkPresentation metadata.
+            await self.shareInvitation(
+                with: person,
+                contact: contact,
+                preferredReservation: self.getReservation(for: contact)
+            )
         }
 
         return nil
@@ -166,29 +172,94 @@ extension PeopleCoordinator {
 
     // MARK: - Reservations Flow
 
-    func sendText(to contact: CNContact, with reservation: Reservation) async {
-        // Get the contact's phone number
-        guard let phone = contact.findBestPhoneNumberString() else { return }
+    private enum InviteNotePrompt {
+        case cancelled
+        case confirmed(String)
+    }
 
-        // This user doesn't exist yet so they'll need the reservation to store the cid
-        // in order to access the conversation.
-        reservation.conversationCid = self.selectedConversationId
-        
-        // Used to track invites
-        self.selectedReservation = reservation
-        
-        // If this reservation was already used to invite the contact, then just send an invite reminder text.
-        if reservation.contactId == contact.identifier {
-            _ = try? await reservation.saveLocalThenServer()
-            await reservation.prepareMetadata()
-            await self.sendText(with: reservation.reminderMessage, phone: phone)
-        } else {
-            // If this contact hasn't been assigned to reservation yet, then update the contact id
-            // and save it to the server.
+    @MainActor
+    private func promptForInviteNote(
+        contact: CNContact,
+        existingMessage: String?
+    ) async -> InviteNotePrompt {
+        return await withCheckedContinuation { continuation in
+            let firstName = contact.givenName.isEmpty ? "them" : contact.givenName
+            let alert = UIAlertController(
+                title: "Invite \(firstName)",
+                message: "Add an optional note (up to 140 characters).",
+                preferredStyle: .alert
+            )
+            alert.addTextField { textField in
+                textField.placeholder = "Want to connect on Jibber?"
+                textField.text = existingMessage
+            }
+            alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { _ in
+                continuation.resume(returning: .cancelled)
+            })
+            alert.addAction(UIAlertAction(title: "Continue", style: .default) { _ in
+                let note = alert.textFields?.first?.text?
+                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                continuation.resume(returning: .confirmed(String(note.prefix(140))))
+            })
+            self.peopleNavController.present(alert, animated: true)
+        }
+    }
+
+    @MainActor
+    private func shareInvitation(
+        with person: Person,
+        contact: CNContact,
+        preferredReservation: Reservation?
+    ) async {
+        let wasReminder = preferredReservation?.contactId == contact.identifier
+        let prompt = await self.promptForInviteNote(
+            contact: contact,
+            existingMessage: preferredReservation?.inviteMessage
+        )
+        guard case .confirmed(let note) = prompt else { return }
+
+        do {
+            let requestId = self.invitationRequestIds[contact.identifier]
+                ?? UUID().uuidString
+            self.invitationRequestIds[contact.identifier] = requestId
+            let response = try await PreparePersonInvitation(
+                message: note,
+                requestId: requestId,
+                reservationId: preferredReservation?.objectId
+            ).makeRequest(
+                andUpdate: [],
+                viewsToIgnore: [self.peopleNavController.view]
+            )
+            guard let reservationId = response["reservationId"] as? String else {
+                throw ClientError.apiError(detail: "Invitation did not include a reservation")
+            }
+
+            let reservation = try await Reservation.getObject(with: reservationId)
             reservation.contactId = contact.identifier
-            _ = try? await reservation.saveLocalThenServer()
+            reservation.conversationCid = self.selectedConversationId
+            _ = try await reservation.saveLocalThenServer()
             await reservation.prepareMetadata()
-            await self.sendText(with: reservation.message, phone: phone)
+
+            self.selectedReservation = reservation
+            self.sharedPerson = person
+            AnalyticsManager.shared.trackEvent(
+                type: .appClipShareCreated,
+                properties: [
+                    "allocation": response["allocation"] as? String ?? "unknown",
+                    "kind": "invite"
+                ]
+            )
+
+            let activityController = ActivityViewController(
+                with: self,
+                activityItems: reservation.activityItems(reminder: wasReminder)
+            )
+            await withCheckedContinuation { continuation in
+                self.shareContinuation = continuation
+                self.peopleNavController.present(activityController, animated: true)
+            }
+        } catch {
+            await ToastScheduler.shared.schedule(toastType: .error(error))
         }
     }
 
@@ -210,64 +281,33 @@ extension PeopleCoordinator {
     }
 }
 
-// MARK: - Messaging Flow
+// MARK: - Rich Sharing Flow
 
-extension PeopleCoordinator: MFMessageComposeViewControllerDelegate {
+extension PeopleCoordinator: ActivityViewControllerDelegate {
 
-    private func sendText(with message: String?, phone: String) async {
-        guard MFMessageComposeViewController.canSendText() else { return }
-
-        return await withCheckedContinuation { continuation in
-            let messageComposer = MessageComposerViewController()
-            messageComposer.recipients = [phone]
-            messageComposer.body = message
-            messageComposer.messageComposeDelegate = self
-
-            // HACK: For some reason we need to keep a reference to the message composer to prevent
-            // weird warnings from appearing when its dismissed.
-            self.messageController = messageComposer
-
-            self.peopleNavController.present(messageComposer, animated: true)
-
-            messageComposer.dismissHandlers.append {
-                continuation.resume(returning: ())
+    func activityView(
+        _ controller: ActivityViewController,
+        didCompleteWith result: ActivityViewController.Result
+    ) {
+        defer {
+            if let contactId = self.selectedReservation?.contactId {
+                self.invitationRequestIds.removeValue(forKey: contactId)
             }
+            self.shareContinuation?.resume(returning: ())
+            self.shareContinuation = nil
+            self.sharedPerson = nil
         }
-    }
-    
-    func messageComposeViewController(_ controller: MFMessageComposeViewController,
-                                      didFinishWith result: MessageComposeResult) {
-        switch result {
-        case .cancelled, .failed:
-            controller.dismiss(animated: true)
-        case .sent:
+
+        if result.didShare {
             var properties: [String: Any] = [:]
             if let rsvp = self.selectedReservation?.objectId {
                 properties = ["value": rsvp]
             }
             AchievementsManager.shared.createIfNeeded(with: .sendInvite)
             AnalyticsManager.shared.trackEvent(type: .inviteSent, properties: properties)
-            controller.dismiss(animated: true) {
-                // Get the person object for the person that was just invited with a text.
-                guard let phone = controller.recipients?.first else { return }
-                guard let invitedPerson = self.peopleToInvite.first(where: { person in
-                    if let contact = person.cnContact,
-                       let phoneString = contact.findBestPhoneNumberString(),
-                       phone == phoneString {
-                        return true
-                    } else {
-                        return false
-                    }
-                }) else { return }
-
-                guard let contact = invitedPerson.cnContact else { return }
-
-                // The text was sent successfully so let the user know with a toast.
-                let person = Person(withContact: contact)
+            if let person = self.sharedPerson {
                 self.showSentTextToast(for: person)
             }
-        @unknown default:
-            break
         }
     }
 

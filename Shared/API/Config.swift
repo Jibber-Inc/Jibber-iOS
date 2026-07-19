@@ -76,7 +76,7 @@ final class Config: NSObject, @unchecked Sendable {
     static let shared = Config.init()
     private let parseInitializationLock = NSLock()
     
-    static let domain = "https://joinjibber.com"
+    static let domain = "https://jibber.wtf"
 
     let environment: Environment = {
         var environmentToReturn = Environment.production
