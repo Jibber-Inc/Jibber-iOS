@@ -14,9 +14,9 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "D61EC0BB21D3071400204BEE"
-               BuildableName = "Jibber.app"
-               BlueprintName = "Jibber"
+               BlueprintIdentifier = "D61127ED2804D72C00574B96"
+               BuildableName = "AppClip.app"
+               BlueprintName = "AppClip"
                ReferencedContainer = "container:Jibber.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -28,16 +28,6 @@
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES">
       <Testables>
-         <TestableReference
-            skipped = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "D6C35A2C2776706F00BE64DC"
-               BuildableName = "AppClipUITests.xctest"
-               BlueprintName = "AppClipUITests"
-               ReferencedContainer = "container:Jibber.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
          <TestableReference
             skipped = "NO">
             <BuildableReference
@@ -88,9 +78,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "D61EC0BB21D3071400204BEE"
-            BuildableName = "Jibber.app"
-            BlueprintName = "Jibber"
+            BlueprintIdentifier = "D61127ED2804D72C00574B96"
+            BuildableName = "AppClip.app"
+            BlueprintName = "AppClip"
             ReferencedContainer = "container:Jibber.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

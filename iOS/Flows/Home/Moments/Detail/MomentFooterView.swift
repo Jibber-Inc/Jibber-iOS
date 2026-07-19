@@ -29,7 +29,12 @@ class MomentFooterView: BaseView {
         self.moment = moment
         self.commentsLabel.configure(with: moment)
         self.reactionsView.configure(with: moment)
+        #if APPCLIP
+        // Resharing is visible as a gated action in the read-only App Clip.
+        self.shareButton.isVisible = true
+        #else
         self.shareButton.isVisible = moment.isFromCurrentUser && moment.isAvailable
+        #endif
         self.layoutNow()
     }
     

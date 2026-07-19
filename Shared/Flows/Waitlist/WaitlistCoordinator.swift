@@ -15,6 +15,7 @@ import StoreKit
 class WaitlistCoordinator: PresentableCoordinator<Void> {
     
     lazy var waitlistVC = WaitlistViewController()
+    private var isPresentingMomentExperience = false
     
     override func toPresentable() -> PresentableCoordinator<Void>.DismissableVC {
         return self.waitlistVC
@@ -22,6 +23,8 @@ class WaitlistCoordinator: PresentableCoordinator<Void> {
     
     override func start() {
         super.start()
+        self.isPresentingMomentExperience = self.deepLink?.deepLinkTarget == .moment
+        self.setupHandlers()
         
         Task {
             if let reservationId = self.deepLink?.reservationId,
@@ -44,17 +47,30 @@ class WaitlistCoordinator: PresentableCoordinator<Void> {
                 self.waitlistVC.descriptionLabel.setText("\(person.givenName) has granted you access to Jibber! Join below.")
                 self.waitlistVC.descriptionLabel.setText("")
                 self.waitlistVC.view.setNeedsLayout()
+            } else if let creatorId = self.deepLink?.reservationCreatorId {
+                await self.personalizeLanding(with: creatorId)
             } else if let target = self.deepLink?.deepLinkTarget, target == .moment {
                 await self.presentMoment(with: deepLink)
             }
-            
-            self.setupHandlers()
         }
+    }
+
+    @MainActor
+    private func personalizeLanding(with userId: String) async {
+        guard let inviter = try? await User.getObject(with: userId) else { return }
+        self.waitlistVC.personView.set(person: inviter)
+        self.waitlistVC.personView.isVisible = true
+        self.waitlistVC.descriptionLabel.setText(
+            "You're connected with \(inviter.givenName) on Jibber."
+        )
+        self.waitlistVC.view.setNeedsLayout()
     }
     
     private func setupHandlers() {
         self.waitlistVC.shouldDisplayUpdateOverlay = { [unowned self] in
-            self.presentSKOverlay()
+            if !self.isPresentingMomentExperience {
+                self.presentSKOverlay()
+            }
         }
         
         self.waitlistVC.button.didSelect { [unowned self] in
@@ -100,11 +116,43 @@ class WaitlistCoordinator: PresentableCoordinator<Void> {
                                                 deepLink: deepLink)
             self.addChildAndStart(coordinator, finishedHandler: { [unowned self] (_) in
                 self.router.topmostViewController.dismiss(animated: true) {
+                    #if APPCLIP
+                    Task {
+                        await self.acceptMomentInvitation(moment)
+                    }
+                    #else
                     self.presentSKOverlay()
+                    #endif
                 }
             })
             
             self.router.present(coordinator, source: self.waitlistVC)
+        }
+    }
+
+    @MainActor
+    private func acceptMomentInvitation(_ moment: Moment) async {
+        guard let momentId = moment.objectId else { return }
+        self.isPresentingMomentExperience = false
+        await self.waitlistVC.button.handleEvent(status: .loading)
+        do {
+            let response = try await AcceptMomentInvitation(momentId: momentId)
+                .makeRequest(andUpdate: [], viewsToIgnore: [self.waitlistVC.view])
+            if let authorId = moment.author?.objectId {
+                await self.personalizeLanding(with: authorId)
+            }
+            AnalyticsManager.shared.trackEvent(
+                type: .appClipConnectionCompleted,
+                properties: [
+                    "allocation": response["reservationAllocation"] as? String ?? "unknown",
+                    "kind": "moment"
+                ]
+            )
+            await self.waitlistVC.button.handleEvent(status: .complete)
+            self.presentSKOverlay()
+        } catch {
+            await self.waitlistVC.button.handleEvent(status: .complete)
+            await ToastScheduler.shared.schedule(toastType: .error(error))
         }
     }
     
@@ -114,6 +162,10 @@ class WaitlistCoordinator: PresentableCoordinator<Void> {
         let config = SKOverlay.AppClipConfiguration(position: .bottom)
         let overlay = SKOverlay(configuration: config)
         overlay.present(in: scene)
+        AnalyticsManager.shared.trackEvent(
+            type: .appClipUpgradeOverlayPresented,
+            properties: nil
+        )
     #endif
     }
 }

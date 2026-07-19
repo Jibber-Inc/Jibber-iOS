@@ -8,9 +8,67 @@
 
 import Foundation
 import Coordinator
+import ParseCore
 
 #if IOS
 extension MomentCoordinator {
+    @MainActor
+    func presentContextualConnectionPromptIfNeeded() async {
+        guard !self.didOfferContextualConnection,
+              let currentUser = User.current(),
+              currentUser.isAuthenticated,
+              currentUser.status == .active,
+              let author = try? await self.moment.author?.retrieveDataIfNeeded(),
+              let authorId = author.objectId,
+              authorId != currentUser.objectId else {
+            return
+        }
+
+        let fromAuthor = Connection.query()!
+            .whereKey(ConnectionKey.from.rawValue, equalTo: author)
+            .whereKey(ConnectionKey.to.rawValue, equalTo: currentUser)
+            .whereKey(ConnectionKey.status.rawValue, equalTo: Connection.Status.accepted.rawValue)
+        let fromRecipient = Connection.query()!
+            .whereKey(ConnectionKey.from.rawValue, equalTo: currentUser)
+            .whereKey(ConnectionKey.to.rawValue, equalTo: author)
+            .whereKey(ConnectionKey.status.rawValue, equalTo: Connection.Status.accepted.rawValue)
+        let existingConnections = try? await PFQuery
+            .orQuery(withSubqueries: [fromAuthor, fromRecipient])
+            .findObjectsInBackground()
+        guard existingConnections?.isEmpty != false else { return }
+
+        self.didOfferContextualConnection = true
+        let firstName = author.givenName.isEmpty ? "this person" : author.givenName.capitalized
+        let alert = UIAlertController(
+            title: "Connect with \(firstName)?",
+            message: "Accept this Moment invitation without leaving what was shared.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Not Now", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Connect", style: .default) { [weak self] _ in
+            guard let self, let momentId = self.moment.objectId else { return }
+            Task { @MainActor in
+                do {
+                    let response = try await AcceptMomentInvitation(momentId: momentId)
+                        .makeRequest(andUpdate: [], viewsToIgnore: [self.momentVC.view])
+                    AnalyticsManager.shared.trackEvent(
+                        type: .appClipConnectionCompleted,
+                        properties: [
+                            "allocation": response["reservationAllocation"] as? String ?? "unknown",
+                            "kind": "moment"
+                        ]
+                    )
+                    await ToastScheduler.shared.schedule(
+                        toastType: .success(.personCropCircle, "Connected with \(firstName)")
+                    )
+                } catch {
+                    await ToastScheduler.shared.schedule(toastType: .error(error))
+                }
+            }
+        })
+        self.router.topmostViewController.present(alert, animated: true)
+    }
+
     func presentMomentCapture() {
         let coordinator = MomentCaptureCoordinator(router: self.router, deepLink: self.deepLink)
         
@@ -112,8 +170,15 @@ extension MomentCoordinator {
     func presentShareSheet() {
         Task {
             await self.moment.prepareMetadata()
+            AnalyticsManager.shared.trackEvent(
+                type: .appClipShareCreated,
+                properties: ["kind": "moment"]
+            )
             
-            let activityVC = ActivityViewController(with: self, activityItems: [self.moment])
+            let activityVC = ActivityViewController(
+                with: self,
+                activityItems: self.moment.activityItems()
+            )
             self.router.topmostViewController.present(activityVC, animated: true)
         }
     }

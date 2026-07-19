@@ -16,6 +16,48 @@ private struct LaunchDeepLinkTransfer: @unchecked Sendable {
     let value: DeepLinkable?
 }
 
+/// Resumes the launch bridge exactly once, including when its task is cancelled
+/// before the child coordinator finishes.
+private final class LaunchDeepLinkContinuation: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<LaunchDeepLinkTransfer, Never>?
+    private var pendingValue: LaunchDeepLinkTransfer?
+    private var isFinished = false
+
+    func install(_ continuation: CheckedContinuation<LaunchDeepLinkTransfer, Never>) {
+        self.lock.lock()
+
+        if self.isFinished {
+            let value = self.pendingValue
+            self.lock.unlock()
+
+            if let value {
+                continuation.resume(returning: value)
+            }
+        } else {
+            self.continuation = continuation
+            self.lock.unlock()
+        }
+    }
+
+    func resume(returning value: LaunchDeepLinkTransfer) {
+        self.lock.lock()
+
+        guard !self.isFinished else {
+            self.lock.unlock()
+            return
+        }
+
+        self.isFinished = true
+        self.pendingValue = value
+        let continuation = self.continuation
+        self.continuation = nil
+        self.lock.unlock()
+
+        continuation?.resume(returning: value)
+    }
+}
+
 class MainCoordinator: BaseCoordinator<Void> {
     
     var launchActivity: LaunchActivity?
@@ -54,20 +96,31 @@ class MainCoordinator: BaseCoordinator<Void> {
 
         self.launchAndDeepLinkTask = Task { [weak self] in
             guard let self else { return }
-            
-            let transfer: LaunchDeepLinkTransfer = await withCheckedContinuation { continuation in
-                let launchCoordinator = LaunchCoordinator(router: self.router, deepLink: self.deepLink)
-                self.router.setRootModule(launchCoordinator)
-                self.addChildAndStart(launchCoordinator) { result in
-                    
-                    switch result {
-                    case .success(let deepLink):
-                        continuation.resume(returning: LaunchDeepLinkTransfer(value: deepLink))
-                    case .failed:
-                        self.logOut()
-                        continuation.resume(returning: LaunchDeepLinkTransfer(value: nil))
+
+            let launchContinuation = LaunchDeepLinkContinuation()
+            let transfer: LaunchDeepLinkTransfer = await withTaskCancellationHandler {
+                await withCheckedContinuation { continuation in
+                    launchContinuation.install(continuation)
+
+                    guard !Task.isCancelled else {
+                        launchContinuation.resume(returning: LaunchDeepLinkTransfer(value: nil))
+                        return
+                    }
+
+                    let launchCoordinator = LaunchCoordinator(router: self.router, deepLink: self.deepLink)
+                    self.router.setRootModule(launchCoordinator)
+                    self.addChildAndStart(launchCoordinator) { result in
+                        switch result {
+                        case .success(let deepLink):
+                            launchContinuation.resume(returning: LaunchDeepLinkTransfer(value: deepLink))
+                        case .failed:
+                            self.logOut()
+                            launchContinuation.resume(returning: LaunchDeepLinkTransfer(value: nil))
+                        }
                     }
                 }
+            } onCancel: {
+                launchContinuation.resume(returning: LaunchDeepLinkTransfer(value: nil))
             }
             let deepLink = transfer.value
 
@@ -84,6 +137,10 @@ class MainCoordinator: BaseCoordinator<Void> {
             // Code your App Clip may access.
             if let deepLink = deepLink {
                 self.handleAppClip(deepLink: deepLink)
+            } else if case .some(.reservation(let reservationId)) = self.launchActivity {
+                var invitation = DeepLinkObject(target: .reservation)
+                invitation.reservationId = reservationId
+                self.handleAppClip(deepLink: invitation)
             } else if let user = User.current(), user.isOnboarded {
                 self.handle(deeplink: DeepLinkObject(target: .waitlist))
             } else {
@@ -157,9 +214,10 @@ class MainCoordinator: BaseCoordinator<Void> {
         let coordinator = OnboardingCoordinator(router: self.router,
                                                 deepLink: deepLink)
         self.router.setRootModule(coordinator, animated: true)
-        self.addChildAndStart(coordinator, finishedHandler: { [unowned self] (_) in
-            // Attempt to take the user to the room screen after onboarding is complete.
-            self.handle(deeplink: DeepLinkObject(target: .home))
+        self.addChildAndStart(coordinator, finishedHandler: { [unowned self] deepLink in
+            // Preserve contextual invitation metadata through the App Clip
+            // landing state and the equivalent full-app destination.
+            self.handle(deeplink: deepLink ?? DeepLinkObject(target: .home))
         })
         
         if let launchActivity = self.launchActivity {

@@ -20,11 +20,14 @@ class WelcomeViewController: ViewController, Sizeable, Completable {
         case rsvp
         case acceptInvite
         case declineInvite
+        case acceptMomentInvite
+        case deferMomentInvite
     }
 
     enum Mode {
         case standard
         case invitation
+        case momentInvitation
     }
     
     var onDidComplete: ((Result<SelectionType, Error>) -> Void)?
@@ -54,6 +57,8 @@ class WelcomeViewController: ViewController, Sizeable, Completable {
                 self.onDidComplete?(.success(.waitlist))
             case .invitation:
                 self.onDidComplete?(.success(.acceptInvite))
+            case .momentInvitation:
+                self.onDidComplete?(.success(.acceptMomentInvite))
             }
         }
         
@@ -65,6 +70,8 @@ class WelcomeViewController: ViewController, Sizeable, Completable {
                 self.onDidComplete?(.success(.rsvp))
             case .invitation:
                 self.onDidComplete?(.success(.declineInvite))
+            case .momentInvitation:
+                self.onDidComplete?(.success(.deferMomentInvite))
             }
         }
 
@@ -86,6 +93,13 @@ class WelcomeViewController: ViewController, Sizeable, Completable {
             )
             self.rsvpButton.set(
                 style: .custom(color: .white, textColor: .B0, text: "Decline")
+            )
+        case .momentInvitation:
+            self.waitlistButton.set(
+                style: .custom(color: .D1, textColor: .white, text: "Connect & Continue")
+            )
+            self.rsvpButton.set(
+                style: .custom(color: .white, textColor: .B0, text: "Not Now")
             )
         }
     }

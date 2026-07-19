@@ -11,27 +11,95 @@ import XCTest
 
 class AppClipTests: XCTestCase {
 
-    override func setUpWithError() throws {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
+    func testParsesParameterizedInviteRegardlessOfQueryOrder() throws {
+        let url = try XCTUnwrap(
+            URL(
+                string: "https://appclip.apple.com/id?reservationId=reservation-1&kind=invite&p=com.Jibber-Inc.iOS.Clip"
+            )
+        )
+
+        XCTAssertEqual(
+            AppClipInvocation(url: url),
+            .invite(reservationID: "reservation-1")
+        )
     }
 
-    override func tearDownWithError() throws {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
+    func testParsesParameterizedMomentRegardlessOfQueryOrder() throws {
+        let url = try XCTUnwrap(
+            URL(
+                string: "https://appclip.apple.com/id?momentId=moment-1&p=com.Jibber-Inc.iOS.Clip&kind=moment"
+            )
+        )
+
+        XCTAssertEqual(
+            AppClipInvocation(url: url),
+            .moment(momentID: "moment-1")
+        )
     }
 
-    func testExample() throws {
-        // This is an example of a functional test case.
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
-        // Any test you write for XCTest can be annotated as throws and async.
-        // Mark your test throws to produce an unexpected failure when your test encounters an uncaught error.
-        // Mark your test async to allow awaiting for asynchronous code to complete. Check the results with assertions afterwards.
+    func testParsesWebsiteFallbackRoutesByQueryName() throws {
+        let invite = try XCTUnwrap(
+            URL(string: "https://jibber.wtf/reservation?source=qr&reservationId=reservation-2")
+        )
+        let moment = try XCTUnwrap(
+            URL(string: "https://jibber.wtf/moment?source=messages&momentId=moment-2")
+        )
+
+        XCTAssertEqual(
+            AppClipInvocation(url: invite),
+            .invite(reservationID: "reservation-2")
+        )
+        XCTAssertEqual(
+            AppClipInvocation(url: moment),
+            .moment(momentID: "moment-2")
+        )
     }
 
-    func testPerformanceExample() throws {
-        // This is an example of a performance test case.
-        self.measure {
-            // Put the code you want to measure the time of here.
+    func testBuildsEnvironmentSpecificDefaultLinks() {
+        XCTAssertEqual(
+            AppClipInvocation.invite(reservationID: "r1").url(for: .production).absoluteString,
+            "https://appclip.apple.com/id?p=com.Jibber-Inc.iOS.Clip&kind=invite&reservationId=r1"
+        )
+        XCTAssertEqual(
+            AppClipInvocation.moment(momentID: "m1").url(for: .staging).absoluteString,
+            "https://appclip.apple.com/id?p=com.Jibber-Inc.iOS-staging.Clip&kind=moment&momentId=m1"
+        )
+    }
+
+    func testMapsInvocationsToEquivalentInviteAndMomentDestinations() {
+        switch AppClipInvocation.invite(reservationID: "r1").launchActivity {
+        case .reservation(let reservationID):
+            XCTAssertEqual(reservationID, "r1")
+        default:
+            XCTFail("Invite invocation did not map to the Reservation flow")
+        }
+
+        switch AppClipInvocation.moment(momentID: "m1").launchActivity {
+        case .deepLink(let deepLink):
+            XCTAssertEqual(deepLink.deepLinkTarget?.rawValue, DeepLinkTarget.moment.rawValue)
+            XCTAssertEqual(deepLink.momentId, "m1")
+        default:
+            XCTFail("Moment invocation did not map to the Moment flow")
         }
     }
 
+    func testRejectsMalformedInvocations() throws {
+        let missingID = try XCTUnwrap(
+            URL(string: "https://appclip.apple.com/id?p=com.Jibber-Inc.iOS.Clip&kind=moment")
+        )
+        let unknownKind = try XCTUnwrap(
+            URL(string: "https://appclip.apple.com/id?p=com.Jibber-Inc.iOS.Clip&kind=other&id=1")
+        )
+        let externalHost = try XCTUnwrap(
+            URL(string: "https://example.com/?kind=invite&reservationId=reservation-1")
+        )
+        let wrongApplePath = try XCTUnwrap(
+            URL(string: "https://appclip.apple.com/not-id?kind=moment&momentId=moment-1")
+        )
+
+        XCTAssertNil(AppClipInvocation(url: missingID))
+        XCTAssertNil(AppClipInvocation(url: unknownKind))
+        XCTAssertNil(AppClipInvocation(url: externalHost))
+        XCTAssertNil(AppClipInvocation(url: wrongApplePath))
+    }
 }

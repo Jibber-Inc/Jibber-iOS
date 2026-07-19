@@ -17,6 +17,16 @@ extension MainCoordinator: LaunchManagerDelegate {
         switch activity {
         case .deepLink(let deepLinkable):
             self.handle(deeplink: deepLinkable)
+        #if APPCLIP
+        case .reservation(let reservationId):
+            if let furthestChild = self.furthestChild as? LaunchActivityHandler {
+                furthestChild.handle(launchActivity: activity)
+            } else {
+                var invitation = DeepLinkObject(target: .reservation)
+                invitation.reservationId = reservationId
+                self.handleAppClip(deepLink: invitation)
+            }
+        #endif
         default:
             if let furthestChild = self.furthestChild as? LaunchActivityHandler {
                 furthestChild.handle(launchActivity: activity)
