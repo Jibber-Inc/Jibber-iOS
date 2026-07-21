@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "revision": 0,
+  "defaultLocale": "en",
+  "locales": {
+    "en": {
+      "guide.subtitle": "Setting up Jibber",
+      "conversation.automatedLabel": "Automated onboarding",
+      "conversation.aiGuideLabel": "AI guide",
+      "welcome.standard.body": "Welcome to Jibber. I’ll help you get set up.",
+      "welcome.invitation.body": "{{inviterName}} invited you to connect on Jibber. I’ll help you finish setting up your account.",
+      "welcome.moment.body": "Connect with {{inviterName}} to continue. You can return to the Moment without changing anything.",
+      "welcome.action": "Continue",
+      "welcome.title": "Welcome",
+      "welcome.choice.account": "Log in or sign up",
+      "welcome.choice.invite": "Enter invite code",
+      "invite.context": "Invite code",
+      "phone.default.body": "What’s your phone number?",
+      "phone.invited.body": "Confirm your phone number.",
+      "phone.completed": "Perfect — I sent you a code.",
+      "phone.action": "Continue",
+      "phone.title": "Phone",
+      "phone.context": "Mobile number",
+      "code.body": "Enter the code Jibber texted you.",
+      "code.completed": "You’re verified.",
+      "code.action": "Continue",
+      "code.title": "Verification Code",
+      "code.context": "Code sent to %@",
+      "name.first.body": "What’s your name?",
+      "name.last.body": "Thanks, {{firstName}}. What’s your last name?",
+      "name.confirm.body": "Does {{fullName}} look right?",
+      "name.completed": "Great to meet you, {{firstName}}. Let’s get Jibber set up.",
+      "name.action": "Continue",
+      "name.title": "Name",
+      "name.context": "How {{inviterName}} will know you",
+      "photo.body": "One last thing—let’s take a profile photo so people know it’s you.",
+      "photo.capture": "Capture",
+      "photo.review": "Use this photo",
+      "photo.noFace": "Move into the frame so I can see your face.",
+      "photo.notSmiling": "Smile when you’re ready.",
+      "photo.uploadError": "I couldn’t save that photo. Try again.",
+      "photo.title": "Face Capture",
+      "photo.context": "Center your face",
+      "photo.cameraDenied": "Camera access is off. Open Settings to take your profile photo.",
+      "photo.cameraRestricted": "Camera access is restricted on this device.",
+      "photo.cameraStartError": "I couldn’t start the camera. Try again.",
+      "photo.openSettings": "Open Settings",
+      "navigation.revisit": "Swipe down to revisit"
+    }
+  },
+  "conversation": {
+    "version": 1,
+    "automatedPromptLabelKey": "conversation.automatedLabel",
+    "aiGuideLabelKey": "conversation.aiGuideLabel",
+    "steps": [
+      {
+        "id": "welcome",
+        "inputKind": "action",
+        "titleKey": "welcome.title"
+      },
+      {
+        "id": "phone",
+        "inputKind": "phone",
+        "progressIndex": 0,
+        "titleKey": "phone.title",
+        "inputContextKey": "phone.context"
+      },
+      {
+        "id": "verification",
+        "inputKind": "verificationCode",
+        "progressIndex": 1,
+        "titleKey": "code.title",
+        "inputContextKey": "code.context"
+      },
+      {
+        "id": "name",
+        "inputKind": "name",
+        "progressIndex": 2,
+        "titleKey": "name.title",
+        "inputContextKey": "name.context"
+      },
+      {
+        "id": "faceCapture",
+        "inputKind": "faceCapture",
+        "progressIndex": 3,
+        "titleKey": "photo.title",
+        "inputContextKey": "photo.context"
+      },
+      {
+        "id": "completed",
+        "inputKind": "chat"
+      }
+    ]
+  }
+}

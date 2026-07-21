@@ -43,6 +43,39 @@ class LaunchManager {
     func launchApp(with deepLink: DeepLinkable?) async -> LaunchStatus {
         // Initialize Parse if necessary
         Config.shared.initializeParseIfNeeded(includeBundleId: false)
+
+        var resolvedDeepLink = deepLink
+#if !APPCLIP && !NOTIFICATION
+        // Resume the App Clip's authenticated onboarding session in the full app,
+        // then open the same canonical conversation instead of restarting onboarding.
+        if User.current() == nil {
+            // Consume both values once. A failed transfer must not leave a
+            // conversation id orphaned for a future account.
+            let handoffToken = User.getStoredSessionToken()
+            let conversationId = User.getStoredOnboardingConversationId()
+            if let handoffToken {
+                do {
+                    try await User.become(
+                        withSessionToken: handoffToken,
+                        storeForAppHandoff: false
+                    )
+                    if let conversationId, !conversationId.isEmpty {
+                        var handoff = DeepLinkObject(
+                            target: .conversation,
+                            preserving: resolvedDeepLink
+                        )
+                        handoff.conversationId = conversationId
+                        resolvedDeepLink = handoff
+                    }
+                } catch {
+                    return .failed(
+                        error: ClientError.error(error: error),
+                        deepLink: resolvedDeepLink
+                    )
+                }
+            }
+        }
+#endif
         
         Task.onMainActorAsync {
             SentrySDK.start { options in
@@ -87,9 +120,32 @@ class LaunchManager {
         // Initializes the analytics manager
         _ = AnalyticsManager.shared
         
-        let launchStatus = await self.initializeUserData(with: deepLink)
+        var launchStatus = await self.initializeUserData(with: resolvedDeepLink)
 
-        try? await PFConfig.awaitConfig()
+#if !APPCLIP && !NOTIFICATION
+        // If the app was killed after canonical finalization committed but
+        // before the coordinator routed, the conversation id was already
+        // persisted. User refresh above makes active status authoritative;
+        // consume the route exactly once and open that conversation.
+        if User.current()?.status == .active,
+           case .success(let initializedDeepLink) = launchStatus,
+           let conversationId = User.getStoredOnboardingConversationId(),
+           !conversationId.isEmpty {
+            var handoff = DeepLinkObject(
+                target: .conversation,
+                preserving: initializedDeepLink
+            )
+            handoff.conversationId = conversationId
+            launchStatus = .success(deepLink: handoff)
+        }
+#endif
+
+#if NOTIFICATION
+        _ = try? await PFConfig.awaitConfig()
+#else
+        let onboardingConfig = (try? await PFConfig.awaitConfig()) ?? PFConfig.current()
+        OnboardingMessagingRepository.shared.prepare(with: onboardingConfig)
+#endif
         return launchStatus
     }
 

@@ -43,7 +43,7 @@ class SwipeableInputAccessoryView: BaseView {
     
     // MARK: - Layout/Animation Properties
 
-    static let inputContainerCollapsedHeight: CGFloat = 52
+    static let inputContainerCollapsedHeight = ConversationComposerChrome.collapsedHeight
 
     // Override intrinsic content size so that height is adjusted for safe areas and text input.
     // https://stackoverflow.com/questions/46282987/iphone-x-how-to-handle-view-controller-inputaccessoryview
@@ -68,6 +68,7 @@ class SwipeableInputAccessoryView: BaseView {
     
     let unreadMessagesCounter = UnreadMessagesCounter()
     let typingIndicatorView = TypingIndicatorView()
+    private(set) var composerShell: ConversationComposerShell!
     
     // MARK: BaseView Setup and Layout
 
@@ -79,12 +80,19 @@ class SwipeableInputAccessoryView: BaseView {
         self.translatesAutoresizingMaskIntoConstraints = false
         self.autoresizingMask = .flexibleHeight
 
-        self.inputContainerView.tailLength = 0
-        self.inputContainerView.showShadow(withOffset: 8)
-        self.inputContainerView.setBubbleColor(ThemeColor.B1.color, animated: false)
-                        
         self.addSubview(self.typingIndicatorView)
         self.addSubview(self.unreadMessagesCounter)
+
+        // Keep the production XIB, constraints, and interaction controller while
+        // consuming the same shell primitive as onboarding.
+        self.composerShell = ConversationComposerShell(
+            bubbleView: self.inputContainerView,
+            attachmentView: self.addView,
+            expressionView: self.inputTypeContainer,
+            typingIndicatorView: self.typingIndicatorView,
+            unreadControlView: self.unreadMessagesCounter,
+            configuration: .productionChat
+        )
     }
     
     nonisolated override func awakeFromNib() {
@@ -141,7 +149,9 @@ class SwipeableInputAccessoryView: BaseView {
                 }
             }
             
-            newAddViewSize = AddMediaView.collapsedHeight
+            newAddViewSize = self.composerShell.supports(.attachments)
+                ? AddMediaView.collapsedHeight
+                : 0
             newInputHeight = proposedHeight
         case .expanded:
             if !self.textView.isFirstResponder {
@@ -161,7 +171,11 @@ class SwipeableInputAccessoryView: BaseView {
             self.gestureButton.isVisible = false
             self.doneButton.isVisible = true
 
-            newAddViewSize = self.addView.hasMedia ? AddMediaView.expandedHeight : AddMediaView.collapsedHeight
+            if self.composerShell.supports(.attachments) {
+                newAddViewSize = self.addView.hasMedia
+                    ? AddMediaView.expandedHeight
+                    : AddMediaView.collapsedHeight
+            }
             newInputHeight = self.window!.height - KeyboardManager.shared.cachedKeyboardEndFrame.height
             
             bottomConstraint = 46
@@ -211,7 +225,11 @@ class SwipeableInputAccessoryView: BaseView {
     }
     
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
-        if self.unreadMessagesCounter.frame.contains(point) || self.typingIndicatorView.frame.contains(point) {
+        let hitsUnreadControl = self.composerShell.supports(.unreadControls)
+            && self.unreadMessagesCounter.frame.contains(point)
+        let hitsTypingIndicator = self.composerShell.supports(.typingIndicators)
+            && self.typingIndicatorView.frame.contains(point)
+        if hitsUnreadControl || hitsTypingIndicator {
             return true
         }
         return super.point(inside: point, with: event)

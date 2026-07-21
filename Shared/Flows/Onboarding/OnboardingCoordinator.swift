@@ -12,19 +12,87 @@ import ParseCore
 import Combine
 import Intents
 import Coordinator
+import UIKit
 
 class OnboardingCoordinator: PresentableCoordinator<DeepLinkable?> {
     
     private lazy var onboardingVC = OnboardingViewController(with: self)
+    private var canonicalSyncRequest = 0
+    private var canonicalSyncTask: Task<Void, Never>?
+    private var isFinishingCanonicalFlow = false
+    private var isAwaitingAuthoritativeRestore = false
+
+    /// MainCoordinator starts this coordinator synchronously, then may still
+    /// have a retained universal-link activity to dispatch. Expose the
+    /// authoritative restore decision so that stale launch input cannot race
+    /// the server-owned onboarding session.
+    var isRestoringCanonicalOnboarding: Bool {
+        self.shouldRestoreCanonicalOnboarding
+    }
     
     override func toPresentable() -> DismissableVC {
         return self.onboardingVC
     }
     
     override func start() {
-        self.setInitialOnboardingContent()
-        self.handle(deeplink: self.deepLink)
+#if DEBUG
+        if self.startOnboardingPreviewIfRequested() {
+            return
+        }
+#endif
+
+        if self.shouldRestoreCanonicalOnboarding {
+            self.applyDeepLinkMetadataForRestore()
+            self.onboardingVC.showLoading()
+            Task { [weak self] in
+                await self?.restoreCanonicalOnboarding()
+            }
+        } else {
+            self.setInitialOnboardingContent()
+            self.handle(deeplink: self.deepLink)
+        }
     }
+
+#if DEBUG
+    /// A deterministic, local-only entry point for Product Design QA. It never creates a user,
+    /// starts verification, uploads a photo, or changes Parse state.
+    private func startOnboardingPreviewIfRequested() -> Bool {
+        let arguments = ProcessInfo.processInfo.arguments
+        let environmentVariant = ProcessInfo.processInfo.environment[
+            "JIBBER_ONBOARDING_PREVIEW"
+        ]
+        guard (arguments.contains("-OnboardingPreview")
+               || arguments.contains("OnboardingPreview")
+               || environmentVariant?.isEmpty == false) else {
+            return false
+        }
+
+        let requestedVariants = arguments + [environmentVariant].compactMap { $0 }
+        let showsWelcomeInviteEntry = requestedVariants.contains("welcomeInvite")
+            || requestedVariants.contains("inviteCode")
+        let showsCapturedPhoto = requestedVariants.contains("capturedPhoto")
+        let step = showsCapturedPhoto
+            ? OnboardingStepID.faceCapture
+            : OnboardingStepID.allCases.first {
+                requestedVariants.contains($0.rawValue)
+            } ?? .welcome
+
+        let guide = SystemAvatar(
+            givenName: "Maya",
+            familyName: "",
+            handle: "",
+            phoneNumber: nil,
+            image: UIImage(named: "OnboardingGuidePreview")
+        )
+        self.onboardingVC.setGuide(person: guide, displayName: guide.givenName)
+        self.onboardingVC.preparePreview(
+            step: step,
+            showsWelcomeInviteEntry: showsWelcomeInviteEntry,
+            showsCapturedPhoto: showsCapturedPhoto
+        )
+        return true
+    }
+#endif
     
     func handle(deeplink: DeepLinkable?) {
         guard let link = deeplink else { return }
@@ -35,18 +103,160 @@ class OnboardingCoordinator: PresentableCoordinator<DeepLinkable?> {
             self.onboardingVC.reservationId = link.reservationId ?? ""
             self.onboardingVC.passId = link.passId ?? ""
             self.onboardingVC.momentId = ""
+            if !self.onboardingVC.reservationId.isEmpty {
+                // Resolve the contextual invitation before exposing the generic
+                // Welcome choices. Resolution is non-claiming; the existing
+                // invitation decision UI remains authoritative.
+                self.onboardingVC.handle(
+                    launchActivity: .reservation(
+                        reservationId: self.onboardingVC.reservationId
+                    )
+                )
+                return
+            }
+            if !self.onboardingVC.passId.isEmpty {
+                self.onboardingVC.handle(
+                    launchActivity: .pass(passId: self.onboardingVC.passId)
+                )
+                return
+            }
             self.onboardingVC.updateUI()
         }
     }
     
     // MARK: - Onboarding Flow Logic
+
+    private var shouldRestoreCanonicalOnboarding: Bool {
+        guard self.onboardingVC.isCanonicalConversationEnabled,
+              let user = User.current(),
+              user.isAuthenticated else {
+            return false
+        }
+        return user.status != .active
+    }
+
+    /// The authenticated session is authoritative on relaunch, but retain any
+    /// incoming invitation/Moment fields so final routing does not discard them.
+    private func applyDeepLinkMetadataForRestore() {
+        guard let deepLink = self.deepLink else { return }
+        if let reservationId = deepLink.reservationId, !reservationId.isEmpty {
+            self.onboardingVC.reservationId = reservationId
+        }
+        if let passId = deepLink.passId, !passId.isEmpty {
+            self.onboardingVC.passId = passId
+        }
+        if let momentId = deepLink.momentId, !momentId.isEmpty {
+            self.onboardingVC.momentId = momentId
+        }
+    }
+
+    @MainActor
+    private func restoreCanonicalOnboarding() async {
+        var didSynchronize = false
+        do {
+            try await self.syncCanonicalConversation()
+            didSynchronize = true
+        } catch {
+            // The user profile still tells us which input is incomplete. Keep
+            // onboarding usable, but never finalize or skip OTP from profile
+            // state while a pending phone restart may exist only in session.
+            self.isAwaitingAuthoritativeRestore = true
+            self.queueCanonicalConversationSync()
+        }
+
+        await self.onboardingVC.hideLoading()
+
+        guard didSynchronize else {
+            self.onboardingVC.phoneVC.usesAuthenticatedRestart = true
+            self.onboardingVC.switchTo(.phone(self.onboardingVC.phoneVC))
+            return
+        }
+
+        await self.routeRestoredCanonicalSession()
+    }
+
+    private func routeRestoredCanonicalSession() async {
+
+        if self.onboardingVC.canonicalSession?.completed == true,
+           let user = User.current(),
+           user.status != .active {
+            // Refresh first. If transport fails, the authenticated completed
+            // session is still authoritative: establish the matching in-memory
+            // status so MainCoordinator cannot gate the recovered route back
+            // into onboarding. The server already committed this transition.
+            _ = try? await user.fetchInBackground()
+            if user.status != .active {
+                user.status = .active
+            }
+        }
+
+        if self.onboardingVC.canonicalSession?.completed == true
+            || User.current()?.status == .active {
+            self.finishFlow(
+                with: self.completionDeepLink(
+                    conversationId: self.onboardingVC.canonicalSession?.conversationId
+                )
+            )
+            return
+        }
+
+        if let nextContent = self.getRestoredCanonicalContent()
+            ?? self.getNextIncompleteOnboardingContent() {
+            // A verified Parse user cannot recover an old OTP. If a legacy
+            // status still reports needsVerification, restart from phone input.
+            if case .code = nextContent,
+               self.onboardingVC.codeVC.phoneNumber == nil {
+                self.onboardingVC.phoneVC.usesAuthenticatedRestart = true
+                self.onboardingVC.switchTo(.phone(self.onboardingVC.phoneVC))
+            } else {
+                self.onboardingVC.switchTo(nextContent)
+            }
+        } else {
+            self.goToNextContentOrFinish()
+        }
+    }
+
+    /// The server session captures pending verification state that is
+    /// intentionally not committed to `_User` until OTP succeeds. Prefer it
+    /// over the durable profile when resuming after an app kill.
+    private func getRestoredCanonicalContent() -> OnboardingContent? {
+        guard let session = self.onboardingVC.canonicalSession,
+              let reachedStep = session.reachedStep else { return nil }
+
+        switch reachedStep {
+        case .welcome, .phone:
+            self.onboardingVC.phoneVC.usesAuthenticatedRestart = User.current() != nil
+            return .phone(self.onboardingVC.phoneVC)
+        case .verification:
+            guard self.onboardingVC.codeVC.phoneNumber != nil else {
+                self.onboardingVC.phoneVC.usesAuthenticatedRestart = true
+                return .phone(self.onboardingVC.phoneVC)
+            }
+            self.onboardingVC.codeVC.prepareForEditing()
+            return .code(self.onboardingVC.codeVC)
+        case .name:
+            return .name(self.onboardingVC.nameVC)
+        case .faceCapture:
+            return .photo(self.onboardingVC.photoVC)
+        case .completed:
+            return nil
+        }
+    }
     
     private func setInitialOnboardingContent() {
         let userStatus = User.current()?.status
         
         let initialContent: OnboardingContent
         switch userStatus {
-        case .needsVerification, .inactive, .waitlist, .none:
+        case .needsVerification, .inactive, .waitlist:
+            if self.onboardingVC.isCanonicalConversationEnabled,
+               User.current()?.isAuthenticated == true,
+               let nextContent = self.getNextIncompleteOnboardingContent() {
+                initialContent = nextContent
+            } else {
+                initialContent = .welcome(self.onboardingVC.welcomeVC)
+            }
+        case .none:
             initialContent = .welcome(self.onboardingVC.welcomeVC)
         case .active:
             if self.deepLink?.reservationId != nil {
@@ -211,30 +421,145 @@ extension OnboardingCoordinator: OnboardingViewControllerDelegate {
     func onboardingViewController(_ controller: OnboardingViewController, didEnter phoneNumber: PhoneNumber) {
         let codeVC = self.onboardingVC.codeVC
         codeVC.phoneNumber = phoneNumber
+        codeVC.prepareForEditing()
+        if controller.isCanonicalConversationEnabled,
+           User.current()?.isAuthenticated == true {
+            controller.beginVerificationRestart()
+        }
         self.onboardingVC.switchTo(.code(codeVC))
     }
     
     func onboardingViewControllerDidVerifyCode(_ controller: OnboardingViewController,
                                                andReturnCID cid: String?) {
+        guard controller.isCanonicalConversationEnabled else {
+            self.goToNextContentOrFinish()
+            return
+        }
+
+        if let response = controller.codeVC.canonicalVerificationResponse {
+            controller.applyCanonicalSession(response.session)
+            if response.session.completed
+                || (response.existingUser && User.current()?.status == .active) {
+#if !APPCLIP
+                User.clearOnboardingHandoff()
+#endif
+                self.finishFlow(
+                    with: self.completionDeepLink(
+                        conversationId: response.session.conversationId ?? cid
+                    )
+                )
+                return
+            }
+        }
+
+        // Verification itself succeeded. Transcript seeding is idempotent and
+        // best effort, so it must never keep the user on the OTP screen.
+        self.queueCanonicalConversationSync()
         self.goToNextContentOrFinish()
     }
     
     func onboardingViewController(_ controller: OnboardingViewController, didEnterName name: String) {
-        Task {
-            do {
-                guard let user = User.current() else { return }
-                user.formatName(from: name)
-                try await user.saveLocalThenServer()
-                
-                self.goToNextContentOrFinish()
-            } catch {
-                await ToastScheduler.shared.schedule(toastType: .error(error))
+        Task { _ = await self.onboardingViewController(controller, didSubmitName: name) }
+    }
+
+    func onboardingViewController(
+        _ controller: OnboardingViewController,
+        didSubmitName name: String
+    ) async -> Bool {
+        controller.handleComposerRequestState(.loading)
+        do {
+            guard let user = User.current() else {
+                throw ClientError.apiError(detail: "Your session is no longer available.")
             }
+            user.formatName(from: name)
+            try await user.saveLocalThenServer()
+            controller.handleComposerRequestState(.complete)
+            self.queueCanonicalConversationSync()
+            self.goToNextContentOrFinish()
+            return true
+        } catch {
+            controller.handleComposerRequestState(.error(error.localizedDescription))
+            await ToastScheduler.shared.schedule(toastType: .error(error))
+            return false
         }
     }
     
     func onboardingViewControllerDidTakePhoto(_ controller: OnboardingViewController) {
+        // The photo has already been persisted by the capture controller.
+        // Conversation sync cannot be allowed to strand its terminal `.finish`.
+        self.queueCanonicalConversationSync()
         self.goToNextContentOrFinish()
+    }
+
+    /// Coalesces reached-step changes and retries the idempotent server sync
+    /// without blocking an already-successful onboarding transition.
+    @MainActor
+    private func queueCanonicalConversationSync() {
+        guard self.onboardingVC.isCanonicalConversationEnabled,
+              User.current() != nil,
+              !self.isFinishingCanonicalFlow else { return }
+
+        self.canonicalSyncRequest += 1
+        guard self.canonicalSyncTask == nil else { return }
+
+        self.canonicalSyncTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            let retryDelays: [TimeInterval] = [0, 0.75, 2, 5, 12]
+
+            while !Task.isCancelled {
+                let request = self.canonicalSyncRequest
+                var succeeded = false
+
+                for delayInterval in retryDelays {
+                    guard !Task.isCancelled else { break }
+                    if delayInterval > 0 {
+                        await Task.sleep(seconds: delayInterval)
+                    }
+                    do {
+                        try await self.syncCanonicalConversation()
+                        succeeded = true
+                        break
+                    } catch {
+                        continue
+                    }
+                }
+
+                if self.canonicalSyncRequest > request {
+                    continue
+                }
+                if !succeeded {
+                    // A later transition or authenticated relaunch will queue a
+                    // fresh attempt. Authoritative profile state is preserved.
+                }
+                break
+            }
+
+            self.canonicalSyncTask = nil
+        }
+    }
+
+    @MainActor
+    private func syncCanonicalConversation() async throws {
+        guard self.onboardingVC.isCanonicalConversationEnabled,
+              User.current() != nil else { return }
+
+        let response = try await SyncOnboardingConversationV1(
+            locale: self.onboardingVC.messagingLocaleIdentifier
+        ).makeRequest(andUpdate: [], viewsToIgnore: [self.onboardingVC.view])
+
+        guard !Task.isCancelled, !self.isFinishingCanonicalFlow else { return }
+
+        if let guideUserId = response.session.guideUserId,
+           guideUserId != self.onboardingVC.invitorId {
+            try? await self.onboardingVC.updateInvitor(userId: guideUserId)
+        }
+        self.onboardingVC.applyCanonicalSession(response.session)
+        self.onboardingVC.reconcileConversation(response)
+
+        if self.isAwaitingAuthoritativeRestore {
+            self.isAwaitingAuthoritativeRestore = false
+            await self.routeRestoredCanonicalSession()
+        }
     }
     
     private func goToNextContentOrFinish() {
@@ -252,14 +577,30 @@ extension OnboardingCoordinator: OnboardingViewControllerDelegate {
     
     func finalizeOnboarding(user: User) {
         Task {
+            self.isFinishingCanonicalFlow = true
+            self.canonicalSyncTask?.cancel()
+            self.canonicalSyncTask = nil
             self.onboardingVC.showLoading()
             
             do {
-                try await FinalizeOnboarding(reservationId: self.onboardingVC.reservationId,
-                                             passId: self.onboardingVC.passId,
-                                             momentId: self.onboardingVC.momentId)
-                .makeRequest(andUpdate: [], viewsToIgnore: [self.onboardingVC.view])
+                if self.onboardingVC.isCanonicalConversationEnabled {
+                    let response = try await FinalizeOnboardingV2(
+                        locale: self.onboardingVC.messagingLocaleIdentifier
+                    ).makeRequest(
+                        andUpdate: [],
+                        viewsToIgnore: [self.onboardingVC.view]
+                    )
+                    self.onboardingVC.applyCanonicalSession(response.session)
+                    _ = try await user.fetchInBackground()
+                } else {
+                    try await FinalizeOnboarding(
+                        reservationId: self.onboardingVC.reservationId,
+                        passId: self.onboardingVC.passId,
+                        momentId: self.onboardingVC.momentId
+                    ).makeRequest(andUpdate: [], viewsToIgnore: [self.onboardingVC.view])
+                }
             } catch {
+                self.isFinishingCanonicalFlow = false
                 await ToastScheduler.shared.schedule(toastType: .error(error))
                 await self.onboardingVC.hideLoading()
                 return
@@ -285,16 +626,45 @@ extension OnboardingCoordinator: OnboardingViewControllerDelegate {
                 )
             }
             await self.onboardingVC.hideLoading()
+
+#if !APPCLIP
+            // Normal full-app completion already has an in-memory route. The
+            // persisted token/CID exist only as crash recovery and should not
+            // reopen onboarding's conversation on a later unrelated launch.
+            User.clearOnboardingHandoff()
+#endif
             
-            var deepLink = DeepLinkObject(target: .home)
-            deepLink.reservationId = self.onboardingVC.reservationId
-            deepLink.passId = self.onboardingVC.passId
-            deepLink.momentId = self.onboardingVC.momentId
-            if !self.onboardingVC.momentId.isEmpty {
-                deepLink.reservationCreatorId = self.onboardingVC.invitorId
-            }
-            self.finishFlow(with: deepLink)
+            self.finishFlow(
+                with: self.completionDeepLink(
+                    conversationId: self.onboardingVC.canonicalSession?.conversationId
+                )
+            )
         }
+    }
+
+    private func completionDeepLink(conversationId: String?) -> DeepLinkObject {
+        let canonicalConversationId = conversationId?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let hasConversation = canonicalConversationId?.isEmpty == false
+        var deepLink = DeepLinkObject(
+            target: hasConversation ? .conversation : .home,
+            preserving: self.deepLink
+        )
+
+        if !self.onboardingVC.reservationId.isEmpty {
+            deepLink.reservationId = self.onboardingVC.reservationId
+        }
+        if !self.onboardingVC.passId.isEmpty {
+            deepLink.passId = self.onboardingVC.passId
+        }
+        if !self.onboardingVC.momentId.isEmpty {
+            deepLink.momentId = self.onboardingVC.momentId
+            deepLink.reservationCreatorId = self.onboardingVC.invitorId
+        }
+        if let canonicalConversationId, !canonicalConversationId.isEmpty {
+            deepLink.conversationId = canonicalConversationId
+        }
+        return deepLink
     }
 }
 

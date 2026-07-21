@@ -13,13 +13,19 @@ protocol MessagesTimeMachineCollectionViewLayoutDataSource: TimeMachineCollectio
     func isUserCreatedItem(at indexPath: IndexPath) -> Bool
 }
 
-/// A subclass of the TimeMachineLayout used to display messages.
-/// In addition to normal time machine functionality, this class also adjusts the color, brightness and other message specific attributes
-/// as the items move along the z axis.
-class MessagesTimeMachineCollectionViewLayout: TimeMachineCollectionViewLayout {
+/// Production specialization of the shared message Time Machine. The shared
+/// superclass owns all geometry and presentation interpolation; this adapter
+/// only preserves production's new-message auto-follow behavior.
+class MessagesTimeMachineCollectionViewLayout: ConversationTimeMachineCollectionViewLayout {
 
-    override class var layoutAttributesClass: AnyClass {
-        return ConversationMessageCellLayoutAttributes.self
+    /// Compatibility initializer for production call sites. Shared/App Clip
+    /// consumers initialize the superclass with their own content height.
+    convenience init() {
+        self.init(
+            itemHeight: MessageContentView.bubbleHeight
+                + MessageFooterView.height
+                + Theme.ContentOffset.standard.value
+        )
     }
 
     /// Setting this also sets the super class datasource variable.
@@ -28,54 +34,7 @@ class MessagesTimeMachineCollectionViewLayout: TimeMachineCollectionViewLayout {
         set { self.dataSource = newValue }
     }
     
-    // MARK: - Layout Configuration
-
-    /// How bright the background of the frontmost item is. 0 is black, 1 is full brightness.
-    var frontmostBrightness: CGFloat = 1
-    /// How bright the background of the backmost item is. This is based off of the frontmost item brightness.
-    var backmostBrightness: CGFloat {
-        return self.frontmostBrightness - CGFloat(self.stackDepth+1)*0.2
-    }
-
-    var uiState: ConversationUIState = .read
-    
-    override func layoutAttributesForItemAt(indexPath: IndexPath,
-                                            withNormalizedZOffset normalizedZOffset: CGFloat) -> UICollectionViewLayoutAttributes? {
-
-        let attributes = super.layoutAttributesForItemAt(indexPath: indexPath,
-                                                         withNormalizedZOffset: normalizedZOffset)
-
-        guard let attributes = attributes as? ConversationMessageCellLayoutAttributes else {
-            return attributes
-        }
-
-        var backgroundBrightness: CGFloat
-        if normalizedZOffset < 0 {
-            // Darken the item as it moves away
-            backgroundBrightness = lerp(abs(normalizedZOffset),
-                                        start: self.frontmostBrightness,
-                                        end: self.backmostBrightness)
-        } else {
-            // Items should be at full brightness when at the front of the stack.
-            backgroundBrightness = self.frontmostBrightness
-        }
-
-        let detailAlpha = 1 - abs(normalizedZOffset) / 0.2
-        attributes.brightness = backgroundBrightness
-        attributes.detailAlpha = detailAlpha
-
-        return attributes
-    }
-
     // MARK: - Attribute Helpers
-    
-    func getFrontmostCell() -> MessageCell? {
-        guard let ip = self.getFrontmostIndexPath(),
-              let cell = self.collectionView?.cellForItem(at: ip) as? MessageCell else {
-                  return nil
-              }
-        return cell
-    }
 
     func getDropZoneFrame() -> CGRect {
         let center = self.getItemCenterPoint(withYOffset: 0, scale: 1)

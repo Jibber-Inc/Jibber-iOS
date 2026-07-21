@@ -13,7 +13,7 @@ import Localization
 
 class NameViewController: TextInputViewController<String> {
     
-    enum State {
+    enum State: Equatable {
         case noName
         case givenNameValid
         case validFullName
@@ -42,15 +42,28 @@ class NameViewController: TextInputViewController<String> {
     }
 
     override func validate(text: String) -> Bool {
-        if text.isValidGivenName, !text.isValidFullName {
-            self.state = .givenNameValid
-        } else if text.isValidFullName {
-            self.state = .validFullName
-        } else {
-            self.state = .noName
+        let nextState = self.validationState(for: text)
+        if self.state != nextState {
+            self.state = nextState
         }
-        
-        return text.isValidFullName
+
+        return nextState == .validFullName
+    }
+
+    /// Pure validity used by composer gating. Calling this while laying out the
+    /// conversation must not publish a new state and enqueue another UI pass.
+    func isSubmissionValid(_ text: String) -> Bool {
+        self.validationState(for: text) == .validFullName
+    }
+
+    private func validationState(for text: String) -> State {
+        if text.isValidGivenName, !text.isValidFullName {
+            return .givenNameValid
+        }
+        if text.isValidFullName {
+            return .validFullName
+        }
+        return .noName
     }
 
     override func didTapButton() {

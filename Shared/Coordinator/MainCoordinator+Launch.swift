@@ -41,7 +41,20 @@ extension MainCoordinator {
             return
         }
         
-        if let coordinator = self.furthestChild as? LaunchActivityHandler,
+        let isCanonicalConversationRoute = deepLink?.deepLinkTarget == .conversation
+            && deepLink?.conversationId?.isEmpty == false
+        var didDispatchCanonicalConversation = false
+
+        // A cold full-app launch may still carry the original invite URL as a
+        // launch activity. The authenticated App Clip handoff is more specific:
+        // open its canonical conversation first and retain invite context on
+        // the deep link rather than letting the activity replace the route.
+        if isCanonicalConversationRoute,
+           let coordinator = self.furthestChild as? DeepLinkHandler,
+           let deepLink {
+            coordinator.handle(deepLink: deepLink)
+            didDispatchCanonicalConversation = true
+        } else if let coordinator = self.furthestChild as? LaunchActivityHandler,
            let launchActivity = self.launchActivity {
             coordinator.handle(launchActivity: launchActivity)
         } else if let coordinator = self.furthestChild as? DeepLinkHandler,
@@ -51,12 +64,25 @@ extension MainCoordinator {
             let coordinator = HomeCoordinator(router: self.router, deepLink: self.deepLink)
             self.addChildAndStart(coordinator, finishedHandler: { (_) in})
             self.router.setRootModule(coordinator)
-            if let activity = self.launchActivity {
+            if isCanonicalConversationRoute, let deepLink {
+                coordinator.handle(deepLink: deepLink)
+                didDispatchCanonicalConversation = true
+            } else if let activity = self.launchActivity {
                 coordinator.handle(launchActivity: activity)
             } else if let deepLink = deepLink {
                 coordinator.handle(deepLink: deepLink)
             }
         }
+
+#if !APPCLIP && !NOTIFICATION
+        // The authenticated handoff is now represented by a live Home route.
+        // Clear it here—not during the initial read—so launch/messaging errors
+        // can safely retry without losing the App Clip session or conversation.
+        if didDispatchCanonicalConversation {
+            self.launchActivity = nil
+            User.clearOnboardingHandoff()
+        }
+#endif
     }
 
     @MainActor

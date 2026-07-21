@@ -212,8 +212,17 @@ class MessageContentView: BaseView {
         self.authorView.pin(.left)
         
         // Delivery View
-        self.deliveryView.squaredSize = 11
-        self.deliveryView.match(.left, to: .right, of: self.authorView, offset: MessageContentView.padding)
+        if self.deliveryView.isVisible {
+            self.deliveryView.squaredSize = 11
+            self.deliveryView.match(
+                .left,
+                to: .right,
+                of: self.authorView,
+                offset: MessageContentView.padding
+            )
+        } else {
+            self.deliveryView.frame = .zero
+        }
 
         // Reactions keep their historical top-right position while using a
         // compact grouped representation that can show all supported types.
@@ -222,14 +231,25 @@ class MessageContentView: BaseView {
         self.reactionsView.pin(.right)
 
         // Date view
-        self.dateView.match(.left, to: .right, of: self.deliveryView, offset: .short)
+        if self.deliveryView.isVisible {
+            self.dateView.match(.left, to: .right, of: self.deliveryView, offset: .short)
+        } else {
+            self.dateView.match(
+                .left,
+                to: .right,
+                of: self.authorView,
+                offset: MessageContentView.padding
+            )
+        }
         self.dateView.pin(.top)
         let dateRight = self.reactionsView.isVisible
             ? self.reactionsView.left - Theme.ContentOffset.short.value
             : self.mainContentArea.width
         self.dateView.setSize(withWidth: max(0, dateRight - self.dateView.left))
         
-        self.deliveryView.centerY = self.dateView.centerY
+        if self.deliveryView.isVisible {
+            self.deliveryView.centerY = self.dateView.centerY
+        }
         
         // If full, extend text to far right and move media/links below it
         switch self.layoutState {
@@ -426,6 +446,12 @@ class MessageContentView: BaseView {
                 self?.emotionCollectionView.setEmotionsCounts(emotionCounts, animated: false)
 
                 self?.authorView.set(expression: expression, person: nil)
+            } else if let author = message.person {
+
+                guard !Task.isCancelled else { return }
+
+                self?.authorView.set(expression: nil, person: author)
+                self?.authorView.set(emotionCounts: [:])
             } else if let author = await PeopleStore.shared.getPerson(withPersonId: message.authorId) {
 
                 guard !Task.isCancelled else { return }
@@ -621,20 +647,36 @@ extension MessageTextView {
     }
 
     /// Updates the font size to be appropriate for the amount of text displayed.
-    fileprivate func updateFontSize(state: MessageContentView.Layout) {
+    func updateFontSize(state: MessageContentView.Layout) {
         if state == .collapsed {
             self.font = FontType.regular.font
             return
         }
-        
+
         self.font = FontType.emoji.font
 
-        guard self.numberOfLines > 1 else { return }
+        guard !self.fitsOnSingleLine(font: FontType.emoji.font) else { return }
 
         self.font = FontType.medium.font
 
-        guard self.numberOfLines > 1 else { return }
+        guard !self.fitsOnSingleLine(font: FontType.medium.font) else { return }
 
         self.font = FontType.regular.font
+    }
+
+    private func fitsOnSingleLine(font: UIFont) -> Bool {
+        guard let text, !text.isEmpty else { return true }
+        guard !text.contains(where: \.isNewline) else { return false }
+        let width = (text as NSString).size(
+            withAttributes: [
+                .font: font,
+                .kern: self.kerning
+            ]
+        ).width
+        // Keep the same horizontal breathing room the bubble applies around the
+        // text. A prompt that technically fits against the edge still reads as
+        // clipped once the Time Machine scale transform is applied.
+        let readableWidth = max(0, self.width - MessageContentView.textViewPadding) * 0.9
+        return ceil(width) <= floor(readableWidth)
     }
 }

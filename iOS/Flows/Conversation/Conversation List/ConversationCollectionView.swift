@@ -8,23 +8,18 @@
 
 import Foundation
 
-/// A collection view that displays a single conversation.
-class ConversationCollectionView: CollectionView {
+/// Production adapter for the shared Time Machine rail.
+class ConversationCollectionView: ConversationTimeMachineCollectionView {
 
     var conversationLayout: MessagesTimeMachineCollectionViewLayout {
         return self.collectionViewLayout as! MessagesTimeMachineCollectionViewLayout
     }
 
     init() {
-        super.init(layout: MessagesTimeMachineCollectionViewLayout())
-
-        // Allow message cells to scale in size without getting clipped.
-        self.clipsToBounds = false
-        self.set(backgroundColor: .clear)
-
-        self.showsVerticalScrollIndicator = false
-        self.automaticallyAdjustsScrollIndicatorInsets = true
-        self.decelerationRate = .fast
+        let itemHeight = MessageContentView.bubbleHeight
+            + MessageFooterView.height
+            + Theme.ContentOffset.standard.value
+        super.init(layout: MessagesTimeMachineCollectionViewLayout(itemHeight: itemHeight))
     }
 
     required init?(coder aDecoder: NSCoder) {

@@ -12,14 +12,25 @@ import UIKit
  
 class TextEntryField: BaseView, Sizeable {
 
+    enum Style {
+        case standard
+        case conversationComposer
+    }
+
     private let lineView = BaseView()
     private(set) var textField: UITextField
     private let placeholder: Localized?
+    private(set) var style: Style
 
-    init(with textField: UITextField, placeholder: Localized?) {
+    init(
+        with textField: UITextField,
+        placeholder: Localized?,
+        style: Style = .standard
+    ) {
 
         self.textField = textField
         self.placeholder = placeholder
+        self.style = style
 
         super.init()
     }
@@ -31,8 +42,6 @@ class TextEntryField: BaseView, Sizeable {
     override func initializeSubviews() {
         super.initializeSubviews()
     
-        self.showShadow(withOffset: 8)
-        
         self.set(backgroundColor: .clear)
         
         self.addSubview(self.textField)
@@ -60,6 +69,25 @@ class TextEntryField: BaseView, Sizeable {
         }
 
         self.clipsToBounds = false
+        self.applyStyle()
+    }
+
+    func set(style: Style) {
+        guard self.style != style else { return }
+        self.style = style
+        self.applyStyle()
+        self.setNeedsLayout()
+    }
+
+    private func applyStyle() {
+        switch self.style {
+        case .standard:
+            self.lineView.isHidden = false
+            self.showShadow(withOffset: 8)
+        case .conversationComposer:
+            self.lineView.isHidden = true
+            self.hideShadow()
+        }
     }
 
     func getHeight(for width: CGFloat) -> CGFloat {
@@ -76,9 +104,11 @@ class TextEntryField: BaseView, Sizeable {
         
         let padding: CGFloat = 14
 
-        self.lineView.width = self.width - padding.doubled
-        self.lineView.height = 2
-        self.lineView.pin(.bottom)
-        self.lineView.centerOnX()
+        if !self.lineView.isHidden {
+            self.lineView.width = self.width - padding.doubled
+            self.lineView.height = 2
+            self.lineView.pin(.bottom)
+            self.lineView.centerOnX()
+        }
     }
 }

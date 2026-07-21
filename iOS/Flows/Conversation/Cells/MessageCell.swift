@@ -15,7 +15,7 @@ struct MessageDetailState: Equatable {
 }
 
 /// A cell for displaying individual messages, author and reactions.
-class MessageCell: UICollectionViewCell {
+class MessageCell: ConversationMessagePresentationCell {
 
     private struct AppliedLayoutState: Equatable {
         let brightness: CGFloat
@@ -23,30 +23,19 @@ class MessageCell: UICollectionViewCell {
         let shouldShowDetailBar: Bool
     }
 
-    private var message: ParseMessage?
-    private var messageTextColor: UIColor = ThemeColor.clear.color
+    private var message: Messageable?
     private var lastAppliedLayoutState: AppliedLayoutState?
     private var messageController: ParseMessageController?
     private var replyPreviewTask: Task<Void, Never>?
     private var replyPreviewToken: UUID?
     private var isCachedReplyPreviewRefreshPending = false
     
-    lazy var shadowLayer: CAShapeLayer = {
-        let layer = CAShapeLayer()
-        layer.shadowColor = ThemeColor.D6.color.cgColor
-        layer.shadowOpacity = 1.0
-        layer.shadowOffset = .zero
-        layer.shadowRadius = 8
-        return layer
-    }()
-
-    let content = MessageContentView()
     private var footerView = MessageFooterView()
     
     var shouldShowDetailBar: Bool = true
     var shouldShowReplies: Bool = true {
         didSet {
-            self.footerView.replySummary.isVisible = self.shouldShowReplies
+            self.applyCapabilities()
         }
     }
 
@@ -56,6 +45,16 @@ class MessageCell: UICollectionViewCell {
 
     // Context menu
     private lazy var contextMenuDelegate = MessageContentContextMenuDelegate(content: self.content)
+    private lazy var contextMenuInteraction = UIContextMenuInteraction(delegate: self.contextMenuDelegate)
+
+    private var shouldPresentDetailFooter: Bool {
+        self.shouldShowDetailBar
+            && !self.capabilities.intersection([
+                .replies,
+                .expressions,
+                .deliveryMetadata
+            ]).isEmpty
+    }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -68,13 +67,9 @@ class MessageCell: UICollectionViewCell {
     }
 
     private func initializeViews() {
-        self.contentView.layer.insertSublayer(self.shadowLayer, at: 0)
-        self.contentView.addSubview(self.content)
-
-        let contextMenuInteraction = UIContextMenuInteraction(delegate: self.contextMenuDelegate)
-        self.content.bubbleView.addInteraction(contextMenuInteraction)
+        self.content.bubbleView.addInteraction(self.contextMenuInteraction)
         
-        self.contentView.addSubview(self.footerView)
+        self.timelineContentView.addSubview(self.footerView)
         
         self.footerView.expressionStackedView.didSelectExpression = { [unowned self] expression in
             guard let message = message else {
@@ -129,13 +124,25 @@ class MessageCell: UICollectionViewCell {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        
-        self.footerView.width = self.contentView.width - Theme.ContentOffset.long.value.doubled
+
+        guard self.shouldPresentDetailFooter else {
+            self.footerView.frame = CGRect(
+                x: 0,
+                y: self.timelineContentView.height,
+                width: 0,
+                height: 0
+            )
+            self.content.frame = self.timelineContentView.bounds
+            self.shadowLayer.shadowPath = UIBezierPath(rect: self.content.bounds).cgPath
+            return
+        }
+
+        self.footerView.width = self.timelineContentView.width - Theme.ContentOffset.long.value.doubled
         self.footerView.height = self.shouldShowReplies ? MessageFooterView.height : MessageFooterView.collapsedHeight
         self.footerView.centerOnX()
         self.footerView.pin(.bottom)
         
-        self.content.expandToSuperviewWidth()
+        self.content.width = self.timelineContentView.width
         self.content.pin(.top)
         self.content.expand(.bottom, to: self.footerView.top, offset: Theme.ContentOffset.long.value)
 
@@ -144,15 +151,22 @@ class MessageCell: UICollectionViewCell {
 
     // MARK: Configuration
 
-    func configure(with message: Messageable) {
-        guard let message = message as? ParseMessage else {
-            assertionFailure("MessageCell requires Parse-backed messages after the messaging cutover.")
-            return
-        }
+    func configure(
+        with message: Messageable,
+        capabilities: ConversationCapabilities = .production
+    ) {
+        super.configure(
+            with: ConversationTimelineEntry(message: message),
+            capabilities: capabilities
+        )
+    }
+
+    override func didConfigure(
+        with message: Messageable,
+        capabilitiesChanged: Bool
+    ) {
 
         let isDifferentMessage = self.message?.id != message.id
-        let hasPresentationChanges = self.message != message
-
         if isDifferentMessage {
             self.messageTasks.cancelAndRemoveAll()
             self.messageDetailTasks.cancelAndRemoveAll()
@@ -165,64 +179,64 @@ class MessageCell: UICollectionViewCell {
         }
 
         let previewMessage = self.prepareReplyPreview(for: message)
-        let hasPreviewPresentationChanges = self.message != previewMessage
-        let canBeConsumed = previewMessage.canBeConsumed
-        self.messageTextColor = canBeConsumed ? ThemeColor.clear.color : ThemeColor.white.color
-
-        if hasPresentationChanges || hasPreviewPresentationChanges {
-            self.content.configure(with: previewMessage)
-
-            self.content.textView.textColor = self.messageTextColor
-            self.content.imageView.alpha = canBeConsumed ? 0 : 1
-            self.content.linkView.alpha = canBeConsumed ? 0 : 1
-            self.shadowLayer.opacity = canBeConsumed ? 1.0 : 0
-
+        let hasPreviewPresentationChanges = self.hasPresentationChanges(
+            from: self.message,
+            to: previewMessage
+        )
+        super.didConfigure(
+            with: previewMessage,
+            capabilitiesChanged: capabilitiesChanged
+        )
+        if hasPreviewPresentationChanges || capabilitiesChanged {
             self.footerView.configure(for: previewMessage)
         }
 
         self.message = previewMessage
-        self.footerView.isVisible = self.shouldShowDetailBar
+        self.applyCapabilities()
     }
 
-    override func apply(_ layoutAttributes: UICollectionViewLayoutAttributes) {
-        super.apply(layoutAttributes)
-
-        // Make sure that the z index is up to date. Sometimes the collectionview layout doesn't
-        // update the position even though the attributes changed.
-        self.layer.zPosition = CGFloat(layoutAttributes.zIndex)
-
-        guard let messageLayoutAttributes
-                = layoutAttributes as? ConversationMessageCellLayoutAttributes else {
-            return
+    override func hasPresentationChanges(
+        from previousMessage: Messageable?,
+        to message: Messageable
+    ) -> Bool {
+        guard let previousMessage = previousMessage as? ParseMessage,
+              let message = message as? ParseMessage else {
+            // Local onboarding messages can replace their guide/avatar while
+            // retaining stable IDs and copy, so they must be re-presented.
+            return true
         }
+        return previousMessage != message
+    }
 
+    override func applyTimelinePresentation(
+        brightness: CGFloat,
+        detailAlpha: CGFloat
+    ) {
+        let shouldPresentDetail = self.shouldPresentDetailFooter
         let layoutState = AppliedLayoutState(
-            brightness: messageLayoutAttributes.brightness,
-            detailAlpha: messageLayoutAttributes.detailAlpha,
-            shouldShowDetailBar: self.shouldShowDetailBar
+            brightness: brightness,
+            detailAlpha: detailAlpha,
+            shouldShowDetailBar: shouldPresentDetail
         )
         guard layoutState != self.lastAppliedLayoutState else { return }
 
         let previousLayoutState = self.lastAppliedLayoutState
         self.lastAppliedLayoutState = layoutState
 
-        self.content.configureBackground(color: ThemeColor.B6.color,
-                                         textColor: self.messageTextColor,
-                                         brightness: messageLayoutAttributes.brightness,
-                                         showBubbleTail: false,
-                                         tailOrientation: .down)
+        super.applyTimelinePresentation(
+            brightness: brightness,
+            detailAlpha: detailAlpha
+        )
 
-        self.content.isUserInteractionEnabled = messageLayoutAttributes.detailAlpha == 1
-
-        self.footerView.alpha = messageLayoutAttributes.detailAlpha
+        self.footerView.alpha = shouldPresentDetail ? detailAlpha : 0
 
         // Hide the emotions view if the cell is scrolled out of focus.
-        if messageLayoutAttributes.detailAlpha < 0.5,
+        if detailAlpha < 0.5,
            previousLayoutState == nil || (previousLayoutState?.detailAlpha ?? 0) >= 0.5 {
             self.content.setEmotions(areShown: false, animated: true)
         }
 
-        let areDetailsFullyVisible = messageLayoutAttributes.detailAlpha == 1 && self.shouldShowDetailBar
+        let areDetailsFullyVisible = detailAlpha == 1 && shouldPresentDetail
 
         let wereDetailsFullyVisible = previousLayoutState?.detailAlpha == 1
             && previousLayoutState?.shouldShowDetailBar == true
@@ -238,6 +252,30 @@ class MessageCell: UICollectionViewCell {
             )
             self.handleDetailVisibility(areDetailsFullyVisible: areDetailsFullyVisible)
         }
+    }
+
+    private func applyCapabilities() {
+        let supportsReplies = self.capabilities.contains(.replies) && self.shouldShowReplies
+        let supportsExpressions = self.capabilities.contains(.expressions)
+        let supportsDeliveryMetadata = self.capabilities.contains(.deliveryMetadata)
+
+        let hasContextMenu = self.content.bubbleView.interactions.contains { interaction in
+            interaction === self.contextMenuInteraction
+        }
+        if self.capabilities.contains(.contextMenus), !hasContextMenu {
+            self.content.bubbleView.addInteraction(self.contextMenuInteraction)
+        } else if !self.capabilities.contains(.contextMenus), hasContextMenu {
+            self.content.bubbleView.removeInteraction(self.contextMenuInteraction)
+        }
+        self.applyMessageCapabilities()
+
+        self.footerView.replySummary.isVisible = supportsReplies
+        self.footerView.replyButton.isVisible = supportsReplies && self.message?.isReply == false
+        self.footerView.expressionStackedView.isVisible = supportsExpressions
+        self.footerView.statusLabel.isVisible = supportsDeliveryMetadata
+        self.footerView.isVisible = self.shouldShowDetailBar
+            && (supportsReplies || supportsExpressions || supportsDeliveryMetadata)
+        self.setNeedsLayout()
     }
     
     private func pauseAllVideo() {
@@ -260,7 +298,17 @@ class MessageCell: UICollectionViewCell {
 
     private var messageTasks = TaskPool()
 
-    private func prepareReplyPreview(for message: ParseMessage) -> ParseMessage {
+    private func prepareReplyPreview(for message: Messageable) -> Messageable {
+        guard self.capabilities.contains(.replies),
+              let message = message as? ParseMessage else {
+            self.replyPreviewTask?.cancel()
+            self.replyPreviewTask = nil
+            self.replyPreviewToken = nil
+            self.isCachedReplyPreviewRefreshPending = false
+            self.messageController = nil
+            return message
+        }
+
         let existingPreviewController = self.messageController.flatMap { controller in
             controller.messageId == message.id ? controller : nil
         }
@@ -360,6 +408,7 @@ class MessageCell: UICollectionViewCell {
         self.message = message
         if self.shouldShowDetailBar {
             self.footerView.configure(for: message)
+            self.applyCapabilities()
         }
     }
 
@@ -372,7 +421,6 @@ class MessageCell: UICollectionViewCell {
         self.content.emotionCollectionView.setEmotionsCounts([:], animated: false)
         self.content.setEmotions(areShown: false, animated: false)
         self.message = nil
-        self.messageTextColor = ThemeColor.clear.color
         self.lastAppliedLayoutState = nil
         self.messageDetailState = MessageDetailState()
         self.messageController = nil
@@ -394,7 +442,8 @@ class MessageCell: UICollectionViewCell {
         // If the detail visibility changes for a message, we always want to cancel its tasks.
         self.messageDetailTasks.cancelAndRemoveAll()
 
-        guard let messageable = self.message,
+        guard self.shouldPresentDetailFooter,
+              let messageable = self.message as? ParseMessage,
               let cid = try? ConversationId(cid: messageable.conversationId) else { return }
 
         guard areDetailsFullyVisible else { return }
@@ -425,7 +474,8 @@ class MessageCell: UICollectionViewCell {
     }
     
     private func addReply(with text: String) {
-        guard let msg = self.message,
+        guard self.capabilities.contains(.replies),
+              let msg = self.message as? ParseMessage,
               let controller = ParseMessageController.controller(for: msg) else { return }
         
         Task {
