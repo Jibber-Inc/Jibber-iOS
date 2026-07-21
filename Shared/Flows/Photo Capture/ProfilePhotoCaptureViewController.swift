@@ -644,12 +644,16 @@ class ProfilePhotoCaptureViewController: ViewController, Sizeable, Completable {
     }
 
 #if DEBUG
+    private var previewFixtureImage: UIImage? {
+        UIImage(systemName: "person.crop.circle.fill")
+    }
+
     /// Places the local fixture into the post-capture state without invoking
     /// AVFoundation or the upload/finalization path.
     func prepareCapturedPhotoPreview() {
         self.usesLocalPreviewFixture = true
         self.loadViewIfNeeded()
-        guard let image = UIImage(named: "OnboardingFacePreview") else { return }
+        guard let image = self.previewFixtureImage else { return }
         self.imageView.displayable = image
         self.currentState = .review
         self.view.setNeedsLayout()
@@ -659,8 +663,8 @@ class ProfilePhotoCaptureViewController: ViewController, Sizeable, Completable {
     /// This exists only for `-OnboardingPreview faceCapture` visual captures.
     private func installFaceCapturePreviewFixtureIfNeeded() {
         if self.previewFixtureImageView.superview == nil {
-            self.previewFixtureImageView.image = UIImage(named: "OnboardingFacePreview")
-            self.previewFixtureImageView.contentMode = .scaleAspectFill
+            self.previewFixtureImageView.image = self.previewFixtureImage
+            self.previewFixtureImageView.contentMode = .scaleAspectFit
             self.previewFixtureImageView.clipsToBounds = true
             self.faceCaptureVC.cameraViewContainer.insertSubview(
                 self.previewFixtureImageView,
@@ -681,7 +685,7 @@ class ProfilePhotoCaptureViewController: ViewController, Sizeable, Completable {
             // which would otherwise enqueue canonical conversation sync.
             break
         case .initial, .cameraDenied, .cameraRestricted, .renderFaceImage, .scanEyesOpen, .error:
-            guard let image = UIImage(named: "OnboardingFacePreview") else { return }
+            guard let image = self.previewFixtureImage else { return }
             self.imageView.displayable = image
             self.currentState = .review
         case .captureEyesOpen, .didCaptureEyesOpen, .finish:

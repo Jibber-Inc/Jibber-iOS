@@ -82,7 +82,7 @@ class OnboardingCoordinator: PresentableCoordinator<DeepLinkable?> {
             familyName: "",
             handle: "",
             phoneNumber: nil,
-            image: UIImage(named: "OnboardingGuidePreview")
+            image: UIImage(systemName: "person.crop.circle.fill")
         )
         self.onboardingVC.setGuide(person: guide, displayName: guide.givenName)
         self.onboardingVC.preparePreview(
