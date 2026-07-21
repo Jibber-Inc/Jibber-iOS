@@ -37,6 +37,7 @@ class ConversationMessagesCell: UICollectionViewCell, ConversationUIStateSettabl
     }
     private lazy var collectionView = ConversationCollectionView()
     private lazy var dataSource = MessageSequenceCollectionViewDataSource(collectionView: self.collectionView)
+    private var presentationState: ConversationUIState = .read
 
     /// The conversation containing all the messages.
     var conversation: Conversation? {
@@ -182,9 +183,10 @@ class ConversationMessagesCell: UICollectionViewCell, ConversationUIStateSettabl
     }
 
     func set(state: ConversationUIState) {
-        let stateBeforeUpdate = self.collectionLayout.uiState
+        let stateBeforeUpdate = self.presentationState
 
         self.configureCollectionLayout(for: state)
+        self.presentationState = state
 
         Task {
             guard state != stateBeforeUpdate else { return }
@@ -206,7 +208,6 @@ class ConversationMessagesCell: UICollectionViewCell, ConversationUIStateSettabl
             self.collectionLayout.spacingKeyPoints = [0, 8, 14, 16]
         }
         
-        self.collectionLayout.uiState = state
     }
 
     override func prepareForReuse() {
@@ -356,7 +357,7 @@ class ConversationMessagesCell: UICollectionViewCell, ConversationUIStateSettabl
     }
 
     func getFrontmostCell() -> MessageCell? {
-        return self.collectionLayout.getFrontmostCell()
+        return self.collectionLayout.getFrontmostCell(as: MessageCell.self)
     }
 
     // MARK: - UICollectionViewDelegate

@@ -14,6 +14,8 @@ final class PhotoVideoCaptureSession {
 
     weak var avCaptureDelegate: AVCaptureVideoDataOutputSampleBufferDelegate?
     var didCapturePhoto: (@MainActor @Sendable () -> Void)?
+    var didResolveAuthorization: (@MainActor @Sendable (AVAuthorizationStatus) -> Void)?
+    var didFinishStarting: (@MainActor @Sendable (Bool) -> Void)?
 
     private enum State {
         case idle
@@ -31,12 +33,17 @@ final class PhotoVideoCaptureSession {
         self.state != .idle
     }
 
+    var isStopping: Bool {
+        self.state == .stopping
+    }
+
     var currentPosition: AVCaptureDevice.Position = .front
     var flashMode: AVCaptureDevice.FlashMode = .auto
 
     private let owner = CaptureSessionOwner()
     private var state: State = .idle
     private var authorizationTask: Task<Void, Never>?
+    private var shouldRestartAfterStop = false
 
     private lazy var photoCaptureDelegate = PhotoCaptureDelegateBridge { [weak self] in
         self?.didCapturePhoto?()
@@ -44,8 +51,13 @@ final class PhotoVideoCaptureSession {
 
     /// Requests camera access, then configures and starts the capture session on its serial queue.
     func begin() {
+        if self.state == .stopping {
+            self.shouldRestartAfterStop = true
+            return
+        }
         guard self.state == .idle else { return }
 
+        self.shouldRestartAfterStop = false
         self.state = .authorizing
         self.authorizationTask = Task { [weak self] in
             let authorized = await AVCaptureDevice.requestAccess(for: .video)
@@ -55,6 +67,9 @@ final class PhotoVideoCaptureSession {
                   self.state == .authorizing else { return }
 
             self.authorizationTask = nil
+            self.didResolveAuthorization?(
+                AVCaptureDevice.authorizationStatus(for: .video)
+            )
 
             guard authorized,
                   let avCaptureDelegate = self.avCaptureDelegate else {
@@ -67,6 +82,7 @@ final class PhotoVideoCaptureSession {
                              videoDelegate: VideoDelegateTransfer(avCaptureDelegate)) { [weak self] didStart in
                 guard let self, self.state == .starting else { return }
                 self.state = didStart ? .running : .idle
+                self.didFinishStarting?(didStart)
             }
         }
     }
@@ -78,10 +94,22 @@ final class PhotoVideoCaptureSession {
 
         guard self.state != .idle else { return }
 
+        if self.state == .stopping {
+            // A second stop cancels a re-entry request that arrived while the
+            // first asynchronous stop was draining.
+            self.shouldRestartAfterStop = false
+            return
+        }
+
+        self.shouldRestartAfterStop = false
         self.state = .stopping
         self.owner.stop { [weak self] in
             guard let self, self.state == .stopping else { return }
             self.state = .idle
+            if self.shouldRestartAfterStop {
+                self.shouldRestartAfterStop = false
+                self.begin()
+            }
         }
     }
 

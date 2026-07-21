@@ -130,6 +130,8 @@ class FaceCaptureViewController: ViewController {
 
     var didCapturePhoto: ((UIImage) -> Void)?
     var didCaptureVideo: ((URL) -> Void)?
+    var didResolveCameraAuthorization: ((AVAuthorizationStatus) -> Void)?
+    var didResolveSessionStart: ((Bool) -> Void)?
 
     @Published private(set) var hasRenderedFaceImage = false
     @Published private(set) var faceDetected = false
@@ -143,6 +145,17 @@ class FaceCaptureViewController: ViewController {
     }
     
     let cameraViewContainer = UIView()
+
+    /// The normal capture screen keeps its historical geometry. Canonical
+    /// onboarding embeds the same controller above a composer control row and
+    /// lets the camera use that dedicated content area more fully.
+    var usesEmbeddedCaptureLayout = false {
+        didSet {
+            guard usesEmbeddedCaptureLayout != oldValue else { return }
+            self.label.isHidden = self.usesEmbeddedCaptureLayout
+            self.viewIfLoaded?.setNeedsLayout()
+        }
+    }
 
     /// Shows a live preview of what the camera is seeing..
     lazy var cameraView: MetalView = {
@@ -187,12 +200,30 @@ class FaceCaptureViewController: ViewController {
         self.animationView.alpha = 0
         
         self.view.addSubview(self.label)
+        self.label.isHidden = self.usesEmbeddedCaptureLayout
     }
     
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        
-        self.cameraViewContainer.squaredSize = self.view.height * 0.4
+
+        let labelWidth = Theme.getPaddedWidth(with: self.view.width)
+        self.label.setSize(withWidth: labelWidth)
+
+        let cameraSize: CGFloat
+        if self.usesEmbeddedCaptureLayout {
+            let safeHeight = self.view.safeAreaLayoutGuide.layoutFrame.height
+            let availableCameraHeight = max(
+                0,
+                safeHeight - Theme.ContentOffset.custom(20).value
+            )
+            cameraSize = min(
+                min(self.view.width, self.view.height) * 0.82,
+                availableCameraHeight
+            )
+        } else {
+            cameraSize = self.view.height * 0.4
+        }
+        self.cameraViewContainer.squaredSize = cameraSize
         self.cameraViewContainer.pinToSafeArea(.top, offset: .custom(20))
         self.cameraViewContainer.centerOnX()
         self.cameraViewContainer.layer.cornerRadius = self.cameraViewContainer.height * 0.25
@@ -207,9 +238,10 @@ class FaceCaptureViewController: ViewController {
 
         self.videoPreviewView.expandToSuperviewSize()
 
-        self.label.setSize(withWidth: Theme.getPaddedWidth(with: self.view.width))
-        self.label.match(.top, to: .bottom, of: self.cameraViewContainer, offset: .long)
-        self.label.centerOnX()
+        if !self.usesEmbeddedCaptureLayout {
+            self.label.match(.top, to: .bottom, of: self.cameraViewContainer, offset: .long)
+            self.label.centerOnX()
+        }
     }
     
     private var animateTask: Task<Void, Never>?
@@ -242,9 +274,26 @@ class FaceCaptureViewController: ViewController {
         return self.faceCaptureSession.isRunning
     }
 
+    /// Includes authorization, start, and stop transitions. Re-entry can ask
+    /// the session to restart even while an earlier stop is still draining.
+    var isSessionActive: Bool {
+        return self.faceCaptureSession.isActive
+    }
+
     /// Starts the face capture session so that we can display the photo preview and capture a photo/video.
     func beginSession() {
-        guard !self.faceCaptureSession.isActive else { return }
+        // While already authorizing/starting/running, retain the processor that
+        // AVCaptureOutput is using. During stopping, install the next processor
+        // before asking the session to queue its restart.
+        guard !self.faceCaptureSession.isActive
+                || self.faceCaptureSession.isStopping else { return }
+
+        self.faceCaptureSession.didResolveAuthorization = { [weak self] status in
+            self?.didResolveCameraAuthorization?(status)
+        }
+        self.faceCaptureSession.didFinishStarting = { [weak self] didStart in
+            self?.didResolveSessionStart?(didStart)
+        }
 
         let captureGeneration = UUID()
         let frameProcessor = FaceCaptureFrameProcessor(

@@ -16,6 +16,8 @@ import UIKit
 class PhoneViewController: TextInputViewController<PhoneNumber> {
     
     private(set) var isSendingCode: Bool = false
+    var usesAuthenticatedRestart = false
+    var onRequestStateChanged: ((EventStatus) -> Void)?
     
     override var analyticsIdentifier: String? {
         return "SCREEN_PHONE"
@@ -45,28 +47,30 @@ class PhoneViewController: TextInputViewController<PhoneNumber> {
         return !self.isPhoneNumberValid()
     }
 
-    override func textFieldDidChange() {
-        super.textFieldDidChange()
-
-         if let text = self.textField.text, text.isEmpty {
-            self.isSendingCode = false
-        }
-    }
-
     override func validate(text: String) -> Bool {
         return self.isPhoneNumberValid()
     }
 
     override func didTapButton() {
+        Task { _ = await self.submitPhoneNumber() }
+    }
+
+    /// Performs the full request lifecycle so the shared conversation swipe
+    /// driver can retain its single-flight gate until the endpoint settles.
+    @discardableResult
+    func submitPhoneNumber() async -> Bool {
         guard !self.isSendingCode,
               self.isPhoneNumberValid(),
-              let phone = self.phoneTextField.text?.parsePhoneNumber(for: self.phoneTextField.currentRegion) else {
-                  return
-              }
-
-        Task {
-            await self.sendCode(to: phone, region: self.phoneTextField.currentRegion)
+              let phone = self.phoneTextField.text?.parsePhoneNumber(
+                for: self.phoneTextField.currentRegion
+              ) else {
+            return false
         }
+
+        let region = self.phoneTextField.currentRegion
+        self.isSendingCode = true
+        defer { self.isSendingCode = false }
+        return await self.sendCode(to: phone, region: region)
     }
 
     private func isPhoneNumberValid() -> Bool {
@@ -78,22 +82,35 @@ class PhoneViewController: TextInputViewController<PhoneNumber> {
         return true
     }
 
-    private func sendCode(to phone: PhoneNumber, region: String) async {
+    private func sendCode(to phone: PhoneNumber, region: String) async -> Bool {
+        self.onRequestStateChanged?(.loading)
         await self.button.handleEvent(status: .loading)
-        self.isSendingCode = true
 
         do {
-            let installation = try await PFInstallation.getCurrent()
-
-            let _ = try await SendCode(phoneNumber: phone,
-                                       region: region,
-                                       installationId: installation.installationId)
-                .makeRequest()
+            if self.usesAuthenticatedRestart {
+                let response = try await RestartOnboardingVerificationV1(
+                    phoneNumber: phone
+                ).makeRequest()
+                guard response.sent else {
+                    throw ClientError.message(detail: "A verification code could not be sent.")
+                }
+            } else {
+                let installation = try await PFInstallation.getCurrent()
+                _ = try await SendCode(
+                    phoneNumber: phone,
+                    region: region,
+                    installationId: installation.installationId
+                ).makeRequest()
+            }
             await self.button.handleEvent(status: .complete)
+            self.onRequestStateChanged?(.complete)
             self.complete(with: .success(phone))
+            return true
         } catch {
             await self.button.handleEvent(status: .error(""))
+            self.onRequestStateChanged?(.error(error.localizedDescription))
             self.complete(with: .failure(error))
+            return false
         }
     }
 }

@@ -16,6 +16,15 @@ private struct LaunchDeepLinkTransfer: @unchecked Sendable {
     let value: DeepLinkable?
 }
 
+enum OnboardingLaunchActivityDispatchPolicy {
+    static func shouldDispatch(
+        isRestoringCanonicalOnboarding: Bool,
+        isPreview: Bool
+    ) -> Bool {
+        !isRestoringCanonicalOnboarding && !isPreview
+    }
+}
+
 /// Resumes the launch bridge exactly once, including when its task is cancelled
 /// before the child coordinator finishes.
 private final class LaunchDeepLinkContinuation: @unchecked Sendable {
@@ -86,6 +95,29 @@ class MainCoordinator: BaseCoordinator<Void> {
         ToastScheduler.shared.delegate = self
 #endif
 
+#if DEBUG
+        let previewArguments = ProcessInfo.processInfo.arguments
+        let previewEnvironment = ProcessInfo.processInfo.environment
+        let requestsOnboardingPreview = previewArguments.contains("-OnboardingPreview")
+            || previewArguments.contains("OnboardingPreview")
+            || previewEnvironment["JIBBER_ONBOARDING_PREVIEW"]?.isEmpty == false
+#if IOS
+        let canStartOnboardingPreview = requestsOnboardingPreview
+            && (previewArguments.contains("full")
+                || previewEnvironment["JIBBER_ONBOARDING_SURFACE"] == "full")
+#else
+        let canStartOnboardingPreview = requestsOnboardingPreview
+#endif
+        if canStartOnboardingPreview {
+            // Runtime screenshots must not wait for Parse Config, authentication,
+            // or a deep-link round trip. Initialize the local client contract and
+            // enter the same onboarding coordinator immediately.
+            Config.shared.initializeParseIfNeeded(includeBundleId: false)
+            self.runOnboardingFlow(with: DeepLinkObject(target: .login))
+            return
+        }
+#endif
+
         self.runLaunchFlow()
     }
 
@@ -128,6 +160,16 @@ class MainCoordinator: BaseCoordinator<Void> {
             guard !Task.isCancelled else { return }
 
         #if IOS
+#if DEBUG
+            let previewArguments = ProcessInfo.processInfo.arguments
+            if (previewArguments.contains("-OnboardingPreview")
+                || previewArguments.contains("OnboardingPreview")),
+               previewArguments.contains("full") {
+                self.runOnboardingFlow(with: DeepLinkObject(target: .login))
+                return
+            }
+#endif
+
             if let deepLink = deepLink {
                 self.handle(deeplink: deepLink)
             } else {
@@ -219,7 +261,27 @@ class MainCoordinator: BaseCoordinator<Void> {
             // landing state and the equivalent full-app destination.
             self.handle(deeplink: deepLink ?? DeepLinkObject(target: .home))
         })
-        
+
+#if DEBUG
+        // Product Design previews are deterministic local fixtures. A retained
+        // universal-link launch activity must not replace the requested step.
+        let previewArguments = ProcessInfo.processInfo.arguments
+        let isOnboardingPreview = previewArguments.contains("-OnboardingPreview")
+            || previewArguments.contains("OnboardingPreview")
+#else
+        let isOnboardingPreview = false
+#endif
+
+        // Authenticated incomplete onboarding is restored from its immutable
+        // server session. A retained invitation activity is older launch input
+        // and must not race that asynchronous restore back to Welcome.
+        guard OnboardingLaunchActivityDispatchPolicy.shouldDispatch(
+            isRestoringCanonicalOnboarding: coordinator.isRestoringCanonicalOnboarding,
+            isPreview: isOnboardingPreview
+        ) else {
+            return
+        }
+
         if let launchActivity = self.launchActivity {
             coordinator.handle(launchActivity: launchActivity)
         }
@@ -256,6 +318,7 @@ class MainCoordinator: BaseCoordinator<Void> {
 #if IOS
         self.logOutChat()
 #endif
+        User.clearOnboardingHandoff()
         User.logOut()
         self.deepLink = nil
         if let child = self.childCoordinator as? Presentable {

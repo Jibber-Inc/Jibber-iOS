@@ -28,40 +28,35 @@ class SwitchableContentViewController<ContentType: Switchable>: UserOnboardingVi
     private var switchTask: Task<Void, Never>?
 
     func switchTo(_ content: ContentType) {
-        
         self.switchTask?.cancel()
-        
         self.currentContent = content
 
         self.switchTask = Task { [weak self] in
             guard let self else { return }
-            
+
             await UIView.awaitAnimation(with: .standard, animations: {
-                self.messageBubble.alpha = 0
-                self.textView.alpha = 0
                 self.currentCenterVC?.view.alpha = 0
             })
-            
+
             guard !Task.isCancelled else { return }
-            
+
             self.currentCenterVC?.removeFromParentAndSuperviewIfNeeded()
-            self.updateUI()
             self.currentCenterVC = content.viewController
 
             if let contentVC = self.currentCenterVC {
+                contentVC.view.alpha = 0
                 self.addChild(contentVC)
-                self.view.insertSubview(contentVC.view, belowSubview: self.nameLabel)
+                self.hostOnboardingContentView(contentVC.view)
+                contentVC.didMove(toParent: self)
+            } else {
+                self.hostOnboardingContentView(nil)
             }
 
             self.willUpdateContent()
+            self.updateUI()
             self.view.layoutNow()
-            
+
             await UIView.awaitAnimation(with: .standard, animations: {
-                if self.textView.text.exists {
-                    self.messageBubble.alpha = 1
-                    self.textView.alpha = 1
-                }
-                
                 self.currentCenterVC?.view.alpha = 1
             })
         }

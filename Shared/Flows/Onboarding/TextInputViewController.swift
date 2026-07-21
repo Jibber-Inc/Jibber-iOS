@@ -35,6 +35,33 @@ class TextInputViewController<ResultType>: ViewController, Sizeable, Completable
 
     var onDidComplete: ((Result<ResultType, Error>) -> Void)?
 
+    /// Canonical onboarding owns its Back and primary controls in the shared
+    /// conversation composer. The legacy keyboard toolbar remains available to
+    /// released clients that still use the original presentation.
+    var usesEmbeddedComposer = false {
+        didSet {
+            self.textEntry.set(
+                style: self.usesEmbeddedComposer
+                    ? .conversationComposer
+                    : .standard
+            )
+        }
+    }
+    private(set) var isReviewingEmbeddedComposer = false
+
+    func setEmbeddedComposerReviewing(_ isReviewing: Bool) {
+        self.isReviewingEmbeddedComposer = isReviewing
+        self.textField.isEnabled = !isReviewing
+        self.textField.isUserInteractionEnabled = !isReviewing
+        if isReviewing {
+            self.textField.resignFirstResponder()
+            self.textField.inputAccessoryView = nil
+            self.textField.reloadInputViews()
+        } else {
+            self.textField.sendActions(for: .editingChanged)
+        }
+    }
+
     var textField: UITextField {
         return self.textEntry.textField
     }
@@ -92,6 +119,10 @@ class TextInputViewController<ResultType>: ViewController, Sizeable, Completable
 
     func didTapButton() {}
 
+    func setActionTitle(_ title: Localized) {
+        self.button.set(style: .custom(color: .white, textColor: .B0, text: title))
+    }
+
     @objc func textFieldDidChange() {
         guard let text = self.textField.text else {
             self.textField.inputAccessoryView = nil
@@ -102,7 +133,9 @@ class TextInputViewController<ResultType>: ViewController, Sizeable, Completable
 
         let isValid = self.validate(text: text)
 
-        self.textField.inputAccessoryView = isValid ? self.toolbar : nil
+        self.textField.inputAccessoryView = isValid && !self.usesEmbeddedComposer
+            ? self.toolbar
+            : nil
         self.textField.autocorrectionType = isValid ? .no : .default
         self.textField.reloadInputViews()
     }
@@ -119,10 +152,19 @@ class TextInputViewController<ResultType>: ViewController, Sizeable, Completable
         self.textEntry.size = CGSize(width: width, height: height)
         self.textEntry.centerOnX()
 
-        let keyboardOffset = self.view.height - KeyboardManager.shared.cachedKeyboardEndFrame.height - Theme.ContentOffset.short.value
-        let bottomOffset = self.view.halfHeight
-        
-        self.textEntry.bottom = clamp(bottomOffset, bottomOffset, keyboardOffset)
+        // The onboarding controls now live inside the focused Time Machine card rather than a
+        // full-screen child. Convert the global keyboard frame into this local coordinate space
+        // so the input stays centered in the visible portion of either presentation.
+        let keyboardFrame = KeyboardManager.shared.cachedKeyboardEndFrame
+        let localKeyboardTop = self.view.convert(keyboardFrame, from: nil).minY
+        let keyboardIsVisible = keyboardFrame.height > 0 && localKeyboardTop < self.view.height
+        let visibleBottom = keyboardIsVisible ? localKeyboardTop : self.view.height
+        let minimumCenter = height.half + Theme.ContentOffset.long.value
+        let maximumCenter = max(minimumCenter,
+                                visibleBottom - height.half - Theme.ContentOffset.long.value)
+        self.textEntry.centerY = clamp(self.view.height * 0.52,
+                                       minimumCenter,
+                                       maximumCenter)
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -130,7 +172,8 @@ class TextInputViewController<ResultType>: ViewController, Sizeable, Completable
 
         self.becomeFirstResponder()
 
-        if self.shouldBecomeFirstResponder() {
+        if !self.isReviewingEmbeddedComposer,
+           self.shouldBecomeFirstResponder() {
             self.textEntry.textField.becomeFirstResponder()
         }
     }

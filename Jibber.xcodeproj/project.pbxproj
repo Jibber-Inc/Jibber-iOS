@@ -7,7 +7,35 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		F6BC00000000000000000101 /* TimeMachineCollectionViewLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6BC00000000000000000001 /* TimeMachineCollectionViewLayout.swift */; };
+		F6BC00000000000000000102 /* TimeMachineCollectionViewLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6BC00000000000000000001 /* TimeMachineCollectionViewLayout.swift */; };
+		F6BC00000000000000000103 /* ConversationTimelineSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6BC00000000000000000002 /* ConversationTimelineSurface.swift */; };
+		F6BC00000000000000000104 /* ConversationTimelineSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6BC00000000000000000002 /* ConversationTimelineSurface.swift */; };
+		F6BC00000000000000000105 /* ConversationSurfaceChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6BC00000000000000000003 /* ConversationSurfaceChrome.swift */; };
+		F6BC00000000000000000106 /* ConversationSurfaceChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6BC00000000000000000003 /* ConversationSurfaceChrome.swift */; };
+		F6BC00000000000000000107 /* OnboardingConversationTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6BC00000000000000000004 /* OnboardingConversationTimeline.swift */; };
+		F6BC00000000000000000108 /* OnboardingConversationTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6BC00000000000000000004 /* OnboardingConversationTimeline.swift */; };
+		F6BD00000000000000000101 /* OnboardingParseConversationTimelineProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6BD00000000000000000001 /* OnboardingParseConversationTimelineProvider.swift */; };
+		F6BC00000000000000000109 /* CircleCountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6BC00000000000000000005 /* CircleCountView.swift */; };
+		F6BC0000000000000000010A /* CircleCountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6BC00000000000000000005 /* CircleCountView.swift */; };
+		F6BC0000000000000000010B /* ConversationTimeMachineSurfaceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6BC00000000000000000006 /* ConversationTimeMachineSurfaceTests.swift */; };
+		F6BC00000000000000000110 /* Messageable.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6090E552377CB2F00833DA7 /* Messageable.swift */; };
+		F6BC00000000000000000111 /* MessageKind.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6F33C6A24AFCF24009603FF /* MessageKind.swift */; };
+		F6BC00000000000000000112 /* ReactionType.swift in Sources */ = {isa = PBXBuildFile; fileRef = D61128C42804EF2E00574B96 /* ReactionType.swift */; };
+		F6BC00000000000000000113 /* MessageContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D615534D2745C1C900B08459 /* MessageContentView.swift */; };
+		F6BC00000000000000000114 /* MessageDateLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D656BF0E281845B800723068 /* MessageDateLabel.swift */; };
+		F6BC00000000000000000115 /* MessageBubbleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D605AC9B27877F890015D800 /* MessageBubbleView.swift */; };
+		F6BC00000000000000000116 /* MessageTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D642739E22CAFD680088256B /* MessageTextView.swift */; };
+		F6BE00000000000000000101 /* ConversationTypingIndicatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6BE00000000000000000001 /* ConversationTypingIndicatorView.swift */; };
+		F6BE00000000000000000102 /* ConversationTypingIndicatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6BE00000000000000000001 /* ConversationTypingIndicatorView.swift */; };
 		D6C35A282776706F00BE64DC /* AppClipTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6C35A272776706F00BE64DC /* AppClipTests.swift */; };
+		F6BB00000000000000000101 /* OnboardingMessaging.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6BB00000000000000000001 /* OnboardingMessaging.swift */; };
+		F6BB00000000000000000102 /* OnboardingMessaging.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6BB00000000000000000001 /* OnboardingMessaging.swift */; };
+		F6BB00000000000000000103 /* OnboardingMessagingRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6BB00000000000000000002 /* OnboardingMessagingRepository.swift */; };
+		F6BB00000000000000000104 /* OnboardingMessagingRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6BB00000000000000000002 /* OnboardingMessagingRepository.swift */; };
+		F6BB00000000000000000105 /* OnboardingMessagingFallback.json in Resources */ = {isa = PBXBuildFile; fileRef = F6BB00000000000000000003 /* OnboardingMessagingFallback.json */; };
+		F6BB00000000000000000106 /* OnboardingMessagingFallback.json in Resources */ = {isa = PBXBuildFile; fileRef = F6BB00000000000000000003 /* OnboardingMessagingFallback.json */; };
+		F6BB00000000000000000107 /* OnboardingMessagingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6BB00000000000000000004 /* OnboardingMessagingTests.swift */; };
 		B50000000000000000000001 /* face_scan.json in Resources */ = {isa = PBXBuildFile; fileRef = D640328A25AF3CA500139396 /* face_scan.json */; };
 		B50000000000000000000002 /* loading.json in Resources */ = {isa = PBXBuildFile; fileRef = D6B00D3B2796480D00DF07B1 /* loading.json */; };
 		F90000000000000000000001 /* ParseSimulatorCompatibility.m in Sources */ = {isa = PBXBuildFile; fileRef = F80000000000000000000001 /* ParseSimulatorCompatibility.m */; };
@@ -1149,6 +1177,18 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		F6BC00000000000000000001 /* TimeMachineCollectionViewLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeMachineCollectionViewLayout.swift; sourceTree = "<group>"; };
+		F6BC00000000000000000002 /* ConversationTimelineSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationTimelineSurface.swift; sourceTree = "<group>"; };
+		F6BC00000000000000000003 /* ConversationSurfaceChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationSurfaceChrome.swift; sourceTree = "<group>"; };
+		F6BC00000000000000000004 /* OnboardingConversationTimeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingConversationTimeline.swift; sourceTree = "<group>"; };
+		F6BD00000000000000000001 /* OnboardingParseConversationTimelineProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingParseConversationTimelineProvider.swift; sourceTree = "<group>"; };
+		F6BC00000000000000000005 /* CircleCountView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircleCountView.swift; sourceTree = "<group>"; };
+		F6BC00000000000000000006 /* ConversationTimeMachineSurfaceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationTimeMachineSurfaceTests.swift; sourceTree = "<group>"; };
+		F6BE00000000000000000001 /* ConversationTypingIndicatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationTypingIndicatorView.swift; sourceTree = "<group>"; };
+		F6BB00000000000000000001 /* OnboardingMessaging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingMessaging.swift; sourceTree = "<group>"; };
+		F6BB00000000000000000002 /* OnboardingMessagingRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingMessagingRepository.swift; sourceTree = "<group>"; };
+		F6BB00000000000000000003 /* OnboardingMessagingFallback.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = OnboardingMessagingFallback.json; sourceTree = "<group>"; };
+		F6BB00000000000000000004 /* OnboardingMessagingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingMessagingTests.swift; sourceTree = "<group>"; };
 		D6C35A232776706F00BE64DC /* AppClipTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppClipTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D6C35A272776706F00BE64DC /* AppClipTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppClipTests.swift; sourceTree = "<group>"; };
 		8004E3D027D7C81600E9931F /* SwipeableInputAccessoryViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeableInputAccessoryViewController.swift; sourceTree = "<group>"; };
@@ -1809,8 +1849,29 @@
 			isa = PBXGroup;
 			children = (
 				D6C35A272776706F00BE64DC /* AppClipTests.swift */,
+				F6BB00000000000000000004 /* OnboardingMessagingTests.swift */,
+				F6BC00000000000000000006 /* ConversationTimeMachineSurfaceTests.swift */,
 			);
 			path = AppClipTests;
+			sourceTree = "<group>";
+		};
+		F6BB00000000000000000005 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				F6BB00000000000000000003 /* OnboardingMessagingFallback.json */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		F6BC00000000000000000007 /* Conversation */ = {
+			isa = PBXGroup;
+			children = (
+				F6BC00000000000000000003 /* ConversationSurfaceChrome.swift */,
+				F6BE00000000000000000001 /* ConversationTypingIndicatorView.swift */,
+				F6BC00000000000000000002 /* ConversationTimelineSurface.swift */,
+				F6BC00000000000000000001 /* TimeMachineCollectionViewLayout.swift */,
+			);
+			path = Conversation;
 			sourceTree = "<group>";
 		};
 		8023C6A027EBCDC100FD9DB6 /* Media */ = {
@@ -2399,6 +2460,7 @@
 		D6432BF122D8282E0016001A /* Conversation */ = {
 			isa = PBXGroup;
 			children = (
+				F6BD00000000000000000001 /* OnboardingParseConversationTimelineProvider.swift */,
 				D6D4ECCD28613DB4002C71CE /* Conversation Selection */,
 				D646D35E27E504D70077D20B /* Attachments */,
 				D635F0A927136C2600A02D17 /* Cells */,
@@ -2461,6 +2523,7 @@
 				D68B723227D3D8FA00F04AB1 /* AnalyticsManager.swift */,
 				80632D92278534E600D3A65B /* EventLogger.swift */,
 				D66379C725A3704300A4A3B7 /* LaunchManager.swift */,
+				F6BB00000000000000000002 /* OnboardingMessagingRepository.swift */,
 				D66379CD25A3704300A4A3B7 /* SessionManager.swift */,
 				D62C9CC0266C3CA800BB9632 /* UserDefaultsManager.swift */,
 			);
@@ -2534,6 +2597,7 @@
 		D6637A2325A3A75A00A4A3B7 /* UI */ = {
 			isa = PBXGroup;
 			children = (
+				F6BC00000000000000000007 /* Conversation */,
 				D677588125B09F18007E0184 /* Transitions */,
 				D63C67DA23D4147C00EA373A /* Face Detection */,
 				D66656BB23D13C83009E4BDF /* Switchable */,
@@ -2550,6 +2614,7 @@
 				D61EC0E521D30EB300204BEE /* BaseView.swift */,
 				D62ED578279CA2ED00F7C08A /* BorderedPersonView.swift */,
 				D6FEF02C257EB71700F9789B /* Button+Extensions.swift */,
+				F6BC00000000000000000005 /* CircleCountView.swift */,
 				D60C81492209360400A127A3 /* DisplayableImageView.swift */,
 				8068A0052868CA5900786B1E /* ExpressionVideoView.swift */,
 				D67243E027861C2A004C0A52 /* Gradients */,
@@ -2632,7 +2697,6 @@
 		D66A580325DD68F9001B3F64 /* Threads */ = {
 			isa = PBXGroup;
 			children = (
-				D642739E22CAFD680088256B /* MessageTextView.swift */,
 				D6265ECD279E2CE90020BD26 /* RepliesSequenceCollectionViewDataSource.swift */,
 				D6D1502C21D6A08300CD8CE4 /* ThreadCollectionView.swift */,
 				D61553492745737300B08459 /* ThreadCoordinator.swift */,
@@ -2706,13 +2770,16 @@
 				D67896B122FF67650059BA75 /* CodeViewController.swift */,
 				D67896BC23025FEC0059BA75 /* NameViewController.swift */,
 				D64DD8AF23CE3E7F0039DC5A /* OnboardingContent.swift */,
+				F6BC00000000000000000004 /* OnboardingConversationTimeline.swift */,
 				D67896B322FF75640059BA75 /* OnboardingCoordinator.swift */,
+				F6BB00000000000000000001 /* OnboardingMessaging.swift */,
 				D64DD8AB23CE2C180039DC5A /* OnboardingViewController.swift */,
 				D63C67D823D3927500EA373A /* PhoneTextField.swift */,
 				D67896A822FF51170059BA75 /* PhoneViewController.swift */,
 				D67896AC22FF60190059BA75 /* TextInputViewController.swift */,
 				D6F7DEF526FBD85C00F72A5C /* UserOnboardingViewController.swift */,
 				D627E4CB277E0079007B3286 /* WelcomeViewController.swift */,
+				F6BB00000000000000000005 /* Resources */,
 			);
 			path = Onboarding;
 			sourceTree = "<group>";
@@ -3187,6 +3254,7 @@
 				8023C69E27EB98B300FD9DB6 /* MessageContentContextMenuDelegate.swift */,
 				D615534D2745C1C900B08459 /* MessageContentView.swift */,
 				D656BF0E281845B800723068 /* MessageDateLabel.swift */,
+				D642739E22CAFD680088256B /* MessageTextView.swift */,
 				D669CB54275FDDDA003C9793 /* MessagePreviewViewController.swift */,
 			);
 			path = MessageContentView;
@@ -3480,6 +3548,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F6BB00000000000000000106 /* OnboardingMessagingFallback.json in Resources */,
 				B50000000000000000000001 /* face_scan.json in Resources */,
 				B50000000000000000000002 /* loading.json in Resources */,
 				D6DBC0E72851295E007312FC /* Transitions in Resources */,
@@ -3492,6 +3561,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F6BB00000000000000000105 /* OnboardingMessagingFallback.json in Resources */,
 				D640329425AF3CA500139396 /* error.json in Resources */,
 				D6DBC0E62851295E007312FC /* Transitions in Resources */,
 				D640329025AF3CA500139396 /* face_scan.json in Resources */,
@@ -3556,6 +3626,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				D6C35A282776706F00BE64DC /* AppClipTests.swift in Sources */,
+				F6BB00000000000000000107 /* OnboardingMessagingTests.swift in Sources */,
+				F6BC0000000000000000010B /* ConversationTimeMachineSurfaceTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3563,6 +3635,21 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F6BC00000000000000000102 /* TimeMachineCollectionViewLayout.swift in Sources */,
+				F6BC00000000000000000104 /* ConversationTimelineSurface.swift in Sources */,
+				F6BC00000000000000000106 /* ConversationSurfaceChrome.swift in Sources */,
+				F6BE00000000000000000102 /* ConversationTypingIndicatorView.swift in Sources */,
+				F6BC00000000000000000108 /* OnboardingConversationTimeline.swift in Sources */,
+				F6BC0000000000000000010A /* CircleCountView.swift in Sources */,
+				F6BC00000000000000000110 /* Messageable.swift in Sources */,
+				F6BC00000000000000000111 /* MessageKind.swift in Sources */,
+				F6BC00000000000000000112 /* ReactionType.swift in Sources */,
+				F6BC00000000000000000113 /* MessageContentView.swift in Sources */,
+				F6BC00000000000000000114 /* MessageDateLabel.swift in Sources */,
+				F6BC00000000000000000115 /* MessageBubbleView.swift in Sources */,
+				F6BC00000000000000000116 /* MessageTextView.swift in Sources */,
+				F6BB00000000000000000102 /* OnboardingMessaging.swift in Sources */,
+				F6BB00000000000000000104 /* OnboardingMessagingRepository.swift in Sources */,
 				D6CEB1D328DA82A400FC1F05 /* PFGeopoint+Extensions.swift in Sources */,
 				D61128732804DC6D00574B96 /* QuePositions.swift in Sources */,
 				D61128992804E0E600574B96 /* Switchable.swift in Sources */,
@@ -3773,12 +3860,21 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F6BC00000000000000000101 /* TimeMachineCollectionViewLayout.swift in Sources */,
+				F6BC00000000000000000103 /* ConversationTimelineSurface.swift in Sources */,
+				F6BC00000000000000000105 /* ConversationSurfaceChrome.swift in Sources */,
+				F6BE00000000000000000101 /* ConversationTypingIndicatorView.swift in Sources */,
+				F6BC00000000000000000107 /* OnboardingConversationTimeline.swift in Sources */,
+				F6BC00000000000000000109 /* CircleCountView.swift in Sources */,
+				F6BB00000000000000000101 /* OnboardingMessaging.swift in Sources */,
+				F6BB00000000000000000103 /* OnboardingMessagingRepository.swift in Sources */,
 				B40000000000000000000001 /* ParseMessagingManager.swift in Sources */,
 				C50000000000000000000001 /* ParseMessagingChanges.swift in Sources */,
 				C50000000000000000000002 /* ParseMessagingModels.swift in Sources */,
 				C50000000000000000000003 /* ParseMessageDraftTranslator.swift in Sources */,
 				C50000000000000000000004 /* ParseMessagingControllerSupport.swift in Sources */,
 				C50000000000000000000005 /* ParseConversationController.swift in Sources */,
+				F6BD00000000000000000101 /* OnboardingParseConversationTimelineProvider.swift in Sources */,
 				C50000000000000000000006 /* ParseMessageController.swift in Sources */,
 				C50000000000000000000007 /* ParseConversationListController.swift in Sources */,
 				80D5C2B428174DC300182DB6 /* TransitionRouter+Blur.swift in Sources */,
@@ -3791,7 +3887,6 @@
 				D6FEF02D257EB71700F9789B /* Button+Extensions.swift in Sources */,
 				8041FB0D27A0C2BB00FEBD78 /* CGVector+Extensions.swift in Sources */,
 				D60B887F27F933CC00B3E1C2 /* UnreadMessagesCell.swift in Sources */,
-				806C99572748632900011728 /* TimeMachineCollectionViewLayout.swift in Sources */,
 				D650C21025B7D6F20037C59A /* Attachment.swift in Sources */,
 				8015CA7726F3D907000F3C60 /* ConversationMessagesCell.swift in Sources */,
 				80B899352807555C004C8096 /* EmotionGradientView.swift in Sources */,
@@ -4730,7 +4825,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				RELEASE_TYPE = DEBUG;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = APPCLIP;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG APPCLIP";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = 1;

@@ -85,11 +85,27 @@ class LaunchCoordinator: PresentableCoordinator<LaunchResult> {
     
     private func handleInvalidSessionError(with deepLink: DeepLinkable?) {
         Task {
-            guard let token = User.getStoredSessionToken() else { return }
+            guard let token = User.getStoredSessionToken() else {
+                self.finishFlow(with: .failed)
+                return
+            }
+            let conversationId = User.getStoredOnboardingConversationId()
             
             do {
-                try await User.become(withSessionToken: token)
-                self.finishFlow(with: .success(deepLink))
+                try await User.become(
+                    withSessionToken: token,
+                    storeForAppHandoff: false
+                )
+                var resumedDeepLink = deepLink
+                if let conversationId, !conversationId.isEmpty {
+                    var handoff = DeepLinkObject(
+                        target: .conversation,
+                        preserving: resumedDeepLink
+                    )
+                    handoff.conversationId = conversationId
+                    resumedDeepLink = handoff
+                }
+                self.finishFlow(with: .success(resumedDeepLink))
             }
             catch {
                 self.finishFlow(with: .failed)

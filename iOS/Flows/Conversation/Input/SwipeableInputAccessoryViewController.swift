@@ -73,9 +73,6 @@ class SwipeableInputAccessoryViewController: UIInputViewController {
         self.setupHandlers()
     }
 
-    private lazy var panRecognizer = SwipeGestureRecognizer { [unowned self] (recognizer) in
-        self.panGestureHandler.handle(pan: recognizer)
-    }
     private lazy var inputFieldTapRecognizer = TapGestureRecognizer(taps: 1) { [unowned self] recognizer in
         self.handleInputTap()
     }
@@ -88,11 +85,7 @@ class SwipeableInputAccessoryViewController: UIInputViewController {
             self.currentMessageKind = .text(self.swipeInputView.textView.text)
         }
         
-        self.panRecognizer.touchesDidBegin = { [unowned self] in
-            // Stop playing animations when the user interacts with the view.
-            self.hintAnimator.updateSwipeHint(shouldPlay: false)
-        }
-        self.swipeInputView.gestureButton.addGestureRecognizer(self.panRecognizer)
+        self.panGestureHandler.install()
         self.swipeInputView.gestureButton.addGestureRecognizer(self.inputFieldTapRecognizer)
         self.swipeInputView.doneButton.didSelect { [unowned self] in
             self.inputState = .collapsed

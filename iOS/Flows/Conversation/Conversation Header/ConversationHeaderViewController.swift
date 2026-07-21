@@ -14,6 +14,7 @@ import UIKit
 
 class ConversationHeaderViewController: ViewController, ActiveConversationable {
 
+    private let chromeView = ConversationHeaderChromeView()
     let addImageView = SymbolImageView(symbol: .personBadgePlus)
     let stackedView = StackedPersonView()
     let button = ThemeButton()
@@ -27,6 +28,8 @@ class ConversationHeaderViewController: ViewController, ActiveConversationable {
         super.initializeViews()
 
         self.view.clipsToBounds = false
+
+        self.view.addSubview(self.chromeView)
         
         self.view.addSubview(self.addImageView)
         self.addImageView.tintColor = ThemeColor.white.color
@@ -69,25 +72,22 @@ class ConversationHeaderViewController: ViewController, ActiveConversationable {
     
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+
+        self.chromeView.expandToSuperviewSize()
         
         self.closeButton.squaredSize = 44
-        self.closeButton.pin(.right)
-        self.closeButton.pin(.top)
+        self.closeButton.center = self.chromeView.trailingContentView.center
         
-        self.stackedView.centerY = self.closeButton.centerY
-        self.stackedView.centerOnX()
+        self.stackedView.center = self.chromeView.centeredContentView.center
         
         self.topicLabel.setSize(withWidth: Theme.getPaddedWidth(with: self.view.width))
         self.topicLabel.centerOnX()
         self.topicLabel.match(.top, to: .bottom, of: self.stackedView, offset: .short)
         
         self.addImageView.squaredSize = 24
-        self.addImageView.centerY = self.closeButton.centerY
-        self.addImageView.centerOnX()
+        self.addImageView.center = self.chromeView.centeredContentView.center
         
-        self.button.height = self.view.height
-        self.button.width = 200
-        self.button.centerOnXAndY()
+        self.button.frame = self.chromeView.centeredContentView.frame
     }
     
     func update(for state: ConversationUIState) {

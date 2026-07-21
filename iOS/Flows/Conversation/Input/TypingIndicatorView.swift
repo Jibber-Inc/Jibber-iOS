@@ -9,21 +9,17 @@
 import Foundation
 import Combine
 
-class TypingIndicatorView: BaseView {
-    
-    private let label = ThemeLabel(font: .small)
-    
+/// Production binding for the shared presentation-only conversation indicator.
+/// Parse/Combine stay app-only while the rendered view is also available to the
+/// App Clip and onboarding.
+class TypingIndicatorView: ConversationTypingIndicatorView {
     var subscriptions = Set<AnyCancellable>()
     
     var controller: ParseConversationController?
     
     override func initializeSubviews() {
         super.initializeSubviews()
-        
-        self.addSubview(self.label)
-        self.label.alpha = 0
-        self.label.transform = CGAffineTransform.init(translationX: -5, y: 0)
-        
+
         ConversationsManager.shared.$activeConversation.mainSink { conversation in
             if let cid = conversation?.id {
                 self.subscribeToUpdates(for: cid)
@@ -46,14 +42,6 @@ class TypingIndicatorView: BaseView {
             .mainSink(receiveValue: { [unowned self] typingUsers in
                 self.showTyping(for: Array(typingUsers))
             }).store(in: &self.subscriptions)
-    }
-    
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        
-        self.label.setSize(withWidth: self.width)
-        self.label.pin(.left)
-        self.label.pin(.bottom)
     }
     
     func showTyping(for people: [PersonType]) {
@@ -82,32 +70,6 @@ class TypingIndicatorView: BaseView {
         
         text.append(" is typing...")
         
-        self.animate(text: text, highlights: names)
-    }
-    
-    func animate(text: String, highlights: [String]) {
-        
-        self.label.setText(text)
-        highlights.forEach { highlight in
-            self.label.add(attributes: [.font: FontType.smallBold.font], to: highlight)
-        }
-        
-        self.layoutNow()
-        
-        UIView.animate(withDuration: Theme.animationDurationSlow) {
-            self.label.alpha = 1.0
-            self.label.transform = .identity
-        }
-    }
-    
-    func hideText() {
-        UIView.animate(withDuration: Theme.animationDurationFast) {
-            self.label.alpha = 0.0
-        } completion: { _ in
-            
-            // Important to reset the text, to clear out the attributes
-            self.label.resetToDefaultAttributes()
-            self.label.transform = CGAffineTransform.init(translationX: -5, y: 0)
-        }
+        self.setText(text, highlights: names, animated: true)
     }
 }

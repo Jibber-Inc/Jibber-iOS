@@ -16,4 +16,12 @@ struct DeepLinkObject: DeepLinkable {
     init(target: DeepLinkTarget?) {
         self.deepLinkTarget = target
     }
+
+    /// Retargets a route while preserving invitation, pass, Moment, and any
+    /// future metadata carried by the original deep link.
+    init(target: DeepLinkTarget?, preserving deepLink: DeepLinkable?) {
+        self.deepLinkTarget = target
+        self.customMetadata = deepLink?.customMetadata.mutableCopy()
+            as? NSMutableDictionary ?? NSMutableDictionary()
+    }
 }

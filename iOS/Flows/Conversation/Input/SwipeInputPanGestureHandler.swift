@@ -31,32 +31,62 @@ class SwipeInputPanGestureHandler {
     private let maxXOffset: CGFloat = 20
     /// If true, the preview view is currently in the drop zone.
     private var isPreviewInDropZone = false
+    private var isInteractionActive = false
+    private var isAnimatingReset = false
     /// The distance the user needs to drag in order to send a message at the highest delivery priority
     private let totalDragDistance: CGFloat = 160
 
-    func handle(pan: UIPanGestureRecognizer) {
-        guard self.shouldHandlePan() else { return }
+    private lazy var productionPanRecognizer = SwipeGestureRecognizer { _ in }
 
-        let panOffset = pan.translation(in: nil)
+    private lazy var submissionController = ConversationVerticalSwipeSubmissionController(
+        attachingTo: self.inputView.gestureButton,
+        panGestureRecognizer: self.productionPanRecognizer,
+        // The production readiness adapter below uses the real Time Machine
+        // drop-zone rather than onboarding's fixed-distance threshold.
+        commitDistance: 1
+    )
 
-        switch pan.state {
-        case .possible:
-            break
-        case .began:
-            self.handlePanBegan()
-        case .changed:
-            self.handlePanChanged(withOffset: panOffset)
-        case .ended:
-            self.handlePanEnded(withOffset: panOffset)
-        case .cancelled, .failed:
-            self.handlePanFailed()
-        @unknown default:
-            break
+    func install() {
+        self.productionPanRecognizer.touchesDidBegin = { [weak self] in
+            self?.viewController.updateSwipeHint(shouldPlay: false)
+        }
+        self.submissionController.allowsStationaryBegin = true
+        self.submissionController.canBegin = { [weak self] direction in
+            direction == .up && (self?.shouldHandlePan() ?? false)
+        }
+        self.submissionController.didBegin = { [weak self] direction in
+            guard direction == .up else { return }
+            self?.handlePanBegan()
+        }
+        self.submissionController.didUpdate = { [weak self] update in
+            guard update.direction == .up else { return }
+            self?.handlePanChanged(withOffset: update.translation)
+        }
+        self.submissionController.commitReadinessEvaluator = {
+            [weak self] translation, direction, defaultReadiness in
+            guard direction == .up,
+                  defaultReadiness,
+                  let self else { return false }
+            return self.isTranslationInDropZone(translation)
+        }
+        self.submissionController.commit = { [weak self] direction in
+            guard direction == .up,
+                  let self else { return false }
+            await self.commitCurrentSwipe()
+            // The adapter owns its sent/unsent restoration animation, so the
+            // shared driver must not invoke cancellation a second time.
+            return true
+        }
+        self.submissionController.didCancel = { [weak self] direction in
+            guard direction == .up else { return }
+            self?.handlePanFailed()
         }
     }
 
     private func shouldHandlePan() -> Bool {
-        guard ConversationsManager.shared.activeConversation.exists else { return false }
+        guard !self.isInteractionActive,
+              !self.isAnimatingReset,
+              ConversationsManager.shared.activeConversation.exists else { return false }
         // Only handle pans if the user has input a sendable message.
         let object = SendableObject(kind: self.viewController.currentMessageKind,
                                     deliveryType: .respectful,
@@ -66,6 +96,8 @@ class SwipeInputPanGestureHandler {
     }
 
     private func handlePanBegan() {
+        guard !self.isInteractionActive else { return }
+        self.isInteractionActive = true
         let object = SendableObject(kind: self.viewController.currentMessageKind,
                                     deliveryType: .respectful,
                                     expression: nil,
@@ -110,37 +142,55 @@ class SwipeInputPanGestureHandler {
     }
 
     private func handlePanChanged(withOffset panOffset: CGPoint) {
+        guard self.isInteractionActive else { return }
         self.updatePreviewViewPosition(withOffset: panOffset)
     }
 
-    private func handlePanEnded(withOffset panOffset: CGPoint) {
-        self.updatePreviewViewPosition(withOffset: panOffset)
+    private func commitCurrentSwipe() async {
+        guard self.isInteractionActive else { return }
 
-        Task.onMainActorAsync { [weak self] in
-            var sendableWasSent = false
-
-            if let `self` = self,
-               let sendable = self.viewController.sendable,
-               let previewView = self.previewView,
-               let delegate = self.viewController.delegate {
-
-                sendableWasSent = await delegate.swipeableInputAccessory(self.viewController,
-                                                                         triggeredSendFor: sendable,
-                                                                         withPreviewFrame: previewView.frame)
-            }
-
-            guard let self else { return }
-
-            self.resetPreviewAndInputViews(didSend: sendableWasSent)
-
-            self.viewController.delegate?.swipeableInputAccessoryDidFinishSwipe(self.viewController)
+        var sendableWasSent = false
+        if let sendable = self.viewController.sendable,
+           let previewView = self.previewView,
+           let delegate = self.viewController.delegate {
+            sendableWasSent = await delegate.swipeableInputAccessory(
+                self.viewController,
+                triggeredSendFor: sendable,
+                withPreviewFrame: previewView.frame
+            )
         }
+
+        self.isInteractionActive = false
+        self.resetPreviewAndInputViews(didSend: sendableWasSent)
+        self.viewController.delegate?.swipeableInputAccessoryDidFinishSwipe(
+            self.viewController
+        )
     }
 
     private func handlePanFailed() {
+        guard self.isInteractionActive else { return }
+        self.isInteractionActive = false
         self.inputView.inputContainerView.alpha = 1
         self.previewView?.removeFromSuperview()
-        self.viewController.delegate?.swipeableInputAccessoryDidFinishSwipe(self.viewController)
+        self.previewView = nil
+        self.initialPreviewCenter = nil
+        self.isPreviewInDropZone = false
+        self.inputView.addView.alpha = 1
+        self.viewController.delegate?.swipeableInputAccessoryDidFinishSwipe(
+            self.viewController
+        )
+    }
+
+    private func isTranslationInDropZone(_ translation: CGPoint) -> Bool {
+        guard let initialCenter = self.initialPreviewCenter else { return false }
+        let panResult = self.getYOffsetAndDeliveryType(withPanOffset: translation.y)
+        let offsetX = clamp(translation.x, -self.maxXOffset, self.maxXOffset)
+        let previewCenter = initialCenter + CGPoint(x: offsetX, y: panResult.offset)
+        let distance = CGVector(
+            startPoint: previewCenter,
+            endPoint: self.viewController.dropZoneFrame.center
+        ).magnitude
+        return distance < self.viewController.dropZoneFrame.height * 0.5
     }
 
     /// Updates the position of the preview view based on the provided pan gesture offset. This function ensures that preview view's origin
@@ -244,6 +294,7 @@ class SwipeInputPanGestureHandler {
     }
 
     private func resetPreviewAndInputViews(didSend: Bool) {
+        self.isAnimatingReset = true
         if didSend {
             var value: Int = UserDefaultsManager.getInt(for: .numberOfSwipeHints)
             if value < 3 {
@@ -258,6 +309,7 @@ class SwipeInputPanGestureHandler {
                 } completion: { completed in
                     self.previewView?.removeFromSuperview()
                     self.viewController.resetInputViews()
+                    self.finishResetAnimation()
                 }
             }
         } else {
@@ -274,6 +326,7 @@ class SwipeInputPanGestureHandler {
                 } completion: { completed in
                     self.inputView.inputContainerView.layer.shadowOpacity = 0.3
                     self.previewView?.removeFromSuperview()
+                    self.finishResetAnimation()
                 }
             }
         }
@@ -281,5 +334,12 @@ class SwipeInputPanGestureHandler {
         UIView.animate(withDuration: Theme.animationDurationFast) {
             self.inputView.addView.alpha = 1.0
         }
+    }
+
+    private func finishResetAnimation() {
+        self.previewView = nil
+        self.initialPreviewCenter = nil
+        self.isPreviewInDropZone = false
+        self.isAnimatingReset = false
     }
 }

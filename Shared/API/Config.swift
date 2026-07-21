@@ -117,6 +117,21 @@ final class Config: NSObject, @unchecked Sendable {
         defer { parseInitializationLock.unlock() }
 
         if Parse.currentConfiguration.isNil  {
+#if DEBUG && targetEnvironment(simulator)
+            // Product Design previews are intentionally self-contained and never
+            // read or write the App Clip handoff container. Recent simulator
+            // runtimes strip app-group entitlements from ad-hoc builds, so avoid
+            // asking Parse for an unavailable container only on this safe route.
+            let arguments = ProcessInfo.processInfo.arguments
+            let environmentPreview = ProcessInfo.processInfo.environment[
+                "JIBBER_ONBOARDING_PREVIEW"
+            ]
+            let skipsApplicationGroup = arguments.contains("-OnboardingPreview")
+                || arguments.contains("OnboardingPreview")
+                || environmentPreview?.isEmpty == false
+#else
+            let skipsApplicationGroup = false
+#endif
             Parse.initialize(with: ParseClientConfiguration(block: { (configuration: ParseMutableClientConfiguration) in
                 let sessionConfiguration = URLSessionConfiguration.default
                 sessionConfiguration.httpAdditionalHeaders = [
@@ -124,7 +139,9 @@ final class Config: NSObject, @unchecked Sendable {
                     "X-Jibber-Messaging-Schema": "1"
                 ]
 
-                configuration.applicationGroupIdentifier = self.environment.groupId
+                if !skipsApplicationGroup {
+                    configuration.applicationGroupIdentifier = self.environment.groupId
+                }
                 configuration.clientKey = self.environment.clientKey
                 configuration.server = self.environment.url
                 configuration.applicationId = self.environment.appId
