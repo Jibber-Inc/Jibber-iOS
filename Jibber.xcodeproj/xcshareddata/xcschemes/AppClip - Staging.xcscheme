@@ -63,7 +63,7 @@
       <EnvironmentVariables>
          <EnvironmentVariable
             key = "_XCAppClipURL"
-			value = "https://jibber.wtf/moment?momentId=BpwNodwxzH"
+            value = "https://jibber.wtf/moment?momentId=BpwNodwxzH"
             isEnabled = "YES">
          </EnvironmentVariable>
       </EnvironmentVariables>

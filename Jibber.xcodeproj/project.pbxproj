@@ -38,12 +38,6 @@
 		F6BB00000000000000000107 /* OnboardingMessagingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6BB00000000000000000004 /* OnboardingMessagingTests.swift */; };
 		B50000000000000000000001 /* face_scan.json in Resources */ = {isa = PBXBuildFile; fileRef = D640328A25AF3CA500139396 /* face_scan.json */; };
 		B50000000000000000000002 /* loading.json in Resources */ = {isa = PBXBuildFile; fileRef = D6B00D3B2796480D00DF07B1 /* loading.json */; };
-		F90000000000000000000001 /* ParseSimulatorCompatibility.m in Sources */ = {isa = PBXBuildFile; fileRef = F80000000000000000000001 /* ParseSimulatorCompatibility.m */; };
-		F90000000000000000000002 /* ParseSimulatorCompatibility.m in Sources */ = {isa = PBXBuildFile; fileRef = F80000000000000000000001 /* ParseSimulatorCompatibility.m */; };
-		F90000000000000000000003 /* ParseSimulatorCompatibility.m in Sources */ = {isa = PBXBuildFile; fileRef = F80000000000000000000001 /* ParseSimulatorCompatibility.m */; };
-		F90000000000000000000004 /* ParseSimulatorCompatibility.m in Sources */ = {isa = PBXBuildFile; fileRef = F80000000000000000000001 /* ParseSimulatorCompatibility.m */; };
-		F90000000000000000000005 /* ParseSimulatorCompatibility.m in Sources */ = {isa = PBXBuildFile; fileRef = F80000000000000000000001 /* ParseSimulatorCompatibility.m */; };
-		F90000000000000000000006 /* ParseSimulatorCompatibility.m in Sources */ = {isa = PBXBuildFile; fileRef = F80000000000000000000001 /* ParseSimulatorCompatibility.m */; };
 		8004E3D127D7C81600E9931F /* SwipeableInputAccessoryViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8004E3D027D7C81600E9931F /* SwipeableInputAccessoryViewController.swift */; };
 		8004EE5427E8FE970086E010 /* URLSession+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8004EE5327E8FE970086E010 /* URLSession+Extension.swift */; };
 		8004EE5527E8FE970086E010 /* URLSession+Extension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8004EE5327E8FE970086E010 /* URLSession+Extension.swift */; };
@@ -168,9 +162,6 @@
 		A3000000000000000000000E /* JibberParseLiveQuery in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000E /* JibberParseLiveQuery */; };
 		A3000000000000000000000F /* PhoneNumberKit in Frameworks */ = {isa = PBXBuildFile; productRef = A2000000000000000000000F /* PhoneNumberKit */; };
 		A30000000000000000000010 /* PhoneNumberKit in Frameworks */ = {isa = PBXBuildFile; productRef = A20000000000000000000010 /* PhoneNumberKit */; };
-		F30000000000000000000001 /* PhoneNumberKitUI in Frameworks */ = {isa = PBXBuildFile; productRef = F20000000000000000000001 /* PhoneNumberKitUI */; };
-		F30000000000000000000002 /* PhoneNumberKitUI in Frameworks */ = {isa = PBXBuildFile; productRef = F20000000000000000000002 /* PhoneNumberKitUI */; };
-		F30000000000000000000003 /* PhoneNumberKitUI in Frameworks */ = {isa = PBXBuildFile; productRef = F20000000000000000000003 /* PhoneNumberKitUI */; };
 		B30000000000000000000001 /* MessagingContracts in Frameworks */ = {isa = PBXBuildFile; productRef = B20000000000000000000001 /* MessagingContracts */; };
 		B30000000000000000000002 /* MessagingPersistence in Frameworks */ = {isa = PBXBuildFile; productRef = B20000000000000000000002 /* MessagingPersistence */; };
 		B30000000000000000000003 /* MessagingContracts in Frameworks */ = {isa = PBXBuildFile; productRef = B20000000000000000000003 /* MessagingContracts */; };
@@ -456,7 +447,6 @@
 		D61C1D1B2840053600F58F84 /* ImageSymbol.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6B2B6482839570B007D507B /* ImageSymbol.swift */; };
 		D61C1D212840324000F58F84 /* Coordinator in Frameworks */ = {isa = PBXBuildFile; productRef = D61C1D202840324000F58F84 /* Coordinator */; };
 		D61C1D23284035ED00F58F84 /* Coordinator in Frameworks */ = {isa = PBXBuildFile; productRef = D61C1D22284035ED00F58F84 /* Coordinator */; };
-		E10000000000000000000001 /* Coordinator in Frameworks */ = {isa = PBXBuildFile; productRef = E10000000000000000000002 /* Coordinator */; };
 		D61C1D252840409900F58F84 /* BaseCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D61C1D242840409900F58F84 /* BaseCoordinator.swift */; };
 		D61C1D262840409900F58F84 /* BaseCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D61C1D242840409900F58F84 /* BaseCoordinator.swift */; };
 		D61C1D28284041DE00F58F84 /* PresentableCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D61C1D27284041DE00F58F84 /* PresentableCoordinator.swift */; };
@@ -1101,6 +1091,16 @@
 		D6FE05222767B2BC00137EEA /* ExpressionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6FE05212767B2BC00137EEA /* ExpressionView.swift */; };
 		D6FEF02D257EB71700F9789B /* Button+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6FEF02C257EB71700F9789B /* Button+Extensions.swift */; };
 		D6FEF031257EB91B00F9789B /* UIControl+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6FEF030257EB91B00F9789B /* UIControl+Extensions.swift */; };
+		E10000000000000000000001 /* Coordinator in Frameworks */ = {isa = PBXBuildFile; productRef = E10000000000000000000002 /* Coordinator */; };
+		F30000000000000000000001 /* PhoneNumberKitUI in Frameworks */ = {isa = PBXBuildFile; productRef = F20000000000000000000001 /* PhoneNumberKitUI */; };
+		F30000000000000000000002 /* PhoneNumberKitUI in Frameworks */ = {isa = PBXBuildFile; productRef = F20000000000000000000002 /* PhoneNumberKitUI */; };
+		F30000000000000000000003 /* PhoneNumberKitUI in Frameworks */ = {isa = PBXBuildFile; productRef = F20000000000000000000003 /* PhoneNumberKitUI */; };
+		F90000000000000000000001 /* ParseSimulatorCompatibility.m in Sources */ = {isa = PBXBuildFile; fileRef = F80000000000000000000001 /* ParseSimulatorCompatibility.m */; };
+		F90000000000000000000002 /* ParseSimulatorCompatibility.m in Sources */ = {isa = PBXBuildFile; fileRef = F80000000000000000000001 /* ParseSimulatorCompatibility.m */; };
+		F90000000000000000000003 /* ParseSimulatorCompatibility.m in Sources */ = {isa = PBXBuildFile; fileRef = F80000000000000000000001 /* ParseSimulatorCompatibility.m */; };
+		F90000000000000000000004 /* ParseSimulatorCompatibility.m in Sources */ = {isa = PBXBuildFile; fileRef = F80000000000000000000001 /* ParseSimulatorCompatibility.m */; };
+		F90000000000000000000005 /* ParseSimulatorCompatibility.m in Sources */ = {isa = PBXBuildFile; fileRef = F80000000000000000000001 /* ParseSimulatorCompatibility.m */; };
+		F90000000000000000000006 /* ParseSimulatorCompatibility.m in Sources */ = {isa = PBXBuildFile; fileRef = F80000000000000000000001 /* ParseSimulatorCompatibility.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1269,8 +1269,8 @@
 		80FD049E26FA4C4400E69088 /* NSDiffableDataSourceSnapshot+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSDiffableDataSourceSnapshot+Extensions.swift"; sourceTree = "<group>"; };
 		A40000000000000000000001 /* Lightbox */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = Lightbox; sourceTree = "<group>"; };
 		B10000000000000000000001 /* Messaging */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = Messaging; sourceTree = "<group>"; };
-		C10000000000000000000001 /* JibberParseLiveQuery */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = JibberParseLiveQuery; sourceTree = "<group>"; };
 		B40000000000000000000002 /* ParseMessagingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseMessagingManager.swift; sourceTree = "<group>"; };
+		C10000000000000000000001 /* JibberParseLiveQuery */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = JibberParseLiveQuery; sourceTree = "<group>"; };
 		C50000000000000000000101 /* ParseMessagingChanges.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseMessagingChanges.swift; sourceTree = "<group>"; };
 		C50000000000000000000102 /* ParseMessagingModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseMessagingModels.swift; sourceTree = "<group>"; };
 		C50000000000000000000103 /* ParseMessageDraftTranslator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParseMessageDraftTranslator.swift; sourceTree = "<group>"; };
@@ -1356,7 +1356,6 @@
 		D61C1D242840409900F58F84 /* BaseCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BaseCoordinator.swift; sourceTree = "<group>"; };
 		D61C1D27284041DE00F58F84 /* PresentableCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PresentableCoordinator.swift; sourceTree = "<group>"; };
 		D61EC0BC21D3071400204BEE /* Jibber.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Jibber.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		F80000000000000000000001 /* ParseSimulatorCompatibility.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ParseSimulatorCompatibility.m; sourceTree = "<group>"; };
 		D61EC0BF21D3071400204BEE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		D61EC0C121D3071400204BEE /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
 		D61EC0C621D3071500204BEE /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -1737,6 +1736,7 @@
 		D6FE05212767B2BC00137EEA /* ExpressionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpressionView.swift; sourceTree = "<group>"; };
 		D6FEF02C257EB71700F9789B /* Button+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Button+Extensions.swift"; sourceTree = "<group>"; };
 		D6FEF030257EB91B00F9789B /* UIControl+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIControl+Extensions.swift"; sourceTree = "<group>"; };
+		F80000000000000000000001 /* ParseSimulatorCompatibility.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ParseSimulatorCompatibility.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -5419,20 +5419,22 @@
 				minimumVersion = 5.0.4;
 			};
 		};
-		F10000000000000000000001 /* XCRemoteSwiftPackageReference "PhoneNumberKitUI" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/PhoneNumberKit/PhoneNumberKitUI.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.0.0;
-			};
-		};
 		D6DD0C2F2822F370004999F2 /* XCRemoteSwiftPackageReference "sentry-cocoa" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/getsentry/sentry-cocoa.git";
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 9.21.0;
+			};
+			traits = (
+			);
+		};
+		F10000000000000000000001 /* XCRemoteSwiftPackageReference "PhoneNumberKitUI" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/PhoneNumberKit/PhoneNumberKitUI.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -5511,21 +5513,6 @@
 			package = D6AE0F62267CF8A400C6B048 /* XCRemoteSwiftPackageReference "PhoneNumberKit" */;
 			productName = PhoneNumberKit;
 		};
-		F20000000000000000000001 /* PhoneNumberKitUI */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = F10000000000000000000001 /* XCRemoteSwiftPackageReference "PhoneNumberKitUI" */;
-			productName = PhoneNumberKitUI;
-		};
-		F20000000000000000000002 /* PhoneNumberKitUI */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = F10000000000000000000001 /* XCRemoteSwiftPackageReference "PhoneNumberKitUI" */;
-			productName = PhoneNumberKitUI;
-		};
-		F20000000000000000000003 /* PhoneNumberKitUI */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = F10000000000000000000001 /* XCRemoteSwiftPackageReference "PhoneNumberKitUI" */;
-			productName = PhoneNumberKitUI;
-		};
 		B20000000000000000000001 /* MessagingContracts */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = MessagingContracts;
@@ -5561,10 +5548,6 @@
 			productName = Coordinator;
 		};
 		D61C1D22284035ED00F58F84 /* Coordinator */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = Coordinator;
-		};
-		E10000000000000000000002 /* Coordinator */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = Coordinator;
 		};
@@ -5653,6 +5636,25 @@
 			isa = XCSwiftPackageProductDependency;
 			package = D6DD0C2F2822F370004999F2 /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
 			productName = Sentry;
+		};
+		E10000000000000000000002 /* Coordinator */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Coordinator;
+		};
+		F20000000000000000000001 /* PhoneNumberKitUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F10000000000000000000001 /* XCRemoteSwiftPackageReference "PhoneNumberKitUI" */;
+			productName = PhoneNumberKitUI;
+		};
+		F20000000000000000000002 /* PhoneNumberKitUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F10000000000000000000001 /* XCRemoteSwiftPackageReference "PhoneNumberKitUI" */;
+			productName = PhoneNumberKitUI;
+		};
+		F20000000000000000000003 /* PhoneNumberKitUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F10000000000000000000001 /* XCRemoteSwiftPackageReference "PhoneNumberKitUI" */;
+			productName = PhoneNumberKitUI;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
